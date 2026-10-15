@@ -25,7 +25,7 @@ def main():
     app = create_app()
     atexit.register(close_camera)
     if args.demo:
-        open_camera(-1, [1280, 720], 30)
+        open_camera(-1, [1280, 720], 60)
     print(f'LenzForge Studio: http://{args.host}:{args.port}', flush=True)
     try:
         serve(app, host=args.host, port=args.port, threads=12)

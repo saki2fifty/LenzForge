@@ -83,7 +83,7 @@ def select_camera():
                 return jsonify(success=True, camera=camera_info(_current_camera))
             index = data.get('camera_index', 0)
             resolution = data.get('resolution', [1280, 720])
-            fps = data.get('fps', 30)
+            fps = data.get('fps', 60)
             if not isinstance(resolution, list) or len(resolution) != 2:
                 raise ValueError('resolution must contain width and height')
             camera = open_camera(index, resolution, fps, data.get('device_id'))

@@ -3,7 +3,6 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <algorithm>
 #include <cstring>
-#include <vector>
 #include <limits>
 
 namespace lenzforge {
@@ -32,6 +31,8 @@ void VID1Reader::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_height"), &VID1Reader::get_height);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_fps"), &VID1Reader::get_fps);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_timestamp"), &VID1Reader::get_timestamp);
+	godot::ClassDB::bind_method(godot::D_METHOD("get_frame_age_ms"), &VID1Reader::get_frame_age_ms);
+	godot::ClassDB::bind_method(godot::D_METHOD("get_upload_ms"), &VID1Reader::get_upload_ms);
 
 	ADD_SIGNAL(godot::MethodInfo("frame_ready",
 		godot::PropertyInfo(godot::Variant::OBJECT, "y_texture"),
@@ -91,6 +92,9 @@ void VID1Reader::stop_reading() {
 	memory.close();
 	y_texture.unref();
 	uv_texture.unref();
+	y_image.unref();
+	uv_image.unref();
+	last_timestamp = 0;
 
 	godot::UtilityFunctions::print("[VID1Reader] Stopped reading");
 }
@@ -140,13 +144,41 @@ void VID1Reader::read_latest_frame() {
     if (!slot->valid || slot->frame_id == last_frame_id) return;
     const uint32_t frame_id = slot->frame_id;
     const uint64_t timestamp = slot->ts_qpc;
-    // Snapshot before upload. A writer may wrap around while this reader is copying.
-    std::vector<uint8_t> snapshot(bytes);
-    std::memcpy(snapshot.data(), data + offset + VID1_SLOT_HEADER_SIZE, bytes);
+    LARGE_INTEGER started, finished, frequency;
+    QueryPerformanceCounter(&started);
+    QueryPerformanceFrequency(&frequency);
+    // Snapshot directly into the packed upload planes. This removes the full
+    // intermediate frame allocation/copy. Strided producers remain supported.
+    const auto* source_y = data + offset + VID1_SLOT_HEADER_SIZE;
+    const auto* source_uv = source_y + size_t(header->y_stride) * height;
+    // Images retain these arrays. Fresh arrays avoid copying last frame's
+    // pixels through copy-on-write before overwriting them with the new frame.
+    godot::PackedByteArray y_packed, uv_packed;
+    y_packed.resize(width * height);
+    uv_packed.resize(width * height / 2);
+    uint8_t* dest_y = y_packed.ptrw();
+    uint8_t* dest_uv = uv_packed.ptrw();
+    if (header->y_stride == uint32_t(width)) std::memcpy(dest_y, source_y, width * height);
+    else for (int row = 0; row < height; ++row)
+        std::memcpy(dest_y + row * width, source_y + row * header->y_stride, width);
+    if (header->uv_stride == uint32_t(width)) std::memcpy(dest_uv, source_uv, width * height / 2);
+    else for (int row = 0; row < height / 2; ++row)
+        std::memcpy(dest_uv + row * width, source_uv + row * header->uv_stride, width);
     MemoryBarrier();
-    if (!slot->valid || slot->frame_id != frame_id || header->wr_seq != sequence) return;
-    create_nv12_textures(snapshot.data(), snapshot.data() + size_t(header->y_stride) * height,
-                        width, height, header->y_stride, header->uv_stride);
+    // A newer publication in another slot does not invalidate this snapshot.
+    if (!slot->valid || slot->frame_id != frame_id) return;
+    if (y_image.is_null()) { y_image.instantiate(); uv_image.instantiate(); }
+    y_image->set_data(width, height, false, godot::Image::FORMAT_R8, y_packed);
+    uv_image->set_data(width / 2, height / 2, false, godot::Image::FORMAT_RG8, uv_packed);
+    if (y_texture.is_null()) {
+        y_texture = godot::ImageTexture::create_from_image(y_image);
+        uv_texture = godot::ImageTexture::create_from_image(uv_image);
+    } else {
+        y_texture->update(y_image);
+        uv_texture->update(uv_image);
+    }
+    QueryPerformanceCounter(&finished);
+    upload_ms = double(finished.QuadPart - started.QuadPart) * 1000.0 / frequency.QuadPart;
     last_frame_id = frame_id;
     last_timestamp = (timestamp / header->qpc_freq) * 1000000ULL +
                      ((timestamp % header->qpc_freq) * 1000000ULL) / header->qpc_freq;
@@ -154,49 +186,13 @@ void VID1Reader::read_latest_frame() {
     emit_signal("frame_ready", y_texture, uv_texture, (int64_t)frame_id, (int64_t)last_timestamp);
 }
 
-void VID1Reader::create_nv12_textures(const uint8_t* y_data, const uint8_t* uv_data,
-                                      int frame_width, int frame_height,
-                                      int y_stride, int uv_stride) {
-	// Create Y plane texture (R8 format - single channel)
-	godot::PackedByteArray y_packed;
-	y_packed.resize(frame_width * frame_height);
-	uint8_t* y_ptr = y_packed.ptrw();
-
-	// Copy Y plane row by row (respecting stride)
-	for (int y = 0; y < frame_height; y++) {
-		std::memcpy(y_ptr + y * frame_width,
-		            y_data + y * y_stride,
-		            frame_width);
-	}
-
-	godot::Ref<godot::Image> y_image = godot::Image::create_from_data(
-		frame_width, frame_height, false, godot::Image::FORMAT_R8, y_packed);
-
-	// Create UV plane texture (RG8 format - two channels, half resolution)
-	int uv_width = frame_width / 2;
-	int uv_height = frame_height / 2;
-	godot::PackedByteArray uv_packed;
-	uv_packed.resize(uv_width * uv_height * 2);
-	uint8_t* uv_ptr = uv_packed.ptrw();
-
-	// Copy UV plane row by row (respecting stride)
-	for (int y = 0; y < uv_height; y++) {
-		std::memcpy(uv_ptr + y * uv_width * 2,
-		            uv_data + y * uv_stride,
-		            uv_width * 2);
-	}
-
-	godot::Ref<godot::Image> uv_image = godot::Image::create_from_data(
-		uv_width, uv_height, false, godot::Image::FORMAT_RG8, uv_packed);
-
-	// Create or update textures
-	if (y_texture.is_null()) {
-		y_texture = godot::ImageTexture::create_from_image(y_image);
-		uv_texture = godot::ImageTexture::create_from_image(uv_image);
-	} else {
-		y_texture->update(y_image);
-		uv_texture->update(uv_image);
-	}
+double VID1Reader::get_frame_age_ms() const {
+    if (!last_timestamp) return 0.0;
+    LARGE_INTEGER now, frequency;
+    QueryPerformanceCounter(&now);
+    QueryPerformanceFrequency(&frequency);
+    const double now_us = double(now.QuadPart) * 1000000.0 / frequency.QuadPart;
+    return std::max(0.0, (now_us - double(last_timestamp)) / 1000.0);
 }
 
 } // namespace lenzforge

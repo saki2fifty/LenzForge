@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/vector3.hpp>
+#include <vector>
 #include "shared_memory.h"
 #include "lmk1_header.h"
 
@@ -42,6 +43,7 @@ private:
 	uint64_t last_timestamp;
 
 	godot::Array landmarks;
+	std::vector<uint8_t> snapshot;
 
 	bool open_shared_memory();
 	void read_latest_landmarks();

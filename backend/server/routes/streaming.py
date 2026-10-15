@@ -59,7 +59,7 @@ def _encode_loop(camera):
     global _landmark_data, _jpeg, _sequence, _fps
     from .export_data import recorder, set_current_frame, set_current_landmarks
     previous = -1
-    last_encoded = 0.0
+    next_encode_at = 0.0
     measured = 0
     measurement_start = time.monotonic()
     while not _stop.is_set():
@@ -75,16 +75,17 @@ def _encode_loop(camera):
         _landmark_data = landmarks
         set_current_frame(source)
         set_current_landmarks(landmarks)
-        recorder.write(source, timestamp, landmarks)
+        if recorder.active:
+            recorder.write(source.to_bgr(), timestamp, landmarks)
         measured += 1
         now = time.monotonic()
         if now - measurement_start >= 1:
             _fps = measured / (now - measurement_start)
             measurement_start, measured = now, 0
         config = get_performance_config()
-        if not _clients or now - last_encoded < 1 / max(config.preview_max_fps, 1):
+        if not _clients or now < next_encode_at:
             continue
-        frame = source.copy()
+        frame = source.to_bgr().copy()
         for effect in tuple(_active_effects):
             if effect.is_enabled():
                 try:
@@ -101,7 +102,7 @@ def _encode_loop(camera):
                 _jpeg = encoded.tobytes()
                 _sequence += 1
                 _condition.notify_all()
-            last_encoded = now
+            next_encode_at = max(now, next_encode_at + 1 / max(config.preview_max_fps, 1))
 
 
 def generate_frames():
@@ -149,5 +150,7 @@ def stream_stats():
         source=camera.name if camera else 'No source', clients=_clients,
         frames=camera.frame_count if camera else 0, tracking=tracking,
         camera_index=camera.index if camera else None,
+        capture_format=camera.pixel_format if camera else None,
+        capture_timing=camera.get_performance() if camera else {},
         buffers={"video": camera.video_buffer, "landmarks": camera.landmark_buffer} if camera else {},
         error=camera.error if camera else None)

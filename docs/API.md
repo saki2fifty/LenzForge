@@ -5,7 +5,7 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/health` | Service version and health |
-| GET | `/api/status` | Active source, measured fps, frame count, resolution, mapping names, tracking worker state, and recording flag |
+| GET | `/api/status` | Active source, measured fps, capture format/timing, frame count, resolution, mapping names, tracking worker state, and recording flag |
 | GET | `/api/camera/list` | Windows device names, capture indices, and stable `device_id` values, followed by the demo source; discovery does not open cameras or interrupt capture |
 | GET | `/api/camera/current` | Current camera configuration |
 | POST | `/api/camera/select` | Start/reopen with `camera_index`, `resolution: [width,height]`, and `fps`; optional `device_id` preserves device identity if Windows indices change |
@@ -34,7 +34,9 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 | GET | `/api/docs/list` | Current documentation index |
 | GET | `/api/docs/<id>` | Repository documentation content |
 
-Capture dimensions must be even, at least 64×64, and no larger than 3840×2160. Requested fps is 1–120; actual hardware capability may be lower. A successful source change creates new shared-memory mapping names; consumers must reattach when `/api/status` changes.
+Capture dimensions must be even, at least 64×64, and no larger than 3840×2160. Requested fps is 1–120, default 60; actual hardware capability may be lower. A successful source change creates new shared-memory mapping names; consumers must reattach when `/api/status` changes.
+
+`capture_format` reports `NV12` or the `BGR` fallback. `capture_timing` summarizes up to 240 recent capture intervals: `fps`, `sample_count`, `late_frames` (intervals exceeding 1.5× the negotiated frame period), and mean/p95/max distributions in milliseconds for `interval_ms`, `read_ms`, `convert_ms`, and `publish_ms`. Native NV12 `convert_ms` covers packet/plane preparation, with no color conversion. The top-level `fps` measures the shared preview/export worker; it is distinct from hardware capture, browser JPEG, and Godot display rates.
 
 Camera indices must be whole numbers >= -1. JSON numbers such as `1.0` are accepted as `1`; fractional numbers, booleans, strings, and non-finite values are rejected.
 

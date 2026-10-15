@@ -122,19 +122,20 @@ void LMK1Reader::read_latest_landmarks() {
     if (!slot->valid || slot->frame_id == last_frame_id) return;
     const uint32_t frame_id = slot->frame_id;
     const uint64_t timestamp = slot->ts_qpc;
-    std::vector<uint8_t> snapshot(header->slot_stride);
+    snapshot.resize(header->slot_stride);
     std::memcpy(snapshot.data(), data + offset, snapshot.size());
     MemoryBarrier();
-    if (!slot->valid || slot->frame_id != frame_id || header->wr_seq != sequence) return;
+    if (!slot->valid || slot->frame_id != frame_id) return;
     const auto* copied = reinterpret_cast<const LmkSlotHeader*>(snapshot.data());
     last_frame_id = frame_id;
     last_timestamp = (timestamp / header->qpc_freq) * 1000000ULL +
                      ((timestamp % header->qpc_freq) * 1000000ULL) / header->qpc_freq;
     if (copied->block_count == 0) {
+        const bool had_face = face_detected;
         face_detected = false;
         landmark_count = 0;
         landmarks.clear();
-        emit_signal("face_lost");
+        if (had_face) emit_signal("face_lost");
         return;
     }
     if (snapshot.size() < LMK1_SLOT_HEADER_SIZE + LMK1_BLOCK_HEADER_SIZE) return;
@@ -142,11 +143,11 @@ void LMK1Reader::read_latest_landmarks() {
     const size_t payload = LMK1_SLOT_HEADER_SIZE + LMK1_BLOCK_HEADER_SIZE;
     if (block->elem_stride < sizeof(Landmark) || block->elem_count > 478 ||
         payload + size_t(block->elem_count) * block->elem_stride > snapshot.size()) return;
-    landmarks.clear();
+    landmarks.resize(block->elem_count);
     for (int i = 0; i < block->elem_count; ++i) {
         Landmark point;
         std::memcpy(&point, snapshot.data() + payload + size_t(i) * block->elem_stride, sizeof(point));
-        landmarks.append(godot::Vector3(point.x, point.y, point.z));
+        landmarks[i] = godot::Vector3(point.x, point.y, point.z);
     }
     landmark_count = block->elem_count;
     face_detected = landmark_count > 0;

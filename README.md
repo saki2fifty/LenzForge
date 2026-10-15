@@ -32,6 +32,8 @@ In another terminal:
 
 Browser controls are at **http://127.0.0.1:5000**. Both interfaces automatically list cameras by their Windows device names. Choose your physical webcam, then select **Start capture**. **Demo pattern (no camera)** generates a test animation; virtual cameras need their own source application running. **Find cameras** refreshes the list without interrupting capture. Close the backend with Ctrl+C. Use `Start-Viewer.ps1 -Editor` to edit the Godot project.
 
+Capture defaults to 1280×720 at 60 fps; cameras may negotiate a lower supported rate. The desktop reports preview and capture rates separately. Native NV12 cameras avoid full-resolution RGB conversion for desktop video; other formats use the BGR fallback.
+
 The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is available for browser-only development; change `BACKEND` in `viewer/studio.gd` if using a different desktop port.
 
 ## What works
@@ -91,7 +93,7 @@ After setup:
 
 This runs Python regression tests, a Godot headless import/startup, native video/landmark probes, and an isolated integration test that discovers the demo source and presses the viewer's actual **Start capture** button through the HTTP API. The Windows GitHub Actions workflow runs the same checks.
 
-Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. A 1280×720 synthetic source delivered approximately 29.7 fps at a 30 fps target on the development PC. A NexiGo N960E FHD Webcam delivered about 22 fps at 1280×720 with 478 face landmarks reaching Godot; discovery refreshed without stopping video. These observations are not guarantees for other devices or lighting conditions. Other camera models and the full range of retained effects still need hardware/manual coverage.
+Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. On the development PC, a NexiGo N960E at 1280×720 now delivered 60 fps capture, about 60 fps face tracking, and 50.8 distinct preview frames/sec on a 60 Hz display. The previous pipeline displayed 21.7 fps at its 30 fps setting. These short-run observations are not guarantees for other devices or lighting conditions. See the [performance measurements and reproducible benchmark](docs/PERFORMANCE.md), including the comparison at the same 30 fps setting. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
 See [architecture and modernization decisions](docs/ARCHITECTURE.md) and [supported API](docs/API.md). Historical documents describe earlier plans and are not current feature guarantees.
 

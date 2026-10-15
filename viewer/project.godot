@@ -7,7 +7,7 @@ config/version="3.0.0"
 run/main_scene="res://studio.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
-run/max_fps=60
+run/max_fps=0
 
 [display]
 window/size/viewport_width=1440

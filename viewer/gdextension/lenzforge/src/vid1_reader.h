@@ -27,6 +27,8 @@ public:
 	int get_height() const { return height; }
 	int get_fps() const { return current_fps; }
 	uint64_t get_timestamp() const { return last_timestamp; }
+	double get_frame_age_ms() const;
+	double get_upload_ms() const { return upload_ms; }
 
 protected:
 	static void _bind_methods();
@@ -48,12 +50,12 @@ private:
 	// GPU textures (Y plane = R8, UV plane = RG8)
 	godot::Ref<godot::ImageTexture> y_texture;
 	godot::Ref<godot::ImageTexture> uv_texture;
+	godot::Ref<godot::Image> y_image;
+	godot::Ref<godot::Image> uv_image;
+	double upload_ms = 0.0;
 
 	bool open_shared_memory();
 	void read_latest_frame();
-	void create_nv12_textures(const uint8_t* y_data, const uint8_t* uv_data,
-	                          int frame_width, int frame_height,
-	                          int y_stride, int uv_stride);
 };
 
 } // namespace lenzforge

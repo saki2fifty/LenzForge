@@ -1,0 +1,96 @@
+{
+  "configuration": {
+    "utc": "2026-10-15T20:56:22.273230+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "overlay": true
+  },
+  "viewer": {
+    "displayed_fps": 50.8,
+    "frame_age_ms": {
+      "max": 21.244200012207,
+      "mean": 8.35516184662976,
+      "p50": 8.21010003662109,
+      "p95": 15.5940999755859,
+      "p99": 19.3759000244141
+    },
+    "frame_cap": 0,
+    "frames": 1016,
+    "gaps_over_50_ms": 1,
+    "interval_ms": {
+      "max": 55.143,
+      "mean": 19.6807224409449,
+      "p50": 17.592,
+      "p95": 34.229,
+      "p99": 35.777
+    },
+    "render_fps": 60.0,
+    "upload_ms": {
+      "max": 0.8407,
+      "mean": 0.375095575221239,
+      "p50": 0.3563,
+      "p95": 0.5308,
+      "p99": 0.6387
+    }
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": 1,
+    "capture_format": "NV12",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 0.07,
+        "mean": 0.028,
+        "p95": 0.048
+      },
+      "fps": 60.05,
+      "interval_ms": {
+        "max": 36.018,
+        "mean": 16.653,
+        "p95": 22.215
+      },
+      "late_frames": 10,
+      "publish_ms": {
+        "max": 0.308,
+        "mean": 0.16,
+        "p95": 0.229
+      },
+      "read_ms": {
+        "max": 35.717,
+        "mean": 16.43,
+        "p95": 22.003
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.9,
+    "frames": 1373,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "NexiGo N960E FHD Webcam",
+    "tracking": {
+      "avg_inference_ms": 11.621226773504645,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 59.74335861451725,
+      "frames_dropped": 6,
+      "frames_processed": 1367,
+      "landmark_count": 478,
+      "last_inference_ms": 12.891999969724566,
+      "processing_time": 12.891999969724566,
+      "queue_size": 0,
+      "running": true
+    }
+  }
+}

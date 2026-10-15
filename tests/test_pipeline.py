@@ -125,6 +125,9 @@ def test_camera_stops_and_reports_disconnection(monkeypatch):
         def set(self, *args):
             return True
 
+        def get(self, prop):
+            return 0  # This mock only supplies BGR frames.
+
         def read(self):
             self.reads += 1
             return (True, np.zeros((64, 64, 3), np.uint8)) if self.reads == 1 else (False, None)

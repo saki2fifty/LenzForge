@@ -45,7 +45,8 @@ def export_frame():
     Tested: ⏳ Pending
     """
     try:
-        if _current_frame is None:
+        source = _current_frame
+        if source is None:
             return jsonify({
                 'success': False,
                 'error': {
@@ -57,14 +58,15 @@ def export_frame():
         # Get parameters
         format_type = request.args.get('format', 'jpeg').lower()
         quality = int(request.args.get('quality', 85))
+        frame = source.to_bgr()
 
         # Encode frame
         if format_type == 'png':
-            success, buffer = cv2.imencode('.png', _current_frame)
+            success, buffer = cv2.imencode('.png', frame)
             mime_type = 'image/png'
         else:  # jpeg
             encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
-            success, buffer = cv2.imencode('.jpg', _current_frame, encode_params)
+            success, buffer = cv2.imencode('.jpg', frame, encode_params)
             mime_type = 'image/jpeg'
 
         if not success:

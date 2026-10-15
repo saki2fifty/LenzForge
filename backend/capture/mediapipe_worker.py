@@ -3,8 +3,8 @@ import logging
 import queue
 import threading
 import time
-import cv2
 from pipeline.web_processor import WebProcessor
+from capture.frame import VideoFrame
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +59,9 @@ class MediaPipeWorker(threading.Thread):
                 for feature, enabled in requested.items():
                     if processor.tracking_enabled[feature] != enabled:
                         processor.enable_tracking(feature, enabled)
-                if frame.shape[1] != self.mp_width or frame.shape[0] != self.mp_height:
-                    frame = cv2.resize(frame, (self.mp_width, self.mp_height), interpolation=cv2.INTER_AREA)
-                landmarks = processor.process(frame)
+                if not isinstance(frame, VideoFrame):
+                    frame = VideoFrame(frame, frame.shape[1], frame.shape[0])
+                landmarks = processor.process(frame.tracking_rgb(self.mp_width, self.mp_height), is_rgb=True)
                 face = landmarks.get('face', [])
                 if face:
                     self.lmk1_writer.write_landmarks([(p['x'], p['y'], p['z']) for p in face], timestamp, frame_id)

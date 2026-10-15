@@ -4,6 +4,7 @@ OpenCV's maintained MSMF backend removes the Python-version-specific capture DLL
 The native Godot viewer still receives NV12 video through shared memory.
 """
 from dataclasses import dataclass
+from collections import deque
 import logging
 import threading
 import time
@@ -11,6 +12,7 @@ import uuid
 import cv2
 import numpy as np
 from capture.mediapipe_worker import MediaPipeWorker
+from capture.frame import VideoFrame
 from ipc.ring_nv12 import NV12RingWriter
 from ipc.ring_landmarks import LMK1Writer
 from ipc.qpc import get_qpc_ticks
@@ -36,10 +38,29 @@ def bgr_to_nv12(frame):
     return planar[:pixels].tobytes(), uv.tobytes()
 
 
+class NV12Converter:
+    """Reuse conversion storage; the ring copies each plane before the next call."""
+    def __init__(self, width, height):
+        self.planar = np.empty((height * 3 // 2, width), dtype=np.uint8)
+        flat = self.planar.reshape(-1)
+        pixels = width * height
+        self.y = memoryview(flat[:pixels])
+        self.u = flat[pixels:pixels + pixels // 4]
+        self.v = flat[pixels + pixels // 4:]
+        self.uv = np.empty(pixels // 2, dtype=np.uint8)
+        self.uv_view = memoryview(self.uv)
+
+    def convert(self, frame):
+        cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420, dst=self.planar)
+        self.uv[0::2] = self.u
+        self.uv[1::2] = self.v
+        return self.y, self.uv_view
+
+
 class Camera:
     FRAME_TIMEOUT = 3.0
 
-    def __init__(self, camera_id, width=1280, height=720, fps=30, mp_enabled=True, mp_max_width=None):
+    def __init__(self, camera_id, width=1280, height=720, fps=60, mp_enabled=True, mp_max_width=None):
         if not (type(camera_id) is int and camera_id >= -1):
             raise ValueError('camera_id must be a whole number >= -1 (-1 is the demo source)')
         if width < 64 or height < 64 or width > 3840 or height > 2160 or width % 2 or height % 2:
@@ -49,7 +70,9 @@ class Camera:
         self.camera_id = self.index = camera_id
         self.name = 'Demo pattern' if camera_id == -1 else f'Camera {camera_id}'
         self.device_id = ''
+        self.pixel_format = 'BGR'
         self.width, self.height, self.fps = width, height, fps
+        self.requested_fps = fps
         self.mp_enabled, self.mp_max_width = mp_enabled, mp_max_width
         self.stats = CameraStats()
         self.frame_count = 0
@@ -65,6 +88,7 @@ class Camera:
         self._timestamp = 0
         self.video_buffer = ''
         self.landmark_buffer = ''
+        self._timings = deque(maxlen=240)
 
     def open(self):
         if self.is_opened():
@@ -77,6 +101,7 @@ class Camera:
         self.current_frame = None
         self.frame_count = 0
         self.stats = CameraStats()
+        self._timings.clear()
         self._thread = threading.Thread(target=self._capture, daemon=True, name='LenzForge-Capture')
         self._thread.start()
         if not self._ready.wait(15):
@@ -95,16 +120,39 @@ class Camera:
                 self.msmf_camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.msmf_camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
                 self.msmf_camera.set(cv2.CAP_PROP_FPS, self.fps)
+                # Native NV12 goes straight to the viewer. Re-enable BGR for
+                # devices whose native format/layout this pipeline cannot use.
+                self.pixel_format = 'BGR'
+                if self.msmf_camera.set(cv2.CAP_PROP_CONVERT_RGB, 0):
+                    fourcc = int(self.msmf_camera.get(cv2.CAP_PROP_FOURCC))
+                    if fourcc == cv2.VideoWriter_fourcc(*'NV12'):
+                        self.pixel_format = 'NV12'
+                    else:
+                        self.msmf_camera.set(cv2.CAP_PROP_CONVERT_RGB, 1)
                 ok, first = self.msmf_camera.read()
+                if self.pixel_format == 'NV12':
+                    self.width = int(self.msmf_camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    self.height = int(self.msmf_camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    expected = self.width * self.height * 3 // 2
+                    if (not ok or first is None or first.dtype != np.uint8
+                            or first.size != expected or not first.flags.c_contiguous):
+                        self.msmf_camera.set(cv2.CAP_PROP_CONVERT_RGB, 1)
+                        self.pixel_format = 'BGR'
+                        ok, first = self.msmf_camera.read()
                 if not ok or first is None:
                     raise RuntimeError(f'{self.name} returned no frames. Check that the device is connected and available.')
-                self.height, self.width = first.shape[:2]
-            if self.width % 2 or self.height % 2:
-                raise RuntimeError('Camera negotiated odd dimensions unsupported by NV12')
+                if self.pixel_format == 'BGR':
+                    self.height, self.width = first.shape[:2]
+                negotiated_fps = self.msmf_camera.get(cv2.CAP_PROP_FPS)
+                if np.isfinite(negotiated_fps) and 1 <= negotiated_fps <= 120:
+                    self.fps = negotiated_fps
+            if not (64 <= self.width <= 3840 and 64 <= self.height <= 2160) or self.width % 2 or self.height % 2:
+                raise RuntimeError('Camera negotiated dimensions unsupported by NV12')
             generation = uuid.uuid4().hex
             self.video_buffer = 'LenzForge_Video_' + generation
             self.landmark_buffer = 'LenzForge_Landmarks_' + generation
             self.ring_writer = NV12RingWriter(self.video_buffer, self.width, self.height)
+            converter = NV12Converter(self.width, self.height) if self.pixel_format == 'BGR' else None
             self.lmk1_writer = LMK1Writer(self.landmark_buffer, self.width, self.height)
             perf = get_performance_config()
             limit = self.mp_max_width if self.mp_max_width is not None else perf.mediapipe_max_width
@@ -115,12 +163,15 @@ class Camera:
                 self.mp_worker = MediaPipeWorker(self.lmk1_writer, self.mp_width, self.mp_height, self.width, self.height)
                 self.mp_worker.start()
             self.negotiated_format = {'format': 'NV12', 'width': self.width, 'height': self.height,
-                                      'fps': self.fps, 'y_stride': self.width, 'uv_stride': self.width}
+                                      'fps': self.fps, 'y_stride': self.width, 'uv_stride': self.width,
+                                      'capture_format': self.pixel_format}
             self.stats.is_opened = True
             self._ready.set()
             last_frame_at = time.monotonic()
+            previous_frame_at = 0.0
+            next_demo_at = time.perf_counter()
             while not self._stop.is_set():
-                start = time.monotonic()
+                start = time.perf_counter()
                 if self.camera_id == -1:
                     frame = self._demo_frame()
                 elif first is not None:
@@ -135,8 +186,12 @@ class Camera:
                         continue
                 last_frame_at = time.monotonic()
                 timestamp = get_qpc_ticks()  # One timestamp for both protocols.
-                y, uv = bgr_to_nv12(frame)
+                captured_at = time.perf_counter()
+                frame = VideoFrame(frame, self.width, self.height, self.pixel_format)
+                y, uv = frame.nv12_planes() if self.pixel_format == 'NV12' else converter.convert(frame.data)
+                converted_at = time.perf_counter()
                 self.ring_writer.write_frame(y, uv, timestamp)
+                published_at = time.perf_counter()
                 if self.mp_worker:
                     self.mp_worker.queue_frame(frame, timestamp, self.frame_count)
                 else:
@@ -146,8 +201,22 @@ class Camera:
                     self._timestamp = timestamp
                     self.frame_count += 1
                     self.stats.frames_captured += 1
+                    if previous_frame_at:
+                        self._timings.append(((captured_at - previous_frame_at) * 1000,
+                            (captured_at - start) * 1000, (converted_at - captured_at) * 1000,
+                            (published_at - converted_at) * 1000))
                     self._condition.notify_all()
-                self._stop.wait(max(0, 1 / self.fps - (time.monotonic() - start)))
+                previous_frame_at = captured_at
+                # Hardware reads already wait for the device. Sleeping here
+                # reduces throughput and lets queued camera frames grow stale.
+                if self.camera_id == -1:
+                    next_demo_at += 1 / self.fps
+                    now = time.perf_counter()
+                    if next_demo_at < now:
+                        next_demo_at = now
+                    # Python uses a high-resolution waitable timer on Windows;
+                    # Event.wait() can oversleep by a whole scheduler tick.
+                    time.sleep(max(0, next_demo_at - now))
         except Exception as exc:
             self.error = str(exc)
             logger.exception('Capture stopped')
@@ -184,7 +253,7 @@ class Camera:
 
     def read(self):
         result = self.wait_frame()
-        return (True, result[2].copy()) if result else (False, None)
+        return (True, result[2].to_bgr().copy()) if result else (False, None)
 
     def close(self):
         self._stop.set()
@@ -204,6 +273,21 @@ class Camera:
 
     def get_stats(self):
         return self.stats
+
+    def get_performance(self):
+        with self._condition:
+            samples = list(self._timings)
+        if not samples:
+            return {}
+        values = np.asarray(samples)
+        names = ('interval_ms', 'read_ms', 'convert_ms', 'publish_ms')
+        result = {name: {'mean': round(float(values[:, i].mean()), 3),
+                         'p95': round(float(np.percentile(values[:, i], 95)), 3),
+                         'max': round(float(values[:, i].max()), 3)} for i, name in enumerate(names)}
+        result['fps'] = round(1000 / max(float(values[:, 0].mean()), .001), 2)
+        result['sample_count'] = len(samples)
+        result['late_frames'] = int(np.count_nonzero(values[:, 0] > 1500 / self.fps))
+        return result
 
     def reset_stats(self):
         self.stats.frames_captured = self.stats.frames_dropped = 0

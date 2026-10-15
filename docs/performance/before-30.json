@@ -1,0 +1,52 @@
+{
+  "viewer": {
+    "displayed_fps": 21.7,
+    "frame_age_ms": {},
+    "frame_cap": 60,
+    "frames": 217,
+    "gaps_over_50_ms": 71,
+    "interval_ms": {
+      "max": 66.453,
+      "mean": 45.7285207373272,
+      "p50": 47.847,
+      "p95": 57.222,
+      "p99": 64.36
+    },
+    "render_fps": 60.0,
+    "upload_ms": {}
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": 1,
+    "clients": 0,
+    "error": null,
+    "fps": 21.9,
+    "frames": 299,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "NexiGo N960E FHD Webcam",
+    "tracking": {
+      "avg_inference_ms": 11.549990268888251,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 21.73893156826772,
+      "frames_dropped": 1,
+      "frames_processed": 298,
+      "landmark_count": 478,
+      "last_inference_ms": 11.08100003330037,
+      "processing_time": 11.08100003330037,
+      "queue_size": 0,
+      "running": true
+    }
+  }
+}

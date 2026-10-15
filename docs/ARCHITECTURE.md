@@ -27,6 +27,8 @@ flowchart LR
 
 Capture owns camera open/read/release on one thread. Frames are immutable after publication. A single-slot inference mailbox replaces queued work with the latest frame when inference falls behind. Browser connections do not trigger more model instances or more capture reads. JPEG encoding occurs only when browser viewers are connected; source exports and recording continue without them.
 
+MSMF devices that supply tightly packed NV12 publish their original planes directly into VID1. Tracking downsizes the Y/UV planes before converting the smaller image to RGB. Full-resolution BGR conversion is lazy and shared by exports, browser preview, and recording only when needed. Unsupported native formats/layouts fall back to BGR and reusable NV12 conversion buffers. Physical reads provide capture pacing; an additional software delay is unnecessary. Only the synthetic source uses deadline pacing.
+
 Both rings use the same capture timestamp in Windows QPC ticks. Readers convert that timestamp to microseconds. Video displays immediately, and overlays older than 150 ms are discarded. Each capture session has unique mapping names returned by `/api/status`, allowing readers to reconnect after a resolution change even while other viewers retain an old mapping.
 
 ## Solutions adopted
@@ -37,7 +39,7 @@ Both rings use the same capture timestamp in Windows QPC ticks. Readers convert 
 | Opening generic camera indices to discover devices | A small, standalone Media Foundation helper lists friendly names and device identities without activating cameras. Both interfaces refresh safely during capture and keep the selected device identity. |
 | MediaPipe legacy Solutions | Tasks face/hand/pose models, explicitly downloaded during setup. Face blendshapes and transformation matrices are available to future avatar features. |
 | Capture/inference inside client work | Independent capture and one inference worker with a bounded mailbox reduce duplicated CPU work and accumulated delay. |
-| Landmark loop in every shader fragment | Godot draws landmark geometry once per point; the video shader only converts and grades pixels. |
+| Landmark loop in every shader fragment, then separate circle draws | One instanced quad batch draws all face points with an antialiased circle shader; the video shader only converts and grades pixels. |
 | Forward+ for a 2D preview | Godot Compatibility rendering avoids unnecessary 3D renderer overhead and supports more GPUs. |
 | Mismatched packed protocol layouts | Explicit 64-byte headers, native static assertions, sequence publication, memory barriers, and copied/rechecked reader snapshots. Native tests verify actual interoperability. |
 | Per-frame mapping flush | A tiny Windows atomic publication helper commits aligned sequence fields after payload writes. Disk-style flushes are unnecessary for anonymous shared memory. |
@@ -45,6 +47,8 @@ Both rings use the same capture timestamp in Windows QPC ticks. Readers convert 
 | Recording/configuration success stubs | Real source recording, measured statistics, validated controls, and explicit unsupported responses for legacy model configuration/reset. |
 
 This is a copy-bounded shared-memory pipeline, not a fully zero-copy GPU pipeline: conversion, protected reader snapshots, and texture upload still copy data. The copies make ownership and consistency explicit. Profile real camera workloads before replacing them with a more complex D3D shared-texture implementation.
+
+The video reader copies directly into packed upload planes, reuses image/texture objects, and checks that the copied slot remains valid. A newer publication in another slot does not invalidate that snapshot. Godot uses VSync without a competing software 60 fps cap. Preview FPS counts newly uploaded video frames, separately from capture rate and renderer FPS.
 
 ## State and output
 
@@ -63,7 +67,7 @@ Godot debug and release extensions build against the 4.7 API. Headless import/st
 
 The headless import check gives deferred editor callbacks time to finish before shutdown. An immediate exit on a fresh project reproduced the upstream [GDExtension documentation shutdown race](https://github.com/godotengine/godot/issues/111048). Validation still fails on nonzero exits and engine/script errors; the workaround does not ignore failures.
 
-Hardware validation subsequently confirmed a NexiGo N960E FHD Webcam at 1280×720, about 22 fps under the observed conditions, with 478 face landmarks reaching the Godot viewer. Discovery completed in about 350 ms while capture continued. Media Foundation GPU transform initialization had stalled on this machine; capture now defaults `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0` before OpenCV loads. The pipeline consumes CPU BGR frames, so this avoids unnecessary GPU initialization; an explicit environment override is respected. See the [OpenCV MSMF setting](https://docs.opencv.org/5.0/main_modules/videoio_flags_base.html) and [Microsoft device enumeration API](https://learn.microsoft.com/en-us/windows/win32/medfound/enumerating-video-capture-devices).
+Hardware profiling confirmed a NexiGo N960E FHD Webcam at 1280×720 and 60 fps, with about 60 fps face inference and 478 landmarks reaching Godot. Displayed video improved from 21.7 fps to 50.8 fps after pacing, color conversion, upload, and overlay changes; a same-setting 30 fps comparison and measurement limits are in [Performance](PERFORMANCE.md). Discovery completed in about 350 ms while capture continued. Media Foundation GPU transform initialization had stalled on this machine; capture defaults `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0` before OpenCV loads. The pipeline consumes CPU-addressable NV12/BGR frames, so this avoids unnecessary GPU initialization; an explicit environment override is respected. See the [OpenCV MSMF setting](https://docs.opencv.org/5.0/main_modules/videoio_flags_base.html) and [Microsoft device enumeration API](https://learn.microsoft.com/en-us/windows/win32/medfound/enumerating-video-capture-devices).
 
 Other camera models, sustained recording, GPU/driver variation, and all retained effect parameter combinations need further manual coverage. A driver that blocks indefinitely inside a capture call can still require a backend restart; discovery runs in a separate process with a five-second timeout. The old GOD1 writer is preserved but does not constitute a working virtual-camera output path.
 

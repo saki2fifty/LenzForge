@@ -178,6 +178,7 @@ func _build_ui() -> void:
 	fps_picker = OptionButton.new()
 	for item in ["30 fps", "60 fps", "24 fps"]:
 		fps_picker.add_item(item)
+	fps_picker.select(1)
 	left.add_child(fps_picker)
 	connect_button = _button("Start capture", _start, true)
 	connect_button.disabled = true
@@ -379,7 +380,10 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 	for feature in tracking_checks:
 		if features.has(feature):
 			tracking_checks[feature].set_pressed_no_signal(features[feature])
-	metrics.text = "%.1f fps    ·    %d landmarks    ·    %.1f ms inference    ·    %s" % [data.get("fps", 0.0), tracking.get("landmark_count", 0), tracking.get("last_inference_ms", 0.0), data.get("source", "No source")]
+	var capture_fps := float(data.get("capture_timing", {}).get("fps", data.get("fps", 0.0)))
+	var preview_fps: int = video_reader.get_fps() if video_reader and video_reader.is_reading() else 0
+	metrics.text = "%d preview / %.1f capture fps    ·    %d landmarks    ·    %.1f ms inference" % [preview_fps, capture_fps, tracking.get("landmark_count", 0), tracking.get("last_inference_ms", 0.0)]
+	metrics.tooltip_text = "%s\nPreview counts new video frames displayed; capture measures camera delivery." % data.get("source", "No source")
 	if data.get("error"):
 		status.text = "CAPTURE ERROR"
 		message.text = str(data.error)
@@ -459,20 +463,21 @@ func _start() -> void:
 	_action("/api/camera/select", {"camera_index": int(camera.index), "device_id": camera.get("device_id"), "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
 
 func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int) -> void:
-	video.texture = y
+	if video.texture != y:
+		video.texture = y
+		material_video.set_shader_parameter("y_texture", y)
+		material_video.set_shader_parameter("uv_texture", uv)
+		overlay.video_size = Vector2(y.get_width(), y.get_height())
 	video.show()
 	empty_state.hide()
-	material_video.set_shader_parameter("y_texture", y)
-	material_video.set_shader_parameter("uv_texture", uv)
-	overlay.video_size = Vector2(y.get_width(), y.get_height())
 	frame_timestamp = timestamp
 	last_video_at = Time.get_ticks_msec()
 	received_frames += 1
 	if received_frames == 1:
 		message.text = "Source connected. Adjust your look or start a recording."
-	if frame_timestamp - landmark_timestamp > 150000:
+	if frame_timestamp - landmark_timestamp > 150000 and not overlay.points.is_empty():
 		overlay.points.clear()
-	overlay.queue_redraw()
+		overlay.queue_redraw()
 
 func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 	landmark_timestamp = timestamp

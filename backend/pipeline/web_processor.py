@@ -145,12 +145,13 @@ class WebProcessor:
                 self.pose = None
                 logger.info("Pose cleaned up")
 
-    def process(self, frame: np.ndarray) -> Dict[str, Any]:
+    def process(self, frame: np.ndarray, is_rgb=False) -> Dict[str, Any]:
         """
         Process frame through enabled MediaPipe models
 
         Args:
-            frame: BGR frame from camera
+            frame: BGR image, or RGB when is_rgb is True
+            is_rgb: Skip conversion for preprocessed tracking images
 
         Returns:
             Dictionary containing landmark data for enabled tracking types
@@ -158,8 +159,8 @@ class WebProcessor:
         if frame is None:
             return {}
 
-        # Convert BGR to RGB for MediaPipe
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Native capture already supplies a resized RGB image.
+        frame_rgb = frame if is_rgb else cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # MediaPipe will use its own internal timestamp tracking
         # We just need to ensure we don't process the same frame twice
