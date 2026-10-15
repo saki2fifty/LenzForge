@@ -1,251 +1,108 @@
-﻿# LenzForge
+# LenzForge Studio
 
-**Real-time AR Face Tracking System**
+A local Windows camera and AR workspace with a Godot desktop viewer, browser controls, and MediaPipe face, iris, hand, and body tracking. Python owns capture and inference; a C++ GDExtension brings video and face landmarks into Godot through shared memory.
 
-A high-performance augmented reality face tracking system built with Python, C++, MediaPipe, and Godot Engine.
+![Godot desktop studio displaying the synthetic demo source](docs/images/studio.png)
 
----
+## Start here
 
-## ✨ Features
+Requires Windows 10/11 x64, an internet connection for initial setup, and several GB of free disk space. A webcam is optional: the demo source exercises video, controls, recording, and both previews without opening a camera.
 
-- **Real-time Face Tracking** - 60 FPS face mesh detection with MediaPipe
-- **High-Performance Backend** - Python + C++ hybrid architecture
-- **Godot Integration** - AR visualization with GDExtension
-- **Shared Memory IPC** - Zero-copy video and landmark streaming
-- **Virtual Camera** - Output AR effects to any application
-- **Web Interface** - Real-time preview and controls
-- **Portable Setup** - Complete automated installation system
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Windows 10/11 (64-bit)
-- 10GB free disk space
-- Webcam or USB camera
-
-### Installation
-
-1. **Clone the repository**
 ```powershell
-git clone https://github.com/yourusername/LenzForge.git
+git clone https://github.com/saki2fifty/LenzForge.git
 cd LenzForge
+.\Setup.ps1
 ```
 
-2. **Run automated setup**
-```powershell
-cd setup_v2
-.\000-Setup.ps1
-```
+Setup downloads a project-local Python, Godot, C++ compiler, bindings, and three tracking models. It installs locked Python packages and builds debug and release native extensions. No system Python or compiler installation is required. The initial build can take several minutes. Re-running setup reuses downloaded tools and incremental builds.
 
-The setup will install:
-- Python 3.11 (portable)
-- MinGW C++ compiler
-- Godot Engine 4.3
-- MediaPipe & OpenCV
-- All dependencies
+In one PowerShell terminal:
 
-Setup takes 10-15 minutes and requires ~5GB download.
-
-3. **Start the backend**
 ```powershell
 .\Start-Backend.ps1
+# Or start with the synthetic source already running:
+.\Start-Backend.ps1 -Demo
 ```
 
-4. **Open web interface**
-- Navigate to http://localhost:5000
-- Select your camera
-- Start tracking!
-
----
-
-## 🎮 Godot AR Viewer
-
-Launch the Godot AR viewer:
+In another terminal:
 
 ```powershell
-.\buildtools\godot\Godot_v4.3-stable_win64.exe workspace_v2\LenzForge-AR\project.godot
+.\Start-Viewer.ps1
 ```
 
-Press **F5** to run the AR visualization scene.
+Browser controls are at **http://127.0.0.1:5000**. Choose a camera or **Demo pattern**, then select **Start capture**. Stop capture before scanning for another physical camera. Close the backend with Ctrl+C. Use `Start-Viewer.ps1 -Editor` to edit the Godot project.
 
----
+The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is available for browser-only development; change `BACKEND` in `viewer/studio.gd` if using a different desktop port.
 
-## 📁 Project Structure
+## What works
 
+- One background capture owner and one inference worker, shared by both interfaces. Capture runs without an open browser.
+- Face tracking with 478 landmarks, 52 blendshape scores, and a face transform; optional hand and body tracking. Hand/body results appear in the browser and JSON exports. The desktop overlay currently displays face/iris points.
+- GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.
+- Responsive dark studio interfaces, measured frame/inference statistics, source controls, and a camera-free demo.
+- Browser preview effects and JPEG quality control. Preview effects are independent between the desktop and browser.
+- Source recording to playable MJPEG AVI with timestamped landmark JSONL in `recordings/`. Recording memory stays bounded; files grow with recording duration.
+- Browser source-image and landmark exports. Desktop snapshots capture the complete studio window in Godot's `user://captures` directory; the UI reports the full saved path.
+- Persistent desktop look, mirror, and landmark visibility. Shortcuts: **L** landmarks, **M** mirror, **F11** fullscreen.
+
+**Recordings keep the original camera source**, without preview looks, mirror, or overlays. Virtual-camera output is not connected end to end; the earlier GOD1 writer is retained as a foundation. Background segmentation and face-specific effects remain experimental and are withheld from the new browser effect picker.
+
+## Toolchain
+
+Stable versions checked on October 15, 2026:
+
+| Component | Version |
+| --- | --- |
+| Godot | 4.7.2 stable |
+| godot-cpp | 10.0.0 stable, targeting the 4.7 API |
+| Python | 3.15.0 |
+| MediaPipe | 1.1.1, Tasks API |
+| OpenCV contrib | 5.0.0.93 |
+| NumPy | 2.5.4 |
+| Flask / Waitress | 3.1.3 / 3.0.2 |
+| GCC / SCons | 16.2.0 / 4.11.1 |
+
+[`toolchain.json`](toolchain.json) pins native tooling. [`requirements.txt`](requirements.txt) pins direct runtime dependencies; [`requirements.lock.txt`](requirements.lock.txt) includes all resolved runtime and development packages for Windows x64/Python 3.15. Only one OpenCV wheel is installed. Setup verifies the Godot archive SHA-256 and runs `pip check`.
+
+Release references: [Godot](https://godotengine.org/download/windows/), [godot-cpp](https://github.com/godotengine/godot-cpp/releases), [Python](https://www.python.org/downloads/windows/), [MediaPipe](https://pypi.org/project/mediapipe/), [OpenCV contrib](https://pypi.org/project/opencv-contrib-python/).
+
+## Repository layout
+
+```text
+backend/             Capture, Tasks inference, IPC writers, HTTP API, browser studio
+viewer/              Active Godot project and C++ GDExtension
+tools/               Portable bootstrap and validation tools
+tests/               Backend, model, protocol, and recording regression tests
+docs/                Current architecture and API notes
+docs/archive/        Historical plans and analyses
+legacy/              Original setup and superseded backend components
+viewer/legacy/       Original Godot scenes/scripts, excluded by .gdignore
 ```
-LenzForge/
-├── setup_v2/              # Automated setup system
-│   ├── 000-Setup.ps1      # Main setup script
-│   ├── assets/            # Source files for deployment
-│   └── ...
-├── workspace_v2/
-│   ├── LenzForge-Vision/  # Python backend
-│   │   └── backend_v2/    # Flask server + MediaPipe
-│   └── LenzForge-AR/      # Godot AR viewer
-│       └── gdextension/   # C++ video/landmark readers
-├── buildtools/            # Portable dev tools
-│   ├── python/
-│   ├── mingw/
-│   └── godot/
-├── logs/                  # System logs
-├── Start-Backend.ps1      # Launch Flask server
-└── LICENSE                # MIT License
-```
 
----
+Run and edit `backend/` and `viewer/` directly. Setup no longer copies sources into a second workspace. Existing local `workspace_v2/` and older tool downloads are left intact, ignored by Git, and unused by the launchers. Generated tools, models, recordings, caches, and binaries are not committed.
 
-## 🛠️ Development
+## Validation
 
-### Backend Development
+After setup:
 
 ```powershell
-# Redeploy backend after changes
-cd setup_v2
-.\030-Deploy-Backend.ps1
-
-# Restart backend
-cd ..
-.\Start-Backend.ps1
+.\buildtools\python-3.15.0\python.exe -B tools\check.py
 ```
 
-### Godot Development
+This runs Python regression tests, a Godot headless import/startup, and an integration probe that sends known video/landmarks from Python through the compiled native readers. The Windows GitHub Actions workflow runs the same checks.
 
-```powershell
-# Redeploy Godot project
-cd setup_v2
-.\081-Deploy-Godot-Project.ps1
+Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. A 1280×720 synthetic source delivered approximately 29.7 fps at a 30 fps target on the development PC. That is a demo-throughput measurement, not a guarantee of webcam or face-tracking performance. Physical camera compatibility and the full range of retained effects still need hardware/manual coverage.
 
-# Rebuild GDExtension
-.\083-Build-LenzForge-GDExtension.ps1
-```
+See [architecture and modernization decisions](docs/ARCHITECTURE.md) and [supported API](docs/API.md). Historical documents describe earlier plans and are not current feature guarantees.
 
-### Verify Installation
+## Troubleshooting
 
-```powershell
-cd setup_v2
-.\099-Verify-Installation.ps1
-```
+- **Missing native extension or DLL:** rerun `Setup.ps1`. For a code-only rebuild use `Setup.ps1 -SkipInstall`; close running viewers first.
+- **Missing model:** rerun setup. Alternatively set `LENZFORGE_MODELS` to a directory containing the three `.task` files listed in `tools/bootstrap.py`.
+- **Camera unavailable:** close other applications using it, verify Windows camera permissions, and try Demo pattern to separate capture issues from viewer issues. Hardware may negotiate a different resolution or frame rate.
+- **Backend offline:** keep its terminal open and verify port 5000 is available. The service binds to loopback by default.
+- **Slow tracking:** use a lower capture resolution or the performance API; inference resolution changes apply on the next capture start. The mailbox replaces old work rather than accumulating latency.
 
----
+## License
 
-## 🎯 Architecture
-
-### Pipeline Overview
-
-```
-Camera (USB)
-    ↓
-MSMF Extension (C++) → NV12 Format
-    ↓
-VID1 Ring Buffer (Shared Memory)
-    ↓
-MediaPipe Worker (Python) → Face Mesh
-    ↓
-LMK1 Ring Buffer (478 Landmarks)
-    ↓
-├─→ Flask Server → Web Preview (MJPEG)
-└─→ Godot GDExtension → AR Viewer
-```
-
-### Key Technologies
-
-- **Python 3.11** - Backend & MediaPipe integration
-- **C++17** - High-performance capture & IPC
-- **Godot 4.3** - AR visualization engine
-- **MediaPipe** - Face mesh detection
-- **Flask** - Web interface & API
-- **Shared Memory** - Zero-copy IPC (QPC-synchronized)
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
-3. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
-4. **Push to the branch** (`git push origin feature/AmazingFeature`)
-5. **Open a Pull Request**
-
-### Areas for Contribution
-- Additional AR effects
-- Performance optimizations
-- Linux/macOS support
-- Documentation improvements
-- Bug fixes
-
----
-
-## 🐛 Issues & Support
-
-- **Found a bug?** Open an issue on GitHub
-- **Need help?** Check the [documentation](docs/)
-- **Want to discuss?** Open a discussion on GitHub
-
----
-
-## 📊 Performance
-
-- **Face Detection:** 60 FPS @ 1080p
-- **MediaPipe Processing:** 15-20ms per frame
-- **VID1 Ring Buffer:** 30 FPS (zero-copy)
-- **Latency:** ~33ms end-to-end
-- **Memory:** ~500MB total
-
-### System Requirements
-- **Minimum:** Intel i5-7th gen, 8GB RAM, USB 3.0 camera
-- **Recommended:** Intel i7-10th gen, 16GB RAM, USB 3.0 camera
-- **Best:** Intel i9/Ryzen 9, 32GB RAM, high-quality USB camera
-
----
-
-## 📝 License
-
-LenzForge is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-```
-Copyright (c) 2025 saki2fifty
-```
-
-This means you can:
-- ✅ Use it commercially
-- ✅ Modify it
-- ✅ Distribute it
-- ✅ Use it privately
-
-**Just include the copyright notice!**
-
----
-
-## 🙏 Acknowledgments
-
-- **MediaPipe** - Google's face mesh solution
-- **Godot Engine** - Open-source game engine
-- **OpenCV** - Computer vision library
-- **MinGW-w64** - Windows C++ compiler
-- **Flask** - Python web framework
-
----
-
-## 🗺️ Roadmap
-
-### Current Version (v1.0)
-- ✅ Face mesh tracking (478 landmarks)
-- ✅ Real-time video streaming
-- ✅ Godot AR viewer
-- ✅ Web interface
-
-### Upcoming Features
-- 🔄 Hand tracking integration
-- 🔄 Body pose estimation
-- 🔄 Multi-face tracking
-- 🔄 GPU acceleration
-- 🔄 Linux support
-- 🔄 MacOS support
-
----
-
-*Star ⭐ this repo if you find it useful!*
+Project source is MIT licensed; see [LICENSE](LICENSE). Downloaded engines, packages, compilers, and models retain their upstream licenses. Model and inference dependencies are downloaded only during setup, and camera frames are processed locally.

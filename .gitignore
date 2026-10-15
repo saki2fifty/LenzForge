@@ -8,6 +8,7 @@
 /artifacts/
 /.venv/
 /.tools/
+/legacy/backend/capture/msmf_extension/build/
 __pycache__/
 .pytest_cache/
 .godot/
@@ -34,6 +35,9 @@ __pycache__/
 /test_data/
 /*.bak
 /test*
+!/tests/
+/viewer/.godot/
+/viewer/gdextension/lenzforge/.sconsign*
 /simple_test.ps1
 /large_*
 /powershell_*

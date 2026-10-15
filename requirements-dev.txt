@@ -1,0 +1,3 @@
+-r requirements.txt
+SCons==4.11.1
+pytest==9.1.1

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LenzForge Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/studio.css') }}">
+  <script defer src="{{ url_for('static', filename='js/studio.js') }}"></script>
+</head>
+<body>
+  <header><div class="brand"><span class="mark">LF</span><div><h1>LenzForge</h1><small>REAL-TIME AR STUDIO</small></div></div><span id="connection" class="pill">Connecting</span></header>
+  <main>
+    <aside class="card"><p class="eyebrow">01 / CAPTURE</p><h2>Your source</h2><p class="muted">One camera. Every view, in sync.</p>
+      <label for="source">Camera</label><select id="source"><option value="0">Camera 0</option><option value="1">Camera 1</option><option value="2">Camera 2</option><option value="-1">Demo pattern</option></select>
+      <button id="scan" class="subtle">Find cameras</button>
+      <label for="resolution">Resolution</label><select id="resolution"><option value="1280,720">1280 × 720</option><option value="1920,1080">1920 × 1080</option><option value="640,360">640 × 360</option></select>
+      <label for="fps">Frame rate</label><select id="fps"><option>30</option><option>60</option><option>24</option></select>
+      <button id="start" class="primary">Start capture</button><button id="stop">Stop capture</button>
+      <hr><p class="eyebrow">02 / TRACKING</p><label class="check"><input type="checkbox" data-tracking="face_mesh" checked> Face + iris</label><label class="check"><input type="checkbox" data-tracking="hands"> Hands</label><label class="check"><input type="checkbox" data-tracking="pose"> Body pose</label>
+      <p class="privacy">LOCAL PROCESSING<br><span class="muted">Camera frames stay on this computer.</span></p>
+    </aside>
+    <section class="workspace"><div class="preview-title"><h2>Preview</h2><span class="muted">LIVE WORKSPACE</span></div><div class="preview"><img id="preview" src="/video_feed" alt="Live camera preview with tracking landmarks"></div>
+      <div class="metrics"><div><strong id="capture-fps">—</strong><small>CAPTURE FPS</small></div><div><strong id="points">—</strong><small>FACE POINTS</small></div><div><strong id="inference">—</strong><small>INFERENCE MS</small></div><div><strong id="dropped">—</strong><small>SKIPPED INFERENCE</small></div></div>
+      <div class="actions"><a class="button" href="/api/export/frame?format=png" download>Save source snapshot</a><button id="record">● Record source</button><a class="button subtle" href="/api/export/landmarks" download="landmarks.json">Export landmarks</a></div>
+      <p id="message" role="status" aria-live="polite">Select a source to begin. The demo works without a camera.</p>
+    </section>
+    <aside class="card"><p class="eyebrow">03 / APPEARANCE</p><h2>Make it yours</h2><p class="muted">Effects apply to this browser preview. Source recordings stay unfiltered.</p>
+      <label for="effect">Image effect</label><select id="effect"><option value="">Natural</option></select><button id="apply">Apply effect</button><button id="clear" class="subtle">Reset effects</button>
+      <hr><p class="eyebrow">PREVIEW QUALITY</p><label for="quality">JPEG quality <output id="quality-value">85</output></label><input id="quality" type="range" min="40" max="95" value="85">
+      <p class="muted">Lower preview quality saves encoding work. The desktop viewer receives the original video over shared memory.</p>
+      <hr><h3>Desktop studio</h3><p class="muted">Use the Godot viewer for GPU color grading, mirrored video, adjustable landmarks, and fullscreen previews.</p>
+    </aside>
+  </main><footer>LenzForge Studio 3 · Local capture, expressive possibilities.</footer>
+</body></html>

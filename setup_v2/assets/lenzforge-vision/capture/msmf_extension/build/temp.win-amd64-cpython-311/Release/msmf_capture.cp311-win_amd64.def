@@ -1,3 +1,0 @@
-LIBRARY msmf_capture.cp311-win_amd64.pyd
-EXPORTS
-PyInit_msmf_capture

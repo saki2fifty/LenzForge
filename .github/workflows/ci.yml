@@ -1,0 +1,32 @@
+name: Windows validation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            buildtools
+            models
+          key: windows-toolchain-${{ hashFiles('toolchain.json', 'requirements.lock.txt') }}
+      - name: Install pinned toolchain and build native extensions
+        shell: pwsh
+        run: ./Setup.ps1
+      - name: Test backend and Godot IPC
+        shell: pwsh
+        run: |
+          $versions = Get-Content toolchain.json -Raw | ConvertFrom-Json
+          & "buildtools/python-$($versions.python)/python.exe" -B tools/check.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: validation-logs
+          path: artifacts/*.log

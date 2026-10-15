@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.py text eol=lf
+*.gd text eol=lf
+*.tscn text eol=lf
+*.gdshader text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.ps1 text eol=crlf

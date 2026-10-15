@@ -1,0 +1,11 @@
+import os
+from pathlib import Path
+
+root = next(p for p in Path(Dir('#').abspath).parents if (p / 'toolchain.json').exists())
+cpp = os.environ.get('LENZFORGE_GODOT_CPP', str(root / 'buildtools/godot-cpp-10.0.0-stable/godot-cpp-10.0.0-stable'))
+ARGUMENTS.setdefault('build_profile', str(Path(Dir('#').abspath) / 'build_profile.json'))
+env = SConscript(str(Path(cpp) / 'SConstruct'), {'api_version': '4.7'})
+env.Append(CPPPATH=['src'])
+env.Append(LIBS=['kernel32', 'user32'])
+library = env.SharedLibrary('../bin/lenzforge' + env['suffix'] + env['SHLIBSUFFIX'], source=Glob('src/*.cpp'))
+Default(library)
