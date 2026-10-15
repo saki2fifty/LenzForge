@@ -40,8 +40,8 @@ class Camera:
     FRAME_TIMEOUT = 3.0
 
     def __init__(self, camera_id, width=1280, height=720, fps=30, mp_enabled=True, mp_max_width=None):
-        if not (isinstance(camera_id, int) and camera_id >= -1):
-            raise ValueError('camera_id must be >= -1 (-1 is the demo source)')
+        if not (type(camera_id) is int and camera_id >= -1):
+            raise ValueError('camera_id must be a whole number >= -1 (-1 is the demo source)')
         if width < 64 or height < 64 or width > 3840 or height > 2160 or width % 2 or height % 2:
             raise ValueError('Resolution must be even and between 64x64 and 3840x2160')
         if fps < 1 or fps > 120:

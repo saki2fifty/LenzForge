@@ -25,6 +25,10 @@ def close_camera():
 def open_camera(index, resolution, fps, device_id=None):
     global _current_camera
     from capture.camera import Camera
+    # JSON clients may round-trip 1 as 1.0. Accept equivalent whole numbers,
+    # while leaving fractional, non-finite, and nonnumeric IDs invalid.
+    if isinstance(index, float) and index.is_integer():
+        index = int(index)
     camera = Camera(index, *resolution, fps)
     if index >= 0:
         from capture.enumerator import enumerate_cameras

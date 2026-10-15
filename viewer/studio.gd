@@ -9,6 +9,7 @@ const PANEL := Color("131c28")
 const EDGE := Color("273448")
 const BACKEND := "http://127.0.0.1:5000"
 
+var backend_url := BACKEND
 var video_reader: Node
 var landmark_reader: Node
 var video: TextureRect
@@ -152,7 +153,7 @@ func _build_ui() -> void:
 	_spacer(header)
 	status = _label("CONNECTING", 12, MUTED)
 	header.add_child(status)
-	header.add_child(_button("Browser controls  ↗", func(): OS.shell_open(BACKEND)))
+	header.add_child(_button("Browser controls  ↗", func(): OS.shell_open(backend_url)))
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 16)
@@ -329,7 +330,7 @@ func _setup_readers() -> void:
 
 func _poll() -> void:
 	if api_poll.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
-		api_poll.request(BACKEND + "/api/status")
+		api_poll.request(backend_url + "/api/status")
 	if last_video_at and Time.get_ticks_msec() - last_video_at > 1500:
 		empty_state.show()
 		video.hide()
@@ -394,7 +395,7 @@ func _action(path: String, data: Dictionary, method := HTTPClient.METHOD_POST) -
 		return
 	pending_action = path
 	message.text = "Working…"
-	var error := action_request.request(BACKEND + path, ["Content-Type: application/json"], method, "" if method == HTTPClient.METHOD_GET else JSON.stringify(data))
+	var error := action_request.request(backend_url + path, ["Content-Type: application/json"], method, "" if method == HTTPClient.METHOD_GET else JSON.stringify(data))
 	if error != OK:
 		message.text = "Could not contact the backend."
 
@@ -453,7 +454,9 @@ func _start() -> void:
 	if video_reader:
 		video_reader.stop_reading()
 		landmark_reader.stop_reading()
-	_action("/api/camera/select", {"camera_index": camera.index, "device_id": camera.get("device_id"), "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
+	# JSON.parse_string turns the discovered index into a float. Camera IDs are
+	# discrete identifiers, so send an integer back to the capture API.
+	_action("/api/camera/select", {"camera_index": int(camera.index), "device_id": camera.get("device_id"), "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
 
 func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int) -> void:
 	video.texture = y

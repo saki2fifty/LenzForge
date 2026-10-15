@@ -29,7 +29,8 @@ def main():
         if result.returncode or any(marker in output for marker in ('ERROR:', 'SCRIPT ERROR', 'Parse Error', 'Shader compilation failed', 'GDExtension dynamic library not found')):
             raise RuntimeError(f'Godot {name} exited with {result.returncode}:\n{output}')
     subprocess.run([sys.executable, str(ROOT / 'tools/check_ipc.py')], cwd=ROOT, check=True)
-    print('Python tests, Godot import/startup, and native IPC passed.')
+    subprocess.run([sys.executable, str(ROOT / 'tools/check_studio.py')], cwd=ROOT, check=True)
+    print('Python tests, Godot import/startup, native IPC, and Start capture button passed.')
 
 
 if __name__ == '__main__':

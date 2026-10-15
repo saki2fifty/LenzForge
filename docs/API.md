@@ -36,6 +36,8 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 
 Capture dimensions must be even, at least 64×64, and no larger than 3840×2160. Requested fps is 1–120; actual hardware capability may be lower. A successful source change creates new shared-memory mapping names; consumers must reattach when `/api/status` changes.
 
+Camera indices must be whole numbers >= -1. JSON numbers such as `1.0` are accepted as `1`; fractional numbers, booleans, strings, and non-finite values are rejected.
+
 Performance keys are `mediapipe_max_width` (0, 480, 640, or 960), `preview_max_fps` (1–120), `preview_quality` (1–100), and `preview_scale` (0.1–1). Only inference-width changes require a capture restart. Removed queue/triple-buffer settings did not describe the new latest-frame mailbox and are rejected.
 
 The desktop reads face/iris points from LMK1. HTTP landmark snapshots can additionally contain `hands`, `pose`, `blendshapes`, and `face_transform`. A face is not guaranteed in every frame. Consumers should clear old overlays and use timestamps, rather than assuming results belong to the newest video frame.

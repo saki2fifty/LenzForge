@@ -80,14 +80,15 @@ def test_discovery_failure_is_actionable(client, monkeypatch):
     assert 'timed out' in response.json['error']['message']
 
 
-def test_camera_selection_follows_device_identity_after_indices_change(client, monkeypatch):
+@pytest.mark.parametrize('index', [1, 1.0])
+def test_camera_selection_follows_device_identity_after_indices_change(client, monkeypatch, index):
     from capture import enumerator
     from capture.camera import Camera
     from server.routes import camera as routes
     monkeypatch.setattr(enumerator, 'enumerate_cameras', lambda: [enumerator.CameraInfo(2, 'USB webcam', 'stable-id')])
     monkeypatch.setattr(Camera, 'open', lambda self: True)
     monkeypatch.setattr(streaming, 'set_camera_source', lambda camera: None)
-    response = client.post('/api/camera/select', json={'camera_index': 1, 'device_id': 'stable-id'})
+    response = client.post('/api/camera/select', json={'camera_index': index, 'device_id': 'stable-id'})
     assert response.status_code == 200
     assert response.json['camera']['index'] == 2
     assert response.json['camera']['name'] == 'USB webcam'
@@ -95,6 +96,22 @@ def test_camera_selection_follows_device_identity_after_indices_change(client, m
     response = client.post('/api/camera/select', json={'camera_index': 1, 'device_id': 'unplugged'})
     assert response.status_code == 400
     assert routes._current_camera is previous
+
+
+def test_integral_json_number_starts_demo(client):
+    response = client.post('/api/camera/select', json={'camera_index': -1.0, 'resolution': [64, 64]})
+    assert response.status_code == 200
+    assert response.json['camera']['index'] == -1
+    assert type(response.json['camera']['index']) is int
+    assert client.get('/api/status').json['camera_active']
+
+
+@pytest.mark.parametrize('index', [True, False, 0.5, -1.5, '1', None, [], {}, float('nan'), float('inf')])
+def test_invalid_camera_ids_are_not_coerced(client, index):
+    response = client.post('/api/camera/select', json={'camera_index': index})
+    assert response.status_code == 400
+    assert 'whole number' in response.json['error']['message']
+    assert not client.get('/api/status').json['camera_active']
 
 
 def test_failed_capture_retains_error_and_can_be_stopped(client, monkeypatch):

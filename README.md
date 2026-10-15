@@ -89,7 +89,7 @@ After setup:
 .\buildtools\python-3.15.0\python.exe -B tools\check.py
 ```
 
-This runs Python regression tests, a Godot headless import/startup, and an integration probe that sends known video/landmarks from Python through the compiled native readers. The Windows GitHub Actions workflow runs the same checks.
+This runs Python regression tests, a Godot headless import/startup, native video/landmark probes, and an isolated integration test that discovers the demo source and presses the viewer's actual **Start capture** button through the HTTP API. The Windows GitHub Actions workflow runs the same checks.
 
 Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. A 1280×720 synthetic source delivered approximately 29.7 fps at a 30 fps target on the development PC. A NexiGo N960E FHD Webcam delivered about 22 fps at 1280×720 with 478 face landmarks reaching Godot; discovery refreshed without stopping video. These observations are not guarantees for other devices or lighting conditions. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
