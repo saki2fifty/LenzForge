@@ -8,6 +8,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# OpenCV reads some Windows video settings when its native library loads.
+# Apply capture defaults before importing any routes that import cv2.
+import capture
+
 
 def main():
     parser = argparse.ArgumentParser()

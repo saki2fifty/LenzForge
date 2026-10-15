@@ -46,7 +46,7 @@ def set_camera_source(camera):
     set_current_frame(None)
     set_current_landmarks(None)
     _stop.clear()
-    if camera:
+    if camera and camera.is_opened():
         _thread = threading.Thread(target=_encode_loop, args=(camera,), daemon=True, name='LenzForge-Preview')
         _thread.start()
     else:

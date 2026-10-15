@@ -53,3 +53,60 @@ def test_invalid_tracking_and_partial_performance_updates_do_not_change_state(cl
     assert client.post('/api/performance/config', json={'preview_quality': 50, 'preview_scale': 5}).status_code == 400
     assert client.get('/api/performance/config').json == before
     assert client.post('/api/tracking/configure', json={'pose': {}}).status_code == 501
+
+
+def test_discovery_keeps_all_devices_while_capture_is_running(client, monkeypatch):
+    from capture import enumerator
+    from capture.enumerator import CameraInfo
+    import cv2
+    devices = [CameraInfo(0, 'Virtual camera', 'virtual'), CameraInfo(1, 'USB webcam', 'usb')]
+    monkeypatch.setattr(enumerator, 'enumerate_cameras', lambda: devices)
+    monkeypatch.setattr(cv2, 'VideoCapture', lambda *args: pytest.fail('Discovery must not open a camera'))
+    assert client.post('/api/camera/select', json={'camera_index': -1, 'resolution': [64, 64]}).status_code == 200
+    first = client.get('/api/camera/list').json['cameras']
+    assert [(c['index'], c['name']) for c in first] == [(0, 'Virtual camera'), (1, 'USB webcam'), (-1, 'Demo pattern (no camera)')]
+    assert client.get('/api/status').json['camera_active']
+    devices.pop(0)
+    assert len(client.get('/api/camera/list').json['cameras']) == 2
+
+
+def test_discovery_failure_is_actionable(client, monkeypatch):
+    from capture import enumerator
+    def fail():
+        raise RuntimeError('Windows camera discovery timed out')
+    monkeypatch.setattr(enumerator, 'enumerate_cameras', fail)
+    response = client.get('/api/camera/list')
+    assert response.status_code == 503
+    assert 'timed out' in response.json['error']['message']
+
+
+def test_camera_selection_follows_device_identity_after_indices_change(client, monkeypatch):
+    from capture import enumerator
+    from capture.camera import Camera
+    from server.routes import camera as routes
+    monkeypatch.setattr(enumerator, 'enumerate_cameras', lambda: [enumerator.CameraInfo(2, 'USB webcam', 'stable-id')])
+    monkeypatch.setattr(Camera, 'open', lambda self: True)
+    monkeypatch.setattr(streaming, 'set_camera_source', lambda camera: None)
+    response = client.post('/api/camera/select', json={'camera_index': 1, 'device_id': 'stable-id'})
+    assert response.status_code == 200
+    assert response.json['camera']['index'] == 2
+    assert response.json['camera']['name'] == 'USB webcam'
+    previous = routes._current_camera
+    response = client.post('/api/camera/select', json={'camera_index': 1, 'device_id': 'unplugged'})
+    assert response.status_code == 400
+    assert routes._current_camera is previous
+
+
+def test_failed_capture_retains_error_and_can_be_stopped(client, monkeypatch):
+    from capture.camera import Camera
+    def fail(camera):
+        camera.error = 'Camera returned no frames'
+        return False
+    monkeypatch.setattr(Camera, 'open', fail)
+    response = client.post('/api/camera/select', json={'camera_index': -1})
+    assert response.status_code == 503
+    status = client.get('/api/status').json
+    assert not status['camera_active']
+    assert status['error'] == 'Camera returned no frames'
+    assert client.post('/api/camera/stop', json={}).status_code == 200
+    assert client.get('/api/status').json['error'] is None

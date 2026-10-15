@@ -6,9 +6,9 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 | --- | --- | --- |
 | GET | `/health` | Service version and health |
 | GET | `/api/status` | Active source, measured fps, frame count, resolution, mapping names, tracking worker state, and recording flag |
-| GET | `/api/camera/list` | Demo and probed camera choices; while a physical camera is active, returns it without opening competing handles |
+| GET | `/api/camera/list` | Windows device names, capture indices, and stable `device_id` values, followed by the demo source; discovery does not open cameras or interrupt capture |
 | GET | `/api/camera/current` | Current camera configuration |
-| POST | `/api/camera/select` | Start/reopen with `camera_index`, `resolution: [width,height]`, and `fps` |
+| POST | `/api/camera/select` | Start/reopen with `camera_index`, `resolution: [width,height]`, and `fps`; optional `device_id` preserves device identity if Windows indices change |
 | POST | `/api/camera/configure` | Reopen current source with a new resolution/fps |
 | POST | `/api/camera/stop` | Stop capture and finalize recording |
 | GET | `/api/tracking/status` | Requested feature toggles and actual worker state |

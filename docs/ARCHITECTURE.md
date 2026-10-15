@@ -34,6 +34,7 @@ Both rings use the same capture timestamp in Windows QPC ticks. Readers convert 
 | Earlier approach | Current implementation and reason |
 | --- | --- |
 | Python-version-specific MSMF extension | OpenCV's maintained MSMF capture backend removes an extra Python ABI rebuild requirement. Hardware-specific native capture remains an option if profiling justifies it. |
+| Opening generic camera indices to discover devices | A small, standalone Media Foundation helper lists friendly names and device identities without activating cameras. Both interfaces refresh safely during capture and keep the selected device identity. |
 | MediaPipe legacy Solutions | Tasks face/hand/pose models, explicitly downloaded during setup. Face blendshapes and transformation matrices are available to future avatar features. |
 | Capture/inference inside client work | Independent capture and one inference worker with a bounded mailbox reduce duplicated CPU work and accumulated delay. |
 | Landmark loop in every shader fragment | Godot draws landmark geometry once per point; the video shader only converts and grades pixels. |
@@ -62,7 +63,9 @@ Godot debug and release extensions build against the 4.7 API. Headless import/st
 
 The headless import check gives deferred editor callbacks time to finish before shutdown. An immediate exit on a fresh project reproduced the upstream [GDExtension documentation shutdown race](https://github.com/godotengine/godot/issues/111048). Validation still fails on nonzero exits and engine/script errors; the workaround does not ignore failures.
 
-No physical webcam was opened during modernization. Real camera negotiation, sustained recording, GPU/driver variation, and all retained effect parameter combinations need further manual coverage. The old GOD1 writer is preserved but does not constitute a working virtual-camera output path.
+Hardware validation subsequently confirmed a NexiGo N960E FHD Webcam at 1280×720, about 22 fps under the observed conditions, with 478 face landmarks reaching the Godot viewer. Discovery completed in about 350 ms while capture continued. Media Foundation GPU transform initialization had stalled on this machine; capture now defaults `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0` before OpenCV loads. The pipeline consumes CPU BGR frames, so this avoids unnecessary GPU initialization; an explicit environment override is respected. See the [OpenCV MSMF setting](https://docs.opencv.org/5.0/main_modules/videoio_flags_base.html) and [Microsoft device enumeration API](https://learn.microsoft.com/en-us/windows/win32/medfound/enumerating-video-capture-devices).
+
+Other camera models, sustained recording, GPU/driver variation, and all retained effect parameter combinations need further manual coverage. A driver that blocks indefinitely inside a capture call can still require a backend restart; discovery runs in a separate process with a five-second timeout. The old GOD1 writer is preserved but does not constitute a working virtual-camera output path.
 
 ## Next improvements
 

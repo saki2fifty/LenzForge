@@ -95,6 +95,11 @@ def main():
         if not atomic_library.exists() or atomic_source.stat().st_mtime > atomic_library.stat().st_mtime:
             subprocess.run([str(compiler_dir / 'mingw64/bin/gcc.exe'), '-shared', '-O2',
                             str(atomic_source), '-o', str(atomic_library)], check=True, env=environment)
+        device_source, device_tool = ROOT / 'tools/camera_devices.cpp', native / 'camera_devices.exe'
+        if not device_tool.exists() or device_source.stat().st_mtime > device_tool.stat().st_mtime:
+            subprocess.run([str(compiler_dir / 'mingw64/bin/g++.exe'), '-std=c++17', '-O2',
+                            '-static', str(device_source), '-o', str(device_tool),
+                            '-lmf', '-lmfplat', '-lmfuuid', '-lole32'], check=True, env=environment)
         extension = ROOT / 'viewer/gdextension/lenzforge'
         for target in ('template_debug', 'template_release'):
             subprocess.run([str(python), '-m', 'SCons', 'platform=windows', 'use_mingw=yes',

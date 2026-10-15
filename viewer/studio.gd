@@ -43,6 +43,7 @@ var current_buffers: Dictionary = {}
 var last_source_id := -999
 var shortcut_hint: Label
 var tracking_checks: Dictionary = {}
+var discovery_attempted := false
 
 func _ready() -> void:
 	DisplayServer.window_set_min_size(Vector2i(960, 640))
@@ -157,13 +158,14 @@ func _build_ui() -> void:
 	body.add_theme_constant_override("separation", 16)
 	root.add_child(body)
 	var left := _card(body, 226)
-	_section(left, "01 / Capture", "Choose a camera or explore the demo source.")
+	_section(left, "01 / Capture", "Choose your webcam by name, then start capture.")
 	source_picker = OptionButton.new()
-	source_picker.add_item("Camera 0", 0)
-	source_picker.add_item("Camera 1", 1)
-	source_picker.add_item("Camera 2", 2)
-	source_picker.add_item("Demo pattern", 99)
+	source_picker.add_item("Waiting for cameras…")
+	source_picker.set_item_disabled(0, true)
+	source_picker.item_selected.connect(_source_selected)
 	source_picker.custom_minimum_size.y = 38
+	source_picker.fit_to_longest_item = false
+	source_picker.clip_text = true
 	left.add_child(source_picker)
 	left.add_child(_button("Find cameras", _find_cameras))
 	left.add_child(_label("RESOLUTION", 10, MUTED))
@@ -177,6 +179,7 @@ func _build_ui() -> void:
 		fps_picker.add_item(item)
 	left.add_child(fps_picker)
 	connect_button = _button("Start capture", _start, true)
+	connect_button.disabled = true
 	left.add_child(connect_button)
 	left.add_child(_button("Stop capture", func(): _action("/api/camera/stop", {})))
 	left.add_child(HSeparator.new())
@@ -341,10 +344,14 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 	status.text = "BACKEND CONNECTED" if online else "BACKEND OFFLINE"
 	status.add_theme_color_override("font_color", ACCENT if online else Color("e9b665"))
 	if not online:
+		discovery_attempted = false
 		return
 	var data = JSON.parse_string(body.get_string_from_utf8())
 	if not data is Dictionary:
 		return
+	if not discovery_attempted and action_request.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
+		discovery_attempted = true
+		_find_cameras()
 	var active: bool = data.get("camera_active", false)
 	if active and video_reader:
 		var buffers: Dictionary = data.get("buffers", {})
@@ -361,16 +368,21 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 		if source_id != last_source_id:
 			last_source_id = source_id
 			for index in source_picker.item_count:
-				if source_picker.get_item_id(index) == (99 if source_id == -1 else source_id):
+				var camera = source_picker.get_item_metadata(index)
+				if camera is Dictionary and camera.get("index") == source_id:
 					source_picker.select(index)
-		status.text = "SOURCE LIVE"
+					connect_button.disabled = false
+		status.text = "DEMO ACTIVE" if source_id == -1 else "CAMERA LIVE"
 	var tracking: Dictionary = data.get("tracking", {})
 	var features: Dictionary = tracking.get("features", {})
 	for feature in tracking_checks:
 		if features.has(feature):
 			tracking_checks[feature].set_pressed_no_signal(features[feature])
 	metrics.text = "%.1f fps    ·    %d landmarks    ·    %.1f ms inference    ·    %s" % [data.get("fps", 0.0), tracking.get("landmark_count", 0), tracking.get("last_inference_ms", 0.0), data.get("source", "No source")]
-	if tracking.get("error"):
+	if data.get("error"):
+		status.text = "CAPTURE ERROR"
+		message.text = str(data.error)
+	elif tracking.get("error"):
 		message.text = "Tracking: " + str(tracking.error)
 	if data.has("recording"):
 		recording = data.recording
@@ -386,17 +398,20 @@ func _action(path: String, data: Dictionary, method := HTTPClient.METHOD_POST) -
 	if error != OK:
 		message.text = "Could not contact the backend."
 
-func _on_action(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+func _on_action(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	var data = JSON.parse_string(body.get_string_from_utf8())
+	if result == HTTPRequest.RESULT_TIMEOUT:
+		message.text = "Camera request timed out. Check the backend for a device error, then try again."
+		return
 	if code < 200 or code >= 300 or not data is Dictionary:
 		var detail = data.get("error", "Request failed. Check the backend.") if data is Dictionary else "Backend unavailable. Run Start-Backend.ps1."
 		message.text = str(detail.get("message", "Request failed.")) if detail is Dictionary else str(detail)
 		return
 	message.text = "Updated."
 	if pending_action == "/api/camera/list":
-		source_picker.clear()
-		for camera in data.get("cameras", []):
-			source_picker.add_item(camera.name, 99 if camera.index == -1 else camera.index)
+		_set_camera_choices(data.get("cameras", []))
+	elif pending_action == "/api/camera/select":
+		message.text = "Capturing " + str(data.get("camera", {}).get("name", "camera")) + "."
 	if data.has("files"):
 		message.text = "Recording: " + ", ".join(PackedStringArray(data.files))
 	_poll()
@@ -404,12 +419,41 @@ func _on_action(_result: int, code: int, _headers: PackedStringArray, body: Pack
 func _find_cameras() -> void:
 	_action("/api/camera/list", {}, HTTPClient.METHOD_GET)
 
+func _set_camera_choices(cameras: Array) -> void:
+	var previous = source_picker.get_item_metadata(source_picker.selected) if source_picker.selected >= 0 else null
+	source_picker.clear()
+	source_picker.add_item("Choose your camera…")
+	source_picker.set_item_disabled(0, true)
+	var selected := 0
+	var device_count := 0
+	for camera in cameras:
+		source_picker.add_item(camera.name)
+		var item := source_picker.item_count - 1
+		source_picker.set_item_metadata(item, camera)
+		if camera.index >= 0:
+			device_count += 1
+		if previous is Dictionary:
+			if (previous.get("device_id", "") != "" and previous.get("device_id") == camera.get("device_id")) or (previous.get("index") == -1 and camera.index == -1):
+				selected = item
+		elif camera.index == last_source_id:
+			selected = item
+	source_picker.select(selected)
+	connect_button.disabled = selected == 0
+	message.text = "Select your webcam by name, then click Start capture." if device_count else "No cameras found. Connect a webcam and click Find cameras, or choose Demo pattern."
+
+func _source_selected(index: int) -> void:
+	connect_button.disabled = not source_picker.get_item_metadata(index) is Dictionary
+	source_picker.tooltip_text = source_picker.get_item_text(index)
+	message.text = "Click Start capture to use " + source_picker.get_item_text(index) + "."
+
 func _start() -> void:
+	var camera = source_picker.get_item_metadata(source_picker.selected)
+	if not camera is Dictionary or action_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		return
 	if video_reader:
 		video_reader.stop_reading()
 		landmark_reader.stop_reading()
-	var index := source_picker.get_selected_id()
-	_action("/api/camera/select", {"camera_index": -1 if index == 99 else index, "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
+	_action("/api/camera/select", {"camera_index": camera.index, "device_id": camera.get("device_id"), "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
 
 func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int) -> void:
 	video.texture = y

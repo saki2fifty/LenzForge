@@ -10,11 +10,11 @@
   <header><div class="brand"><span class="mark">LF</span><div><h1>LenzForge</h1><small>REAL-TIME AR STUDIO</small></div></div><span id="connection" class="pill">Connecting</span></header>
   <main>
     <aside class="card"><p class="eyebrow">01 / CAPTURE</p><h2>Your source</h2><p class="muted">One camera. Every view, in sync.</p>
-      <label for="source">Camera</label><select id="source"><option value="0">Camera 0</option><option value="1">Camera 1</option><option value="2">Camera 2</option><option value="-1">Demo pattern</option></select>
+      <label for="source">Camera</label><select id="source"><option value="" disabled selected>Waiting for cameras…</option></select>
       <button id="scan" class="subtle">Find cameras</button>
       <label for="resolution">Resolution</label><select id="resolution"><option value="1280,720">1280 × 720</option><option value="1920,1080">1920 × 1080</option><option value="640,360">640 × 360</option></select>
       <label for="fps">Frame rate</label><select id="fps"><option>30</option><option>60</option><option>24</option></select>
-      <button id="start" class="primary">Start capture</button><button id="stop">Stop capture</button>
+      <button id="start" class="primary" disabled>Start capture</button><button id="stop">Stop capture</button>
       <hr><p class="eyebrow">02 / TRACKING</p><label class="check"><input type="checkbox" data-tracking="face_mesh" checked> Face + iris</label><label class="check"><input type="checkbox" data-tracking="hands"> Hands</label><label class="check"><input type="checkbox" data-tracking="pose"> Body pose</label>
       <p class="privacy">LOCAL PROCESSING<br><span class="muted">Camera frames stay on this computer.</span></p>
     </aside>

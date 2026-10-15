@@ -30,7 +30,7 @@ In another terminal:
 .\Start-Viewer.ps1
 ```
 
-Browser controls are at **http://127.0.0.1:5000**. Choose a camera or **Demo pattern**, then select **Start capture**. Stop capture before scanning for another physical camera. Close the backend with Ctrl+C. Use `Start-Viewer.ps1 -Editor` to edit the Godot project.
+Browser controls are at **http://127.0.0.1:5000**. Both interfaces automatically list cameras by their Windows device names. Choose your physical webcam, then select **Start capture**. **Demo pattern (no camera)** generates a test animation; virtual cameras need their own source application running. **Find cameras** refreshes the list without interrupting capture. Close the backend with Ctrl+C. Use `Start-Viewer.ps1 -Editor` to edit the Godot project.
 
 The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is available for browser-only development; change `BACKEND` in `viewer/studio.gd` if using a different desktop port.
 
@@ -91,7 +91,7 @@ After setup:
 
 This runs Python regression tests, a Godot headless import/startup, and an integration probe that sends known video/landmarks from Python through the compiled native readers. The Windows GitHub Actions workflow runs the same checks.
 
-Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. A 1280×720 synthetic source delivered approximately 29.7 fps at a 30 fps target on the development PC. That is a demo-throughput measurement, not a guarantee of webcam or face-tracking performance. Physical camera compatibility and the full range of retained effects still need hardware/manual coverage.
+Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. A 1280×720 synthetic source delivered approximately 29.7 fps at a 30 fps target on the development PC. A NexiGo N960E FHD Webcam delivered about 22 fps at 1280×720 with 478 face landmarks reaching Godot; discovery refreshed without stopping video. These observations are not guarantees for other devices or lighting conditions. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
 See [architecture and modernization decisions](docs/ARCHITECTURE.md) and [supported API](docs/API.md). Historical documents describe earlier plans and are not current feature guarantees.
 
@@ -100,6 +100,7 @@ See [architecture and modernization decisions](docs/ARCHITECTURE.md) and [suppor
 - **Missing native extension or DLL:** rerun `Setup.ps1`. For a code-only rebuild use `Setup.ps1 -SkipInstall`; close running viewers first.
 - **Missing model:** rerun setup. Alternatively set `LENZFORGE_MODELS` to a directory containing the three `.task` files listed in `tools/bootstrap.py`.
 - **Camera unavailable:** close other applications using it, verify Windows camera permissions, and try Demo pattern to separate capture issues from viewer issues. Hardware may negotiate a different resolution or frame rate.
+- **Only a pattern or virtual-camera screen appears:** choose your physical webcam by its device name and click **Start capture**. The demo and virtual devices are separate sources. If discovery reports a missing helper after an update, run `Setup.ps1 -SkipInstall` once.
 - **Backend offline:** keep its terminal open and verify port 5000 is available. The service binds to loopback by default.
 - **Slow tracking:** use a lower capture resolution or the performance API; inference resolution changes apply on the next capture start. The mailbox replaces old work rather than accumulating latency.
 

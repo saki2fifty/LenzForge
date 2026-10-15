@@ -112,3 +112,37 @@ def test_recording_writes_playable_video_and_landmarks(tmp_path):
 def test_invalid_capture_dimensions_are_rejected(dimensions):
     with pytest.raises(ValueError):
         Camera(-1, *dimensions)
+
+
+def test_camera_stops_and_reports_disconnection(monkeypatch):
+    class DisconnectedCamera:
+        released = False
+        reads = 0
+
+        def isOpened(self):
+            return True
+
+        def set(self, *args):
+            return True
+
+        def read(self):
+            self.reads += 1
+            return (True, np.zeros((64, 64, 3), np.uint8)) if self.reads == 1 else (False, None)
+
+        def release(self):
+            self.released = True
+
+    device = DisconnectedCamera()
+    monkeypatch.setattr(cv2, 'VideoCapture', lambda *args: device)
+    camera = Camera(0, 64, 64, mp_enabled=False)
+    camera.FRAME_TIMEOUT = .1
+    try:
+        assert camera.open()
+        assert camera.wait_frame(timeout=1) is not None
+        camera._thread.join(timeout=2)
+        assert not camera._thread.is_alive()
+        assert not camera.is_opened()
+        assert 'stopped delivering frames' in camera.error
+        assert device.released
+    finally:
+        camera.close()

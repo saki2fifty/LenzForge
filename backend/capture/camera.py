@@ -37,6 +37,8 @@ def bgr_to_nv12(frame):
 
 
 class Camera:
+    FRAME_TIMEOUT = 3.0
+
     def __init__(self, camera_id, width=1280, height=720, fps=30, mp_enabled=True, mp_max_width=None):
         if not (isinstance(camera_id, int) and camera_id >= -1):
             raise ValueError('camera_id must be >= -1 (-1 is the demo source)')
@@ -46,6 +48,7 @@ class Camera:
             raise ValueError('FPS must be between 1 and 120')
         self.camera_id = self.index = camera_id
         self.name = 'Demo pattern' if camera_id == -1 else f'Camera {camera_id}'
+        self.device_id = ''
         self.width, self.height, self.fps = width, height, fps
         self.mp_enabled, self.mp_max_width = mp_enabled, mp_max_width
         self.stats = CameraStats()
@@ -84,16 +87,17 @@ class Camera:
 
     def _capture(self):
         try:
+            first = None
             if self.camera_id >= 0:
                 self.msmf_camera = cv2.VideoCapture(self.camera_id, cv2.CAP_MSMF)
                 if not self.msmf_camera.isOpened():
-                    raise RuntimeError(f'Cannot open camera {self.camera_id}')
+                    raise RuntimeError(f'Cannot open {self.name}. Close other camera apps and check Windows camera permissions.')
                 self.msmf_camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.msmf_camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
                 self.msmf_camera.set(cv2.CAP_PROP_FPS, self.fps)
                 ok, first = self.msmf_camera.read()
-                if not ok:
-                    raise RuntimeError('Camera returned no frames')
+                if not ok or first is None:
+                    raise RuntimeError(f'{self.name} returned no frames. Check that the device is connected and available.')
                 self.height, self.width = first.shape[:2]
             if self.width % 2 or self.height % 2:
                 raise RuntimeError('Camera negotiated odd dimensions unsupported by NV12')
@@ -114,16 +118,22 @@ class Camera:
                                       'fps': self.fps, 'y_stride': self.width, 'uv_stride': self.width}
             self.stats.is_opened = True
             self._ready.set()
+            last_frame_at = time.monotonic()
             while not self._stop.is_set():
                 start = time.monotonic()
                 if self.camera_id == -1:
                     frame = self._demo_frame()
+                elif first is not None:
+                    frame, first = first, None
                 else:
                     ok, frame = self.msmf_camera.read()
-                    if not ok:
+                    if not ok or frame is None:
                         self.stats.frames_dropped += 1
+                        if time.monotonic() - last_frame_at >= self.FRAME_TIMEOUT:
+                            raise RuntimeError(f'{self.name} stopped delivering frames. Reconnect it, then start capture again.')
                         self._stop.wait(0.02)
                         continue
+                last_frame_at = time.monotonic()
                 timestamp = get_qpc_ticks()  # One timestamp for both protocols.
                 y, uv = bgr_to_nv12(frame)
                 self.ring_writer.write_frame(y, uv, timestamp)
@@ -137,7 +147,7 @@ class Camera:
                     self.frame_count += 1
                     self.stats.frames_captured += 1
                     self._condition.notify_all()
-                time.sleep(max(0, 1 / self.fps - (time.monotonic() - start)))
+                self._stop.wait(max(0, 1 / self.fps - (time.monotonic() - start)))
         except Exception as exc:
             self.error = str(exc)
             logger.exception('Capture stopped')

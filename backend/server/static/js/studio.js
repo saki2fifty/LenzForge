@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 let recording = false;
 let lastSource = null;
+let discoveryAttempted = false;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
@@ -15,15 +16,36 @@ async function action(callback) {
   catch (error) { $('message').textContent = error.message; }
 }
 $('start').onclick = () => action(async () => {
-  await api('/api/camera/select', {camera_index:Number($('source').value), resolution:$('resolution').value.split(',').map(Number), fps:Number($('fps').value)});
+  if (!$('source').value) return;
+  await api('/api/camera/select', {camera_index:Number($('source').value), device_id:$('source').selectedOptions[0]?.dataset.deviceId, resolution:$('resolution').value.split(',').map(Number), fps:Number($('fps').value)});
   $('message').textContent = 'Capture started. You can also open the desktop viewer.';
 });
 $('stop').onclick = () => action(async () => { await api('/api/camera/stop', {}); $('message').textContent = 'Capture stopped.'; });
-$('scan').onclick = () => action(async () => {
+async function findCameras() {
   const result = await api('/api/camera/list');
-  $('source').replaceChildren(...result.cameras.map(camera => new Option(camera.name, camera.index)));
-  $('message').textContent = 'Source list updated.';
-});
+  const previous = $('source').selectedOptions[0];
+  const placeholder = new Option('Choose your camera…', '');
+  placeholder.disabled = true;
+  const options = result.cameras.map(camera => {
+    const option = new Option(camera.name, camera.index);
+    option.dataset.deviceId = camera.device_id || '';
+    return option;
+  });
+  $('source').replaceChildren(placeholder, ...options);
+  const selected = options.find(option => previous?.dataset.deviceId
+    ? option.dataset.deviceId === previous.dataset.deviceId
+    : option.value === (previous?.value || String(lastSource)));
+  $('source').value = selected?.value ?? '';
+  $('start').disabled = !$('source').value;
+  $('message').textContent = result.cameras.some(camera => camera.index >= 0)
+    ? 'Select your webcam by name, then click Start capture.'
+    : 'No cameras found. Connect a webcam and click Find cameras, or choose Demo pattern.';
+}
+$('scan').onclick = () => action(findCameras);
+$('source').onchange = () => {
+  $('start').disabled = !$('source').value;
+  $('message').textContent = 'Click Start capture to use ' + $('source').selectedOptions[0].text + '.';
+};
 document.querySelectorAll('[data-tracking]').forEach(input => input.onchange = () => action(async () => {
   const changes = {[input.dataset.tracking]:input.checked};
   if (input.dataset.tracking === 'face_mesh') changes.iris = input.checked;
@@ -51,9 +73,10 @@ async function poll() {
     if (data.camera_active && data.camera_index !== lastSource) {
       lastSource = data.camera_index;
       $('source').value = String(data.camera_index);
+      $('start').disabled = !$('source').value;
       $('message').textContent = 'Source connected. Adjust your look or start a recording.';
     }
-    $('connection').textContent = data.camera_active ? '● Source live' : '● Backend connected';
+    $('connection').textContent = data.camera_active ? (data.camera_index === -1 ? '● Demo active' : '● Camera live') : '● Backend connected';
     $('capture-fps').textContent = data.fps.toFixed(1);
     $('points').textContent = data.tracking.landmark_count || '0';
     $('inference').textContent = (data.tracking.last_inference_ms || 0).toFixed(1);
@@ -64,8 +87,13 @@ async function poll() {
     });
     recording = data.recording;
     $('record').textContent = recording ? '■ Stop recording' : '● Record source';
-    if (data.tracking.error || data.error) $('message').textContent = data.tracking.error || data.error;
-  } catch (_) { $('connection').textContent = 'Backend offline'; }
+    if (data.error) $('connection').textContent = 'Capture error';
+    if (data.tracking.error || data.error) $('message').textContent = data.error || data.tracking.error;
+    if (!discoveryAttempted) {
+      discoveryAttempted = true;
+      try { await findCameras(); } catch (error) { $('message').textContent = error.message; }
+    }
+  } catch (_) { $('connection').textContent = 'Backend offline'; discoveryAttempted = false; }
 }
 async function updateLoop() { await poll(); setTimeout(updateLoop, document.hidden ? 4000 : 1000); }
 api('/api/effects/list').then(result => {
