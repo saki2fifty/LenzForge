@@ -16,13 +16,16 @@ def main():
     test_temp = artifacts / ('pytest-' + uuid.uuid4().hex)
     subprocess.run([sys.executable, '-m', 'pytest', '-p', 'no:cacheprovider',
                     '--basetemp', str(test_temp), str(ROOT / 'tests')], cwd=ROOT, check=True)
-    for name, extra in [('import', ['--editor', '--import', '--quit']), ('viewer', ['--quit-after', '10'])]:
+    # Godot can race extension-documentation generation against immediate shutdown
+    # on first import. Let deferred editor callbacks run; still fail on every error.
+    # https://github.com/godotengine/godot/issues/111048
+    for name, extra in [('import', ['--import', '--frame-delay', '1000']), ('viewer', ['--quit-after', '10'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)
         output = result.stdout + result.stderr
         (artifacts / f'{name}-console.log').write_text(output)
         if result.returncode or any(marker in output for marker in ('ERROR:', 'SCRIPT ERROR', 'Parse Error', 'Shader compilation failed', 'GDExtension dynamic library not found')):
-            raise RuntimeError(output)
+            raise RuntimeError(f'Godot {name} exited with {result.returncode}:\n{output}')
     subprocess.run([sys.executable, str(ROOT / 'tools/check_ipc.py')], cwd=ROOT, check=True)
     print('Python tests, Godot import/startup, and native IPC passed.')
 

@@ -60,6 +60,8 @@ Validation covers wire layout/publication, NV12 color round trips, latest-frame 
 
 Godot debug and release extensions build against the 4.7 API. Headless import/startup passes. Native screenshots were inspected at 1440×900 and 1024×720; the browser was checked at desktop size. Development graphics hardware: Radeon RX 7900 XTX. The synthetic 1280×720 demo measured about 29.7 fps with a 30 fps target; blank-scene inference was about 2.6 ms. These are smoke-test observations, not a controlled comparative benchmark.
 
+The headless import check gives deferred editor callbacks time to finish before shutdown. An immediate exit on a fresh project reproduced the upstream [GDExtension documentation shutdown race](https://github.com/godotengine/godot/issues/111048). Validation still fails on nonzero exits and engine/script errors; the workaround does not ignore failures.
+
 No physical webcam was opened during modernization. Real camera negotiation, sustained recording, GPU/driver variation, and all retained effect parameter combinations need further manual coverage. The old GOD1 writer is preserved but does not constitute a working virtual-camera output path.
 
 ## Next improvements

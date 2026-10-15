@@ -14,7 +14,7 @@ cd LenzForge
 .\Setup.ps1
 ```
 
-Setup downloads a project-local Python, Godot, C++ compiler, bindings, and three tracking models. It installs locked Python packages and builds debug and release native extensions. No system Python or compiler installation is required. The initial build can take several minutes. Re-running setup reuses downloaded tools and incremental builds.
+Setup downloads a project-local Python, Godot, C++ compiler, bindings, and three tracking models. It installs locked Python packages, builds debug and release native extensions, and imports the Godot project for its first launch. No system Python or compiler installation is required. The initial build can take several minutes. Re-running setup reuses downloaded tools and incremental builds.
 
 In one PowerShell terminal:
 

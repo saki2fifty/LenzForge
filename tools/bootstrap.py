@@ -102,6 +102,17 @@ def main():
                             f'-j{min(os.cpu_count() or 2, 12)}'], cwd=extension, env=environment, check=True)
         for library in ('libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll'):
             shutil.copy2(compiler_dir / 'mingw64/bin' / library, extension.parent / 'bin' / library)
+        print('Importing Godot project and registering native extensions', flush=True)
+        # Generate .godot/extension_list.cfg before the first game launch. The
+        # frame delay avoids Godot's first-import documentation shutdown race.
+        result = subprocess.run([str(godot_dir / f'Godot_v{godot_version}-stable_win64_console.exe'),
+            '--headless', '--path', str(ROOT / 'viewer'), '--import', '--frame-delay', '1000'],
+            capture_output=True, text=True, timeout=90)
+        output = result.stdout + result.stderr
+        (ROOT / 'artifacts').mkdir(exist_ok=True)
+        (ROOT / 'artifacts/setup-import.log').write_text(output, encoding='utf-8')
+        if result.returncode or 'ERROR:' in output:
+            raise RuntimeError(f'Godot setup import exited with {result.returncode}:\n{output}')
     print('Ready. Run ./Start-Backend.ps1 and ./Start-Viewer.ps1', flush=True)
 
 
