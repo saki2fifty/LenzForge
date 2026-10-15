@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LenzForge - Live View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .viewer-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .video-stream {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        .status-inactive {
+            background: #ef4444;
+        }
+
+        .footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎥 LenzForge Live View</h1>
+        <p>Real-time camera feed with landmark tracking</p>
+    </div>
+
+    <div class="container">
+        <div class="viewer-card">
+            <div class="video-container">
+                <img id="videoStream" class="video-stream" src="/video_feed" alt="Live Video Stream">
+                <div class="video-overlay">
+                    <span class="status" id="streamStatus"></span>
+                    <span id="streamText">Connecting...</span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">FPS</div>
+                    <div class="stat-value" id="fpsValue">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Camera</div>
+                    <div class="stat-value" id="cameraStatus">❌</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Landmarks</div>
+                    <div class="stat-value" id="landmarkStatus">❌</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="location.href='/'">
+                    🏠 Back to Dashboard
+                </button>
+                <button class="btn btn-secondary" onclick="refreshStream()">
+                    🔄 Refresh Stream
+                </button>
+                <button class="btn btn-secondary" onclick="toggleFullscreen()">
+                    ⛶ Fullscreen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>LenzForge - Real-time Face Tracking System | Press F11 for fullscreen</p>
+    </div>
+
+    <script>
+        let statsInterval = null;
+
+        function updateStats() {
+            fetch('/stream_stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Update FPS
+                    document.getElementById('fpsValue').textContent = data.fps || '--';
+
+                    // Update camera status
+                    const cameraStatus = document.getElementById('cameraStatus');
+                    cameraStatus.textContent = data.active ? '✅' : '❌';
+
+                    // Update landmark status
+                    const landmarkStatus = document.getElementById('landmarkStatus');
+                    landmarkStatus.textContent = data.landmarks ? '✅' : '❌';
+
+                    // Update stream status
+                    const statusDot = document.getElementById('streamStatus');
+                    const statusText = document.getElementById('streamText');
+                    
+                    if (data.active) {
+                        statusDot.className = 'status status-active';
+                        statusText.textContent = 'Live';
+                    } else {
+                        statusDot.className = 'status status-inactive';
+                        statusText.textContent = 'No Camera';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching stats:', error);
+                    document.getElementById('streamStatus').className = 'status status-inactive';
+                    document.getElementById('streamText').textContent = 'Error';
+                });
+        }
+
+        function refreshStream() {
+            const img = document.getElementById('videoStream');
+            const src = img.src;
+            img.src = '';
+            setTimeout(() => {
+                img.src = src + '?t=' + new Date().getTime();
+            }, 100);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.video-container');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.error('Error entering fullscreen:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Start stats updates
+        updateStats();
+        statsInterval = setInterval(updateStats, 1000);
+
+        // Handle stream errors
+        document.getElementById('videoStream').addEventListener('error', function() {
+            console.error('Stream error detected');
+            document.getElementById('streamStatus').className = 'status status-inactive';
+            document.getElementById('streamText').textContent = 'Stream Error';
+        });
+
+        // Handle stream load
+        document.getElementById('videoStream').addEventListener('load', function() {
+            console.log('Stream loaded successfully');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (statsInterval) {
+                clearInterval(statsInterval);
+            }
+        });
+    </script>
+</body>
+</html>

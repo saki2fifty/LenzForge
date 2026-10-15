@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "project_name": "LenzForge-AR",
+  "backend": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "api_version": "v1"
+  },
+  "video": {
+    "default_resolution": "1280x720",
+    "default_framerate": 30,
+    "default_quality": "medium",
+    "supported_resolutions": [
+      "1280x720",
+      "1920x1080",
+      "854x480",
+      "640x360"
+    ],
+    "supported_framerates": [24, 30, 60, 120],
+    "supported_qualities": ["low", "medium", "high", "ultra"]
+  },
+  "ar": {
+    "landmark_detection": true,
+    "hand_tracking": true,
+    "face_tracking": false
+  },
+  "ipc": {
+    "shared_memory_size": 10485760,
+    "ring_buffer_size": 1048576
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/lenzforge.log"
+  }
+}

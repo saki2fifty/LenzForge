@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>LenzForge V2 - AR Control Center</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/docs.css') }}">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+	<!-- Fixed Header with Live Stats -->
+	<header class="header">
+		<div class="header-content">
+			<div class="logo">LENZFORGE V2</div>
+			<div class="live-stats">
+				<div class="stat-item">
+					<span class="stat-label">FPS</span>
+					<span class="stat-value" id="headerFps">0.0</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">CPU</span>
+					<span class="stat-value" id="headerCpu">0%</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Memory</span>
+					<span class="stat-value" id="headerMemory">0 MB</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Uptime</span>
+					<span class="stat-value" id="headerUptime">0s</span>
+				</div>
+			</div>
+		</div>
+	</header>
+
+	<!-- Main Container -->
+	<div class="container">
+		
+		<!-- Camera Selection -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">Camera Selection</h2>
+			</div>
+			
+			<div id="cameraList">
+				<p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading cameras...</p>
+			</div>
+		</div>
+
+		<!-- Performance Stats -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">Performance Stats</h2>
+				<div style="display: flex; gap: 10px; align-items: center;">
+					<div class="toggle-switch" style="margin: 0;">
+						<span class="toggle-label" style="font-size: 11px;">Enable Monitoring</span>
+						<label class="switch">
+							<input type="checkbox" id="perfMonitorToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+					<select id="pollInterval" class="poll-select" onchange="PerformanceStatsModule.changePollRate(this.value)">
+						<option value="500">0.5s</option>
+						<option value="1000" selected>1s</option>
+						<option value="2000">2s</option>
+						<option value="5000">5s</option>
+					</select>
+				</div>
+			</div>
+			
+			<div class="perf-stats-grid">
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">CPU Usage</div>
+					<div class="perf-stat-value" id="statCPU">0%</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barCPU" style="width: 0%"></div>
+					</div>
+				</div>
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">Memory</div>
+					<div class="perf-stat-value" id="statMemory">0 MB</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barMemory" style="width: 0%"></div>
+					</div>
+				</div>
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">Backend FPS</div>
+					<div class="perf-stat-value" id="statBackendFPS">0.0</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barBackendFPS" style="width: 0%"></div>
+					</div>
+				</div>
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">Frame Time</div>
+					<div class="perf-stat-value" id="statFrameTime">0 ms</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barFrameTime" style="width: 0%"></div>
+					</div>
+				</div>
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">Latency</div>
+					<div class="perf-stat-value" id="statLatency">0 ms</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barLatency" style="width: 0%"></div>
+					</div>
+				</div>
+				<div class="perf-stat-box">
+					<div class="perf-stat-label">Drop Rate</div>
+					<div class="perf-stat-value" id="statDropRate">0%</div>
+					<div class="perf-stat-bar">
+						<div class="perf-stat-bar-fill" id="barDropRate" style="width: 0%"></div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Additional Stats Section -->
+			<div class="expandable-group" style="margin-top: 15px;">
+				<div class="setting-header" onclick="SettingsModule.toggleExpand(this)">
+					<span class="toggle-label">Additional Metrics</span>
+					<span class="expand-icon">▼</span>
+				</div>
+				
+				<div class="setting-content collapsed">
+					<div class="perf-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">Process Memory</div>
+							<div class="perf-stat-value" id="statProcessMemory">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">Threads</div>
+							<div class="perf-stat-value" id="statThreads">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">MediaPipe FPS</div>
+							<div class="perf-stat-value" id="statMediaPipeFPS">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">Landmarks</div>
+							<div class="perf-stat-value" id="statLandmarkCount">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">Face Detected</div>
+							<div class="perf-stat-value" id="statFaceDetected">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">VID1 Write Seq</div>
+							<div class="perf-stat-value" id="statVID1Seq">--</div>
+						</div>
+						<div class="perf-stat-box" style="background: rgba(255, 255, 255, 0.02);">
+							<div class="perf-stat-label">LMK1 Write Seq</div>
+							<div class="perf-stat-value" id="statLMK1Seq">--</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			<div class="perf-chart-container">
+				<canvas id="performanceChart"></canvas>
+			</div>
+		</div>
+
+		<!-- Tracking Control -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">Tracking Control</h2>
+			</div>
+			<div id="trackingToggles">
+				<div class="toggle-switch">
+					<span class="toggle-label">Face Mesh (478 points)</span>
+					<label class="switch">
+						<input type="checkbox" id="toggleFace" checked>
+						<span class="slider"></span>
+					</label>
+				</div>
+				<div class="toggle-switch">
+					<span class="toggle-label">Iris Tracking</span>
+					<label class="switch">
+						<input type="checkbox" id="toggleIris">
+						<span class="slider"></span>
+					</label>
+				</div>
+				<div class="toggle-switch">
+					<span class="toggle-label">Hand Tracking</span>
+					<label class="switch">
+						<input type="checkbox" id="toggleHands">
+						<span class="slider"></span>
+					</label>
+				</div>
+				<div class="toggle-switch">
+					<span class="toggle-label">Pose Estimation</span>
+					<label class="switch">
+						<input type="checkbox" id="togglePose">
+						<span class="slider"></span>
+					</label>
+				</div>
+			</div>
+		</div>
+
+		<!-- Active Effects Chain -->
+		<div class="glass-card" id="activeEffectsCard" style="display: none;">
+			<div class="card-header">
+				<h2 class="card-title">Active Effects</h2>
+				<button class="btn btn-danger btn-sm" onclick="EffectsModule.clear()">Clear All</button>
+			</div>
+			<div id="activeEffects">
+				<p style="color: var(--text-muted); text-align: center; padding: 20px;">No active effects</p>
+			</div>
+		</div>
+
+		<!-- Effects Library -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">Effects Studio</h2>
+				<span class="status-badge online" style="font-size: 11px;">
+					<span id="effectsCount">47</span> Available
+				</span>
+			</div>
+			<div id="effectsList">
+				<p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading effects...</p>
+			</div>
+		</div>
+
+
+		<!-- Logging Controls -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">System Logging</h2>
+			</div>
+			
+			<div class="expandable-group">
+				<div class="setting-header" onclick="SettingsModule.toggleExpand(this)">
+					<div class="toggle-switch">
+						<span class="toggle-label">Master Logging Control</span>
+						<label class="switch">
+							<input type="checkbox" id="masterLogging" checked onchange="SettingsModule.updateLoggingMaster()">
+							<span class="slider"></span>
+						</label>
+					</div>
+					<span class="expand-icon">▼</span>
+				</div>
+				
+				<div class="setting-content collapsed">
+					<div class="setting-subsection">
+						<h4>Log Categories</h4>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">MediaPipe <span class="toggle-description">Face mesh, hands, pose processing</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="mediapipe">
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Matplotlib <span class="toggle-description">Chart rendering and visualization</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="matplotlib">
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Camera <span class="toggle-description">MSMF capture and camera operations</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="camera" checked>
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Streaming <span class="toggle-description">Video feed and MJPEG streaming</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="streaming" checked>
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Tracking <span class="toggle-description">Landmark tracking and effects</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="tracking" checked>
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">System <span class="toggle-description">General backend operations</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="system" checked>
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Werkzeug <span class="toggle-description">Flask HTTP request/response logs</span></span>
+							<label class="switch">
+								<input type="checkbox" class="log-category" data-category="werkzeug">
+								<span class="slider"></span>
+							</label>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Performance Settings -->
+		<div class="glass-card">
+			<div class="card-header">
+				<h2 class="card-title">Performance Settings</h2>
+				<span class="status-badge online" style="font-size: 11px;">
+					<span id="perfPreset">Balanced</span>
+				</span>
+			</div>
+			
+			<!-- Quick Presets -->
+			<div class="controls-grid" style="margin-bottom: 20px;">
+				<button class="btn btn-sm btn-secondary" onclick="PerformanceModule.applyPreset('maximum_quality')">
+					Max Quality
+				</button>
+				<button class="btn btn-sm btn-primary" onclick="PerformanceModule.applyPreset('balanced')">
+					Balanced
+				</button>
+				<button class="btn btn-sm btn-success" onclick="PerformanceModule.applyPreset('maximum_performance')">
+					Max Speed
+				</button>
+				<button class="btn btn-sm btn-secondary" onclick="PerformanceModule.applyPreset('low_bandwidth')">
+					Low Bandwidth
+				</button>
+			</div>
+			
+			<!-- Detailed Settings -->
+			<div class="expandable-group">
+				<div class="setting-header" onclick="SettingsModule.toggleExpand(this)">
+					<span class="toggle-label">Advanced Settings</span>
+					<span class="expand-icon">▼</span>
+				</div>
+				
+				<div class="setting-content collapsed">
+					<div class="setting-subsection">
+						<h4>MediaPipe Resolution</h4>
+						<p class="setting-description">Lower resolution = faster processing, higher FPS</p>
+						<select id="mediapipeResolution" class="form-select" onchange="PerformanceModule.updateSettings()">
+							<option value="0">Full Resolution (slowest, best quality)</option>
+							<option value="960">960px (high quality)</option>
+							<option value="640" selected>640px (balanced)</option>
+							<option value="480">480px (fastest)</option>
+						</select>
+					</div>
+					
+					<div class="setting-subsection">
+						<h4>Preview Settings</h4>
+						
+						<div class="setting-row">
+							<label class="setting-label">
+								Preview FPS Limit
+								<span class="setting-value" id="previewFpsValue">30</span>
+							</label>
+							<input type="range" id="previewFps" class="form-range" 
+								min="15" max="60" step="15" value="30" 
+								oninput="PerformanceModule.updateSliderValue(this, 'previewFpsValue')"
+								onchange="PerformanceModule.updateSettings()">
+						</div>
+						
+						<div class="setting-row">
+							<label class="setting-label">
+								JPEG Quality
+								<span class="setting-value" id="previewQualityValue">85</span>
+							</label>
+							<input type="range" id="previewQuality" class="form-range" 
+								min="70" max="95" step="5" value="85" 
+								oninput="PerformanceModule.updateSliderValue(this, 'previewQualityValue')"
+								onchange="PerformanceModule.updateSettings()">
+						</div>
+						
+						<div class="setting-row">
+							<label class="setting-label">
+								Preview Scale
+								<span class="setting-value" id="previewScaleValue">100%</span>
+							</label>
+							<input type="range" id="previewScale" class="form-range" 
+								min="0.25" max="1.0" step="0.25" value="1.0" 
+								oninput="PerformanceModule.updateSliderValue(this, 'previewScaleValue', true)"
+								onchange="PerformanceModule.updateSettings()">
+						</div>
+					</div>
+					
+					<div class="setting-subsection">
+						<h4>Buffer Settings</h4>
+						
+						<div class="toggle-switch">
+							<span class="toggle-label">Triple Buffering</span>
+							<label class="switch">
+								<input type="checkbox" id="tripleBuffer" checked onchange="PerformanceModule.updateSettings()">
+								<span class="slider"></span>
+							</label>
+						</div>
+						
+						<div class="setting-row">
+							<label class="setting-label">
+								Max Queue Size
+								<span class="setting-value" id="queueSizeValue">3</span>
+							</label>
+							<input type="range" id="queueSize" class="form-range" 
+								min="1" max="10" step="1" value="3" 
+								oninput="PerformanceModule.updateSliderValue(this, 'queueSizeValue')"
+								onchange="PerformanceModule.updateSettings()">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+	</div>
+
+	<!-- Load Scripts -->
+	<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+	<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/modules.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/performance-stats.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/console.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/docs.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

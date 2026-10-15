@@ -1,0 +1,252 @@
+[gd_scene load_steps=4 format=3 uid="uid://cu2d3txvpwdxe"]
+
+[ext_resource type="Script" path="res://scenes/ui/lenzforge_main.gd" id="1_lenzforge_main"]
+[ext_resource type="Script" path="res://scripts/managers/video_manager.gd" id="2_video_manager"]
+[ext_resource type="Script" path="res://scripts/managers/landmark_manager.gd" id="3_landmark_manager"]
+
+[node name="LenzForgeMainUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_lenzforge_main")
+
+[node name="Managers" type="Node" parent="."]
+
+[node name="VideoManager" type="Node" parent="Managers"]
+script = ExtResource("2_video_manager")
+
+[node name="LandmarkManager" type="Node" parent="Managers"]
+script = ExtResource("3_landmark_manager")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.101961, 0.101961, 0.180392, 1)
+
+[node name="LeftPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 320.0
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="LeftPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="LeftPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ContentLabel" type="Label" parent="LeftPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Content Panel"
+horizontal_alignment = 1
+
+[node name="Separator" type="HSeparator" parent="LeftPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="InfoLabel" type="Label" parent="LeftPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.627451, 0.627451, 0.627451, 1)
+theme_override_font_sizes/font_size = 14
+text = "Face tracking content, graphs, and controls will appear here."
+autowrap_mode = 3
+
+[node name="RightPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -320.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="RightPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="RightPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CustomizationLabel" type="Label" parent="RightPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Customization"
+horizontal_alignment = 1
+
+[node name="Separator" type="HSeparator" parent="RightPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="InfoLabel" type="Label" parent="RightPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.627451, 0.627451, 0.627451, 1)
+theme_override_font_sizes/font_size = 14
+text = "Theme selection, appearance settings, and customization controls will appear here."
+autowrap_mode = 3
+
+[node name="TopPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 328.0
+offset_right = -328.0
+offset_bottom = 60.0
+grow_horizontal = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="TopPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="HBoxContainer" type="HBoxContainer" parent="TopPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="TopPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "LenzForge AR"
+vertical_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="TopPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.627451, 0.627451, 0.627451, 1)
+theme_override_font_sizes/font_size = 14
+text = "Ready • GPU Mode • 1280x720 • 30 FPS"
+vertical_alignment = 1
+
+[node name="CenterPanel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 328.0
+offset_top = 68.0
+offset_right = -328.0
+offset_bottom = -68.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="VideoLabel" type="Label" parent="CenterPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "Video Feed"
+horizontal_alignment = 1
+
+[node name="VideoPlaceholder" type="ColorRect" parent="CenterPanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(680, 520)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 3
+color = Color(0.0862745, 0.129412, 0.243137, 0)
+
+[node name="LandmarkOverlay" type="Control" parent="CenterPanel/MarginContainer/VBoxContainer/VideoPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BottomPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 328.0
+offset_top = -60.0
+offset_right = -328.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="BottomPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="HBoxContainer" type="HBoxContainer" parent="BottomPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="ControlsLabel" type="Label" parent="BottomPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Controls: F6=Run Scene | ESC=Stop | Space=Toggle Landmarks"
+vertical_alignment = 1
+
+[node name="InfoLabel" type="Label" parent="BottomPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.627451, 0.627451, 0.627451, 1)
+theme_override_font_sizes/font_size = 14
+text = "Tracking Active"
+vertical_alignment = 1

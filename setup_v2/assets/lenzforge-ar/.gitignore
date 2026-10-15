@@ -1,0 +1,33 @@
+# Godot-specific
+.import/
+.godot/
+export_presets.cfg
+*.translation
+
+# Exported executables
+builds/
+exports/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE-specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# User-specific
+.user
