@@ -32,7 +32,6 @@ var virtual_points := PackedVector2Array()
 var face_depth := PackedFloat32Array()
 var root_depth := PackedFloat32Array()
 var virtual_depth := PackedFloat32Array()
-var root_texture: ImageTexture
 var occlusion: RefCounted
 var selection := Control.new()
 var attachment: Array = []
@@ -328,18 +327,17 @@ func _attach() -> void:
 	for i in positions.size():
 		roots[i] = Vector2(positions[i].x,positions[i].y)
 		root_depth[i] = positions[i].z/video_size.x
-	if not root_depth.is_empty():
-		var image := Image.create_from_data(1,root_depth.size(),false,Image.FORMAT_RF,root_depth.to_byte_array())
-		if root_texture == null or root_texture.get_height() != root_depth.size(): root_texture = ImageTexture.create_from_image(image)
-		else: root_texture.update(image)
-		drawing.material.set_shader_parameter("root_depths",root_texture)
-		drawing.material.set_shader_parameter("strand_segments",int(config.segments))
 	_apply_occlusion()
-	var down: Vector2 = surface.screen_down
+	var right: Vector3 = (surface.vertices[454]-surface.vertices[234]).normalized()
+	var down: Vector3 = surface.vertices[152]-surface.vertices[10]
+	down = (down-right*down.dot(right)).normalized()
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55 + width*.015)
-	if not simulator.set_anchors(roots, width, down, mouth, radii): clear_face(); return
+	if config.collisions: simulator.set_head_surface(surface.vertices,surface.topology())
+	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
+	if not simulator.set_anchors_3d(positions, width, down, right, mouth, radii): clear_face(); return
+	drawing.material.set_shader_parameter("frame_width",video_size.x)
 	drawing.visible = enabled
 	_update_root_markers()
 	_update_virtual_markers()
@@ -348,11 +346,21 @@ func _attach_mannequin() -> void:
 	roots = mannequin_view.attach_roots()
 	var width := mannequin_view.face_width*mannequin_view.pixels_per_unit()
 	var down3: Vector3 = mannequin_view.pivot.basis*Vector3.DOWN
-	var down := Vector2(down3.x,-down3.y).normalized()
+	var right3: Vector3 = mannequin_view.pivot.basis*Vector3.RIGHT
+	var down := down3*Vector3(1,-1,-1)
+	var right := right3*Vector3(1,-1,-1)
 	var mouth := (face[0]+face[17])*.5*video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55+width*.015)
-	if not simulator.set_anchors(roots,width,down,mouth,radii): clear_face(); return
+	if config.collisions:
+		var head: PackedVector3Array = mannequin_view.surface.vertices.duplicate()
+		for i in head.size():
+			var world: Vector3 = mannequin_view.world_point(head[i]*Vector3(1,-1,-1))
+			var pixel: Vector2 = mannequin_view.project_world(world)
+			head[i] = Vector3(pixel.x,pixel.y,-world.z*mannequin_view.pixels_per_unit())
+		simulator.set_head_surface(head,surface.topology())
+	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
+	if not simulator.set_anchors_3d(mannequin_view.root_camera_positions,width,down,right,mouth,radii): clear_face(); return
 	drawing.hide()
 	_update_root_markers()
 	_update_virtual_markers()

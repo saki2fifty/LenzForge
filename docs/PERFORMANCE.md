@@ -172,3 +172,16 @@ These short synthetic CPU measurements exclude camera capture, AI inference, GPU
 ```
 
 The fixture disables settings persistence and writes `artifacts/surface-performance-current.json`. The older virtual-head-grid measurements above describe the retired separate-grid implementation.
+
+## Physical head collision
+
+Measured October 16, 2026 on the same workstation with Godot 4.7.2. Baseline `80c557f` used 2D motion and mouth-only collision. The new path simulates in 3D, fits a solid collider to the shared head, and checks entire strand links as well as joints. The same synthetic yaw/pitch fixture uses 30 warmup updates and 240 measured updates; the two runs were isolated. These are the historical 512-strand comparison settings, not the current 1,024-strand project defaults.
+
+| Workload | Physics/upload median before → after | Physics/upload p95 before → after | Tracking callback median before → after |
+| --- | ---: | ---: | ---: |
+| 512 × 8 | 0.979 → 2.275 ms | 1.185 → 2.510 ms | 1.277 → 2.390 ms |
+| 2,048 × 16, all regions | 7.723 → 14.659 ms | 8.724 → 15.956 ms | 1.721 → 2.927 ms |
+
+Collision adds work; this is a functionality improvement, not a speedup over having no head barrier. Directional triangle bins handle point contacts and short link sweeps; a refitted BVH handles sweeps crossing cube-face seams. Queries allocate no memory, catch-up remains capped, and each endpoint's depth fits in the existing 16-float segment buffer. The separate root-depth textures are no longer uploaded. Force-only edits still bypass rebuilding the groom (0.629 ms in this run).
+
+The maximum workload's combined CPU cost exceeds a 16.7 ms frame budget before camera/inference or presentation; use fewer strands/segments for that budget. These short headless CPU measurements exclude camera capture, AI inference, GPU completion and presentation and do not establish live FPS. [Raw before/after report](performance/head-collision.json).

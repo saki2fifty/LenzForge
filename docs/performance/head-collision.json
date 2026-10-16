@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-16",
+  "baseline_commit": "80c557f",
+  "description": "Native 3D strand physics with shared-head point and complete-link collision. Same pinned synthetic workload before and after; guide visibility inherits disabled project defaults in both.",
+  "before": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 1.508,
+          "p50": 0.979,
+          "p95": 1.185
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 2.004,
+          "p50": 1.277,
+          "p95": 1.615
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 9.284,
+          "p50": 7.723,
+          "p95": 8.724
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 3.028,
+          "p50": 1.721,
+          "p95": 2.146
+        }
+      }
+    ],
+    "edit_costs": {
+      "maximum_force_ms": 0.608,
+      "maximum_placement_ms": 109.266
+    },
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  },
+  "after": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 2.923,
+          "p50": 2.275,
+          "p95": 2.51
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 3.03,
+          "p50": 2.39,
+          "p95": 2.71
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 17.482,
+          "p50": 14.659,
+          "p95": 15.956
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 3.837,
+          "p50": 2.927,
+          "p95": 3.386
+        }
+      }
+    ],
+    "edit_costs": {
+      "maximum_force_ms": 0.629,
+      "maximum_placement_ms": 103.312
+    },
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  }
+}

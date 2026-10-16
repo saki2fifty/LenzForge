@@ -118,7 +118,7 @@ func _run() -> void:
 	layer.set_mannequin(true)
 	layer._process(1.0/60)
 	check(layer.roots.size() == int(Profile.defaults().strands) and layer.mannequin_view.hair.visible, "Offline 3D preview attaches all strands")
-	# Include the actual lip collider: a still face must not keep hair jittering.
+	# Include the actual head collider: a still face must not keep hair jittering.
 	for i in 1200: layer.simulator.advance(1.0/120)
 	var calm_tips := PackedVector2Array()
 	for i in layer.roots.size(): calm_tips.append(layer.simulator.get_strand_points(i)[-1])
@@ -127,7 +127,7 @@ func _run() -> void:
 		layer.simulator.advance(1.0/120)
 		for i in layer.roots.size():
 			largest_drift = maxf(largest_drift,calm_tips[i].distance_to(layer.simulator.get_strand_points(i)[-1]))
-	check(largest_drift < .5, "Stationary full beard must settle with mouth collision: %f px" % largest_drift)
+	check(largest_drift < .5, "Stationary full beard must settle with head collision: %f px" % largest_drift)
 	layer.selected_strand = 3
 	layer.set_strand_setting("length", 2.0)
 	check(layer.overrides["3"].length == 2.0 and layer.config.length == Profile.defaults().length, "Individual edit preserves global settings")

@@ -16,7 +16,7 @@ The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage wid
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
 5. Enable **Landmarks → Show landmark guides** (or the top toolbar's landmark button) to inspect guide dots. Measured dots also have the **L** toggle, roots have **Hair → Roots → Show generated roots**, and virtual guides have **Landmarks → Show virtual landmarks**. The master guide switch and generated roots start disabled.
 
-Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. Mouth collision can divert strands around the lips.
+Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. **Physics → Collide with head surface** (enabled by default) keeps strands outside the shared face, chin, sides, crown and back of the head. This works with landmark guides or visual occlusion turned off. Hair can still be hidden when it is correctly behind the head.
 
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
@@ -66,7 +66,7 @@ All scalp styles support 32–768 hairs, scalp width, hairline offset, length, v
 - **Styled:** reacts to forces and movement while a shape-hold spring pulls toward the selected or imported guide. Set hold lower for a softer style.
 - **Static:** follows face position, scale, and roll without swinging. Gravity and wind do not deform it; integration and constraint work are skipped.
 
-The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache, eyebrows, and scalp have independent motion selectors. Gravity/wind/damping are shared. Mouth avoidance applies to moving beard/mustache strands, not scalp, brows, or static shapes.
+The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache, eyebrows, and scalp have independent motion selectors. Gravity/wind/damping are shared. Head collision applies to beard, mustache, eyebrows and scalp, including static guides. Roots have a small clearance based on strand width; moving strands slide along the skin, and collision takes priority over small residual segment stretch.
 
 ## Beard and shared physics controls
 
@@ -84,7 +84,7 @@ The beard uses **Physics → Preserve styled beard shape** to switch between Fre
 | Damping | Removes a fraction of velocity each physics step; default 0.045. It controls how long motion persists. Very high damping can make falling sluggish. |
 | Preserve styled beard shape | Off by default, including for files saved before this option existed. Enable it to hold beard curls or an imported rest shape against gravity. |
 | Beard shape stiffness | Used only with **Preserve styled beard shape**. Pulls toward the original curled or imported shape. |
-| Keep moving hair out of mouth | Pushes dynamic beard/mustache points outside an ellipse following the lips. |
+| Collide with head surface | Keeps all hair regions outside the shared 3D head, including the space between strand joints. Enabled by default; independent of visual occlusion. |
 | Reset motion | Clears velocity and hangs the strands downward, or restores their rest shape when **Preserve styled shape** is enabled. |
 
 On **Strands**, enable **Select strands in preview**, then click a root in any region. **Attach root to landmark** places it on any measured or virtual guide; this binding autosaves and survives guide-density changes. **Restore root placement** clears only that binding. The selected strand is highlighted. Its length multiplier, starting/ending widths, curl, and colors can override its region settings. **Hide this strand** sets its length to zero; **Restore strand defaults** removes its overrides. Turn selection off to drag the mannequin again. Facial IDs retain their original numeric form; brows use `brow:N` and scalp uses `hair:N`. Hiding an optional region keeps its edits. Reducing a region's strand count removes edits outside the new count.
@@ -115,7 +115,7 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 Live-camera hair remains a stylized 2D overlay. Virtual attachment uses relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. The shared head-depth map clips far-side roots and strand fragments; turn it off under Landmarks → Visibility to inspect hidden guides.
 
-The offline mannequin has real 3D geometry and depth-tested landmark/hair rendering. It keeps the fast native planar strand solver: roots rotate in 3D, while each strand's simulated segments use its root's camera-space depth. This is not a full volumetric strand simulation. There is no hair-to-hair or full skin collision; mouth collision remains an ellipse approximation. Changing view can therefore reveal clipping or flattened strand shapes. Full 3D strand dynamics and calibrated live-head occlusion remain separate improvements. Blender exports include the shared 3D root positions; each strand remains a planar rest guide at its root depth.
+The live preview and mannequin use native 3D strand dynamics. Each segment carries its own endpoint depths into rendering, so collision can move hair around the head without flattening it to the root depth. The collider follows the shared head mesh, uses a directional triangle lookup for point contacts, and sweeps links to prevent intersections between joints. Head updates refit the lookup; there are no per-strand scene nodes, rigid bodies or GPU readbacks. The solid outer envelope closes small tracking degeneracies. Live scalp/back shape is still estimated; this does not add hair-to-hair, shoulder, hand or room-object collision. Blender exports retain editable planar rest guides at the shared 3D roots, rather than exporting the current simulated pose.
 
 The mannequin builds its mesh only when first opened. Root fitting is cached between setting changes, and hair uses one instanced batch with the native packed buffer uploaded directly to a bounded texture. The 3D viewport follows the displayed preview resolution up to 1280×720 and stops rendering when inactive. With hair disabled, it renders only when the pose, fitting, visibility, or size changes. Library thumbnails use the same head at thumbnail resolution.
 
@@ -135,7 +135,7 @@ Desktop snapshots include the beard and studio controls. Source recordings and b
 
 ## Validation
 
-`tools/check.py` runs profile/library/native physics checks alongside the existing capture tests. It covers deterministic roots, gravity/wind, pinned roots, segment lengths, mouth collision, bounded catch-up, invalid input, hidden strands, face loss, individual overrides, maximum-size files, imported guides, mirroring, and resizing. Dynamics regressions compare gravity/wind strengths, slow/fast head turns, calm settling at a tilted head angle, and equivalent motion delivered at 30/60/120 Hz. Python tests validate the Blender interchange math.
+`tools/check.py` runs profile/library/native physics checks alongside the existing capture tests. It covers deterministic roots, gravity/wind, pinned roots, segment lengths, head and legacy mouth collision, bounded catch-up, invalid input, hidden strands, face loss, individual overrides, maximum-size files, imported guides, mirroring, and resizing. Dynamics regressions compare gravity/wind strengths, slow/fast head turns, calm settling at a tilted head angle, and equivalent motion delivered at 30/60/120 Hz. The head-collision regression independently samples complete links against a moving solid box in Free/Styled/Static modes and against the shared head at front, side and rear poses; it also checks root pinning, disabled collision, invalid mesh indices and segment depth output. Python tests validate the Blender interchange math.
 
 Combined-groom regressions cover extended root positions, rotation/scale behavior, mustache coverage, Static/Free region motion, old-file loading, stable region edits, all three scalp presets, maximum combined allocation/export, and native option validation.
 

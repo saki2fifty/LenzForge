@@ -140,7 +140,7 @@ func setup(layer: Control, studio: Control) -> void:
 	controls.turbulence.tooltip_text = "Adds gusts only while horizontal wind is nonzero."
 	_config_check(physics,"preserve_shape","Preserve styled beard shape")
 	_spin(physics,"stiffness","Beard shape stiffness",0,1,.01)
-	_config_check(physics,"collisions","Keep moving hair out of mouth")
+	_config_check(physics,"collisions","Collide with head surface")
 	physics.add_child(host._button("Reset motion",func():
 		if beard.simulator: beard.simulator.reset()))
 

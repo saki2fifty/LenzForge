@@ -26,6 +26,7 @@ func _run() -> void:
 	studio.persist_settings = false
 	studio.backend_url = "http://127.0.0.1:9"
 	root.add_child(studio)
+	studio._set_guides(true)
 	studio.extensions.set_settings(Extensions.defaults())
 	studio.beard.apply_document(Profile.document("3D preview",Profile.defaults(),{}))
 	studio.beard.set_enabled(false)

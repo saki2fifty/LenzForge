@@ -76,11 +76,10 @@ func _run() -> void:
 		strand_mesh.mesh = quad
 		strand_mesh.instance_count = 1
 		strand_mesh.set_instance_transform_2d(0,Transform2D(Vector2(0,12),Vector2(300,0),Vector2(200,150)))
-		strand_mesh.set_instance_custom_data(0,Color(1,1,0,0))
+		strand_mesh.set_instance_custom_data(0,Color(1,1,80,80))
 		strands.multimesh = strand_mesh
 		var strand_material := ShaderMaterial.new(); strand_material.shader = load("res://beard/strands.gdshader")
-		var root_image := Image.create(1,1,false,Image.FORMAT_RF); root_image.fill(Color(.2,0,0,1))
-		strand_material.set_shader_parameter("root_depths",ImageTexture.create_from_image(root_image))
+		strand_material.set_shader_parameter("frame_width",400.0)
 		strands.material = strand_material; canvas.add_child(strands)
 		for mirrored in [false,true]:
 			occlusion.apply(material,canvas,Vector2(400,200),mirrored)
@@ -92,5 +91,16 @@ func _run() -> void:
 			var hidden_x := 300 if mirrored else 100
 			check(rendered.get_pixel(visible_x,100).g > .7 and rendered.get_pixel(hidden_x,100).g < .3,"Point mask coordinates and mirror %s"%mirrored)
 			check(rendered.get_pixel(visible_x,150).g > .7 and rendered.get_pixel(hidden_x,150).g < .3,"Strand clips per fragment, mirror %s"%mirrored)
+		# A single segment crosses the surface in depth: each endpoint has its
+		# own depth, rather than assigning the root's depth to the whole strand.
+		plane.fill(Color(0,0,0,1))
+		occlusion.texture = ImageTexture.create_from_image(plane)
+		strand_mesh.set_instance_custom_data(0,Color(1,1,-80,80))
+		occlusion.apply(strand_material,canvas,Vector2(400,200),false)
+		await process_frame
+		await RenderingServer.frame_post_draw
+		rendered = root.get_texture().get_image()
+		rendered.save_png(ProjectSettings.globalize_path("res://../artifacts/collision-depth-gradient.png"))
+		check(rendered.get_pixel(100,150).g > .7 and rendered.get_pixel(300,150).g < .3,"Segment endpoint depth interpolates across the actual rendered quad")
 	print("OCCLUSION hidden=",counts," update_ms=",timings," failures=",failures)
 	quit(0 if failures.is_empty() else 1)

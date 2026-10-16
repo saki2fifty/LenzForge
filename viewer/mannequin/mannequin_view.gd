@@ -18,9 +18,9 @@ var dots: Dictionary = {}
 var hair: MultiMeshInstance3D
 var hair_material := ShaderMaterial.new()
 var hair_texture: ImageTexture
-var root_texture: ImageTexture
 var hair_image: Image
 var root_positions := PackedVector3Array()
+var root_camera_positions := PackedVector3Array()
 var _built := false
 var _roots_dirty := true
 var surface := preload("res://tracking/head_surface.gd").new()
@@ -210,16 +210,11 @@ func attach_roots() -> PackedVector2Array:
 		_roots_dirty = false
 	var positions := PackedVector2Array()
 	positions.resize(root_positions.size())
-	var depths := PackedFloat32Array()
-	depths.resize(root_positions.size())
+	root_camera_positions.resize(root_positions.size())
 	for i in root_positions.size():
 		var world := world_point(root_positions[i])
 		positions[i] = project_world(world)
-		depths[i] = world.z
-	var data := Image.create_from_data(1,root_positions.size(),false,Image.FORMAT_RF,depths.to_byte_array())
-	if root_texture == null or root_texture.get_height() != root_positions.size(): root_texture = ImageTexture.create_from_image(data)
-	else: root_texture.update(data)
-	hair_material.set_shader_parameter("root_depth",root_texture)
+		root_camera_positions[i] = Vector3(positions[i].x,positions[i].y,-world.z*pixels_per_unit())
 	return positions
 
 func _build_roots() -> void:

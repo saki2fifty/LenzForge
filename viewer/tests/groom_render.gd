@@ -13,6 +13,7 @@ func _run() -> void:
 	studio.persist_settings = false
 	studio.backend_url = "http://127.0.0.1:9"
 	root.add_child(studio)
+	studio._set_guides(true)
 	studio.sidebar_tabs.current_tab = 2
 	studio.beard.apply_document(Profile.document("Complete look",Profile.defaults(),{}))
 	studio.beard.set_enabled(true)

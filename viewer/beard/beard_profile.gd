@@ -51,7 +51,7 @@ static func validate(data: Variant) -> String:
 		if key in ["strands", "segments", "seed"] and float(config[key]) != floor(float(config[key])):
 			return "Use a whole number for " + key
 	if not config.get("collisions") is bool:
-		return "Invalid mouth collision setting."
+		return "Invalid head collision setting."
 	# Older documents open in free-hanging mode without discarding their style.
 	if not config.get("preserve_shape", false) is bool:
 		return "Invalid shape preservation setting."
@@ -145,7 +145,7 @@ static func with_geometry(data: Dictionary) -> Dictionary:
 		guides.append({"index":a.id,"region":a.region,"points":points,"base_length":maxf(.0001,float(regional.length)),
 			"root_width":float(edit.get("root_width",regional.root_width))/300.0,
 			"tip_width":float(edit.get("tip_width",regional.tip_width))/300.0})
-	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z toward camera; planar strands with 3D surface roots", "guides":guides}
+	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z toward camera; planar rest guides with 3D surface roots", "guides":guides}
 	return result
 
 static func _number_in(value: Variant, bounds: Array) -> bool:

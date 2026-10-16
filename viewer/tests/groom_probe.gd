@@ -13,6 +13,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var config := Profile.defaults()
+	config.show_generated_roots = true # This fixture explicitly exercises marker rendering.
 	# Unit-coverage baseline for the relative mustache scaling assertions below.
 	config.mustache_width = 1.0; config.mustache_thickness = 1.0
 	for key in Groom.NUMBERS:
