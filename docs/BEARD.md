@@ -6,21 +6,23 @@ The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays at
 
 ## Try it
 
-1. Open **Hair**. Use the page dropdown to switch between **Beard**, **Roots**, **Virtual landmarks**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**.
+1. Open **Hair**. Use the page dropdown to switch between **Beard**, **Roots**, **Root surface**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**.
 2. Check **Try on mannequin** to design without camera capture or a backend. Drag the mannequin to see the strands respond to movement.
-3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Open **Virtual landmarks** and click **Extend head coverage** to fit a larger reference head. Enable eyebrows on their own page.
+3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Open **Root surface** and click **Extend root coverage** to fit a larger reference head. Enable eyebrows on their own page.
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
-5. Turn off measured landmark dots with **L**, root dots with **Roots → Show generated roots**, and the fitted grid with **Virtual landmarks → Show virtual landmarks**, for a clearer preview.
+5. Turn off measured landmark dots with **L**, root dots with **Roots → Show generated roots**, and the fitted grid with **Root surface → Show root surface guides**, for a clearer preview.
 
 Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. Mouth collision can divert strands around the lips.
 
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
-## Virtual landmarks over the head
+## Hair root surface
 
 ![Virtual crown, chin, and side landmarks fitted on the mannequin](images/virtual-head.png)
 
-**Hair → Virtual landmarks → Extend head coverage** creates a fitted grid referenced to the tracked forehead, cheek sides, and chin. It keeps the current hairstyle, colors, and strand budget. Orange grid points are virtual references; magenta dots are individual generated roots; green dots are measured face landmarks. Each has independent visibility/color controls.
+**Hair → Root surface → Extend root coverage** creates a fitted grid referenced to the tracked forehead, cheek sides, and chin. It keeps the current hairstyle, colors, and strand budget. Orange grid points are virtual references; magenta dots are individual generated roots; green dots are measured face landmarks. Each has independent visibility/color controls.
+
+General face/head landmarks are now in their own **Landmarks** tab. They remain visible with hair disabled and support separate top, bottom, left, right, and depth offsets; see [Virtual landmarks](LANDMARKS.md). The controls below fit the hair attachment surface and preserve existing look files.
 
 The grid includes a curved scalp patch, a lower-chin patch, and left/right side patches. Scalp roots interpolate across the crown patch; a Mohawk uses a narrow strip running from forehead toward crown rather than a small rectangular cluster on the forehead. The **Expanded root share** on the Roots page controls how much beard coverage attaches to the chin/side patches. The remaining beard roots keep their face-triangle attachments.
 
@@ -35,7 +37,7 @@ The grid includes a curved scalp patch, a lower-chin patch, and left/right side 
 | Columns / rows per region | Grid resolution, independent of strand density. Defaults to 24 × 4 subdivisions: 380 points across all four patches. Maximum 48 × 10: 1,628 points. Side patches use half as many columns. |
 | Use virtual head for roots | Switch between fitted-grid attachment and the earlier root placement. Existing files keep the earlier placement until enabled. |
 
-Start with **Extend head coverage**, face the camera, and adjust Crown height/width until the top row follows your crown. Adjust the chin and ear regions, then turn/tilt your head to fit the back-reach controls. **Show virtual landmarks** hides the guide dots without detaching the roots. Increasing grid density refines interpolation; increase facial/scalp strand counts separately for more hairs. The Hair footer reports the virtual-point count; the capture metrics continue to report measured landmarks.
+Start with **Extend root coverage**, face the camera, and adjust Crown height/width until the top row follows your crown. Adjust the chin and ear regions, then turn/tilt your head to fit the back-reach controls. **Show root surface guides** hides the guide dots without detaching the roots. Increasing grid density refines interpolation; increase facial/scalp strand counts separately for more hairs. The Hair footer reports the root-surface guide count; the capture metrics continue to report measured landmarks.
 
 The viewer now retains the relative Z values already present in its landmark stream. A frame derived from the cheek-to-cheek and forehead-to-chin axes projects the virtual offsets during yaw, pitch, and roll. This is an approximate face-based reference frame, not a calibrated head scan. It uses [MediaPipe's normalized coordinates and relative-depth convention](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/face_mesh.md#face-geometry-module); no additional model or inference worker is needed. Missing/invalid depth falls back to the planar reference frame. Face loss clears the virtual overlay.
 

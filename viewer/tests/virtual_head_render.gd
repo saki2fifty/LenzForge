@@ -11,16 +11,17 @@ func _run() -> void:
 	studio.persist_settings = false
 	studio.backend_url = "http://127.0.0.1:9"
 	root.add_child(studio)
-	studio.sidebar_tabs.current_tab = 1
+	studio.extensions.set_settings({"enabled":false})
+	studio.sidebar_tabs.current_tab = 2
 	var config := Profile.defaults()
 	config.merge(Groom.hair_preset("Mohawk"),true)
 	studio.beard.apply_document(Profile.document("Extended head",config,{}))
 	studio.beard.set_mannequin(true)
-	studio.beard_panel.show_page("Virtual landmarks")
-	for child in studio.beard_panel.pages["Virtual landmarks"].get_children():
-		if child is Button and child.text == "Extend head coverage": child.pressed.emit()
+	studio.beard_panel.show_page("Root surface")
+	for child in studio.beard_panel.pages["Root surface"].get_children():
+		if child is Button and child.text == "Extend root coverage": child.pressed.emit()
 	if not studio.beard.enabled or not studio.beard.config.virtual_enabled or studio.beard.virtual_points.size() != 380:
-		failures.append("Extend head coverage button did not enable and fit the virtual grid")
+		failures.append("Extend root coverage button did not enable and fit the virtual grid")
 	studio.beard.simulator.reset()
 	for i in 60: studio.beard.simulator.advance(1.0/120)
 	await process_frame

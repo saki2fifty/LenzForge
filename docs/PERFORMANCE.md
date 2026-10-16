@@ -101,6 +101,27 @@ Reproduce with:
 
 The report is written to `artifacts/virtual-head-performance.json`.
 
+## Independent face/head extensions
+
+The **Landmarks** tab has a separate overlay that works with hair disabled. On the same Ryzen 5 5500 / Radeon RX 7900 XTX system, an animated synthetic face produced these CPU projection and marker-upload preparation times (30 warmup frames, then 240 samples per case):
+
+| Extension configuration | Mean CPU/update | p95 CPU/update |
+| --- | --- | --- |
+| Disabled | 0.025 ms | 0.031 ms |
+| 288 points, dots hidden | 0.098 ms | 0.118 ms |
+| 288 points, dots visible | 0.206 ms | 0.246 ms |
+| 1,728 points, dots visible | 0.803 ms | 0.907 ms |
+
+This is the independent landmark layer's cost, without hair simulation. Bindings and offsets are cached in packed arrays; fresh tracking results update the positions and one instanced marker batch. Hidden dots retain reference positions but skip the render upload. Disabling extensions skips projection. No additional inference runs. Timings exclude fixture generation, camera/inference, GPU completion, and presentation; they are not an end-to-end latency or frame-rate guarantee. [Raw report](performance/landmark-extensions.json).
+
+Reproduce without a camera or backend:
+
+```powershell
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --resolution 1440x900 --script res://tests/extensions_performance.gd
+```
+
+The report is written to `artifacts/landmark-extensions-performance.json`. `extensions_probe.gd` checks directional extents, depth/rotation, invalid input, bounded density, independent visibility, and stale tracking. `extensions_render.gd` exercises the actual tab, orange pixels with hair off, mirror alignment, live depth forwarding, and settings persistence at both 1440×900 and 1024×720.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:

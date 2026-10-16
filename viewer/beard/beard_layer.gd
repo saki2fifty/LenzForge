@@ -3,6 +3,7 @@ const Profile = preload("res://beard/beard_profile.gd")
 const Groom = preload("res://beard/groom_regions.gd")
 const Head = preload("res://beard/virtual_head.gd")
 signal changed
+signal preview_face_changed
 signal strand_selected(index: int)
 var config := Profile.defaults()
 var overrides: Dictionary = {}
@@ -196,6 +197,7 @@ func _set_demo_face() -> void:
 	face = Profile.mannequin()
 	face_depth.clear()
 	for i in face.size(): face[i] += _demo_offset
+	preview_face_changed.emit()
 	_face_live = true
 	set_process(enabled and simulator != null)
 	if enabled: _attach()

@@ -1,6 +1,8 @@
 extends Control
 ## Desktop studio: direct video display, bounded-age tracking, and real backend controls.
 const Overlay = preload("res://landmarks.gd")
+const ExtensionLayer = preload("res://tracking/extension_layer.gd")
+const LandmarksPanel = preload("res://tracking/landmarks_panel.gd")
 const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
 const INK := Color("e4ebf3")
@@ -16,6 +18,8 @@ var video_reader: Node
 var landmark_reader: Node
 var video: TextureRect
 var overlay: Control
+var extensions: Control
+var landmarks_panel: VBoxContainer
 var beard: Control
 var beard_panel: VBoxContainer
 var sidebar_tabs: TabContainer
@@ -237,6 +241,12 @@ func _build_ui() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(overlay)
+	extensions = ExtensionLayer.new()
+	extensions.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(extensions)
+	var saved_extensions = settings.get_value("landmarks", "extensions", {})
+	if saved_extensions is Dictionary: extensions.set_settings(saved_extensions)
+	beard.preview_face_changed.connect(_sync_preview_landmarks)
 	var empty_center := CenterContainer.new()
 	empty_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	empty_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -284,19 +294,24 @@ func _build_ui() -> void:
 	right.add_child(mirror_check)
 	_set_mirror(mirror_check.button_pressed)
 	right.add_child(HSeparator.new())
-	_section(right, "Landmark overlay")
+	var landmark_column := _tab_column("Landmarks")
+	landmarks_panel = LandmarksPanel.new()
+	landmark_column.add_child(landmarks_panel)
+	landmarks_panel.setup(self, extensions)
+	landmark_column.add_child(HSeparator.new())
+	_section(landmark_column, "Measured landmarks")
 	points_check = CheckBox.new()
-	points_check.text = "Show landmarks"
+	points_check.text = "Show measured landmarks"
 	points_check.button_pressed = bool(settings.get_value("view", "points", true))
 	points_check.toggled.connect(_set_points)
-	right.add_child(points_check)
+	landmark_column.add_child(points_check)
 	_set_points(points_check.button_pressed)
-	_slider(right, "Point size", 1.0, 5.0, 0.25, 2.0, func(value): overlay.point_size = value; overlay.queue_redraw())
+	_slider(landmark_column, "Point size", 1.0, 5.0, 0.25, 2.0, func(value): overlay.point_size = value; overlay.queue_redraw())
 	var color := ColorPickerButton.new()
 	color.color = ACCENT
 	color.custom_minimum_size.y = 32
 	color.color_changed.connect(func(value): overlay.tint = value; overlay.queue_redraw())
-	right.add_child(color)
+	landmark_column.add_child(color)
 	_spacer(right)
 	right.add_child(_label("DESIGNED FOR LOW LATENCY", 10, ACCENT))
 	var note := _label("Video keeps moving when tracking pauses. Stale overlays clear automatically.", 12, MUTED)
@@ -309,11 +324,15 @@ func _build_ui() -> void:
 	beard_panel.message.connect(func(text): message.text = text)
 	beard.changed.connect(func():
 		if beard.mannequin: empty_state.hide()
-		elif video.texture == null: empty_state.show())
+		elif video.texture == null: empty_state.show()
+		if not beard.mannequin and extensions.preview:
+			extensions.preview = false
+			_clear_tracking())
 	var saved_beard = settings.get_value("beard", "document", {})
 	if saved_beard is Dictionary and not saved_beard.is_empty():
 		beard.apply_document(saved_beard)
 	beard.set_enabled(bool(settings.get_value("beard", "enabled", false)))
+	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,2)
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
@@ -367,7 +386,16 @@ func _setup_readers() -> void:
 	landmark_reader.landmarks_ready.connect(_on_landmarks)
 	landmark_reader.face_lost.connect(_clear_tracking)
 
+func _sync_preview_landmarks() -> void:
+	overlay.points = beard.face
+	overlay.video_size = beard.video_size
+	overlay.queue_redraw()
+	extensions.set_face(beard.face,beard.video_size,PackedFloat32Array(),true)
+	if empty_state: empty_state.hide()
+
 func _clear_tracking() -> void:
+	if beard.mannequin: return
+	extensions.clear_face()
 	overlay.points.clear()
 	overlay.queue_redraw()
 	if not beard.mannequin: beard.clear_face()
@@ -524,7 +552,7 @@ func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int
 
 func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 	landmark_timestamp = timestamp
-	if absi(frame_timestamp - timestamp) > 150000:
+	if beard.mannequin or absi(frame_timestamp - timestamp) > 150000:
 		return
 	var normalized := PackedVector2Array()
 	var depth := PackedFloat32Array()
@@ -533,6 +561,7 @@ func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 		depth.append(point.z)
 	overlay.points = normalized
 	overlay.queue_redraw()
+	extensions.set_face(normalized, overlay.video_size, depth)
 	beard.set_face(normalized, overlay.video_size, depth)
 
 func _set_look(index: int) -> void:
@@ -548,6 +577,7 @@ func _set_mirror(value: bool) -> void:
 	overlay.mirror = value
 	overlay.queue_redraw()
 	beard.set_mirror(value)
+	extensions.set_mirror(value)
 	settings.set_value("view", "mirror", value)
 
 func _set_points(value: bool) -> void:
@@ -576,11 +606,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			KEY_M: mirror_check.button_pressed = not mirror_check.button_pressed
 			KEY_F11: DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
-func _exit_tree() -> void:
-	if not persist_settings: return
+func _store_settings() -> void:
 	if beard:
 		settings.set_value("beard", "document", beard.get_document())
 		settings.set_value("beard", "enabled", beard.enabled)
+	if extensions: settings.set_value("landmarks", "extensions", extensions.model.config)
+	if sidebar_tabs: settings.set_value("view", "sidebar_tab", sidebar_tabs.current_tab)
+
+func _exit_tree() -> void:
+	if not persist_settings: return
+	_store_settings()
 	settings.save("user://studio.cfg")
 
 func _capture_and_quit() -> void:

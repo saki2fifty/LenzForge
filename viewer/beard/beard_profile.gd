@@ -205,5 +205,16 @@ static func mannequin() -> PackedVector2Array:
 		61: [.41,.56], 291: [.59,.56], 0: [.5,.54], 17: [.5,.60], 2: [.5,.49], 98: [.44,.49], 327: [.56,.49],
 		10:[.5,.30], 70:[.37,.405],63:[.405,.38],105:[.44,.37],66:[.47,.385],107:[.485,.405],
 		300:[.63,.405],293:[.595,.38],334:[.56,.37],296:[.53,.385],336:[.515,.405]}
+	var outline: Array = preload("res://tracking/face_extensions.gd").OUTLINE
+	for i in outline.size():
+		if positions.has(outline[i]): continue
+		var before := i-1
+		var after := i+1
+		while not positions.has(outline[posmod(before,outline.size())]): before -= 1
+		while not positions.has(outline[after%outline.size()]): after += 1
+		var a: Array = positions[outline[posmod(before,outline.size())]]
+		var b: Array = positions[outline[after%outline.size()]]
+		var point := Vector2(a[0],a[1]).lerp(Vector2(b[0],b[1]),float(i-before)/(after-before))
+		positions[outline[i]] = [point.x,point.y]
 	for index in positions: points[index] = Vector2(.5 + (positions[index][0] - .5) * .65, positions[index][1])
 	return points

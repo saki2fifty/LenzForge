@@ -25,7 +25,8 @@ def main():
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),
                         ('groom', ['--script', 'res://tests/groom_probe.gd']),
-                        ('virtual-head', ['--script', 'res://tests/virtual_head_probe.gd'])]:
+                        ('virtual-head', ['--script', 'res://tests/virtual_head_probe.gd']),
+                        ('extensions', ['--script', 'res://tests/extensions_probe.gd'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)
         output = result.stdout + result.stderr

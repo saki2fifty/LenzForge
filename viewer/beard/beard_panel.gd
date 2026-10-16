@@ -34,7 +34,7 @@ func setup(layer: Control, studio: Control) -> void:
 	mannequin_check = _check("Try on mannequin", func(value): beard.set_mannequin(value))
 	mannequin_check.tooltip_text = "Drag the mannequin to test motion. Camera capture can stay off."
 	page_picker = OptionButton.new()
-	for title in ["Beard","Roots","Virtual landmarks","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
+	for title in ["Beard","Roots","Root surface","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
 	add_child(page_picker)
 	page_picker.item_selected.connect(func(index): show_page(page_picker.get_item_text(index)))
 	var shape := _page("Beard")
@@ -66,14 +66,14 @@ func setup(layer: Control, studio: Control) -> void:
 		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
 		beard.set_enabled(true)))
 	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
-	roots_page.add_child(host._button("Fit virtual head…",func(): show_page("Virtual landmarks")))
+	roots_page.add_child(host._button("Fit root surface…",func(): show_page("Root surface")))
 
-	var virtual_page := _page("Virtual landmarks")
-	host._section(virtual_page,"Extended head","Orange points extend the tracked face over the crown, below the chin, and around the sides. Hair roots attach between these points.")
+	var virtual_page := _page("Root surface")
+	host._section(virtual_page,"Hair root surface","Fit a surface for hair roots. General face and head extensions are in the Landmarks tab and work with hair off.")
 	_config_check(virtual_page,"virtual_enabled","Use virtual head for roots")
-	_config_check(virtual_page,"show_virtual_landmarks","Show virtual landmarks")
-	_color(virtual_page,"virtual_color","Virtual point color")
-	virtual_page.add_child(host._button("Extend head coverage",func():
+	_config_check(virtual_page,"show_virtual_landmarks","Show root surface guides")
+	_color(virtual_page,"virtual_color","Root surface color")
+	virtual_page.add_child(host._button("Extend root coverage",func():
 		beard.set_settings(Groom.virtual_preset())
 		beard.set_enabled(true),true))
 	for row in [["crown_height","Crown height",0,.8,.01],["crown_width","Crown width",.6,1.8,.02],
@@ -421,4 +421,4 @@ func _update_stats() -> void:
 	if not beard.last_error.is_empty(): stats.text = beard.last_error
 	elif not beard.enabled: stats.text = "Hair is hidden; physics is idle."
 	elif not beard._face_live: stats.text = "Waiting for a face. Try the mannequin to design offline."
-	else: stats.text = "%d / 2048 strands · %d segments\n%d virtual landmarks · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.virtual_points.size(),beard.update_ms]
+	else: stats.text = "%d / 2048 strands · %d segments\n%d root surface guides · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.virtual_points.size(),beard.update_ms]
