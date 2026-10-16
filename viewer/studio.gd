@@ -345,7 +345,7 @@ func _build_ui() -> void:
 	guides_check = CheckBox.new()
 	guides_check.text = "Show landmark guides"
 	guides_check.tooltip_text = "Show / hide all guide dots while keeping tracking and individual visibility choices."
-	guides_check.button_pressed = bool(settings.get_value("view", "guides", true))
+	guides_check.button_pressed = bool(settings.get_value("view", "guides", false))
 	guides_check.toggled.connect(_set_guides)
 	landmark_column.add_child(guides_check)
 	_set_guides(guides_check.button_pressed)

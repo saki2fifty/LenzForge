@@ -31,7 +31,7 @@ static func defaults(style: String) -> Dictionary:
 	return {"virtual_enabled":false,"show_virtual_landmarks":true,"virtual_color":"ffbf69ff",
 		"virtual_columns":24,"virtual_rows":4,"crown_height":.42,"crown_width":1.08,"crown_back":.35,"side_back":.3,"chin_back":.05,
 		"beard_visible":true, "chin_extension":0.0, "jaw_expansion":0.0, "ear_reach":0.0,
-		"sideburn_height":0.0, "root_layers":3, "coverage_fill":.45, "show_generated_roots":true,
+		"sideburn_height":0.0, "root_layers":3, "coverage_fill":.45, "show_generated_roots":false,
 		"generated_root_color":"ed8bffff", "mustache_enabled":style in ["Full beard","Mustache"],
 		"mustache_style":"Chevron", "mustache_width":2.0, "mustache_thickness":.85, "mustache_density":3.0,
 		"mustache_length":.15, "mustache_lift":0.0, "mustache_curl":.25, "mustache_motion":"Styled", "mustache_hold":.7,

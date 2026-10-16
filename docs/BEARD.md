@@ -4,7 +4,7 @@ The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays at
 
 The **Full beard** defaults are **1,024 facial strands**, **8 segments per strand**, **0.5 length**, **0.57 curl**, and **0.14 length variation**. Starting/ending widths are **7.4 / 3.05**, with root/tip colors **#0849f4 / #12aadf**. Physics defaults are **12.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.045 damping**.
 
-The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage width**, **0.85 thickness**, **3.0 density**, and root/tip colors **#0645fa / #10acdb**. Eyebrows default to **#14e2f2** and remain disabled; scalp hair remains **None**. These are project defaults for new looks. Existing saved looks and personal preferences still restore their own values; camera, tracking, landmark, window, and other application defaults are unchanged.
+The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage width**, **0.85 thickness**, **3.0 density**, and root/tip colors **#0645fa / #10acdb**. Eyebrows default to **#14e2f2** and remain disabled; scalp hair remains **None**. Landmark guides and **Show generated roots** default to off. Existing saved looks and personal preferences still restore their own values.
 
 ![Expanded root controls on the offline mannequin; generated anchors are magenta](images/groom-roots.png)
 
@@ -14,7 +14,7 @@ The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage wid
 2. Check **Try on mannequin** to design on a shaded 3D head without camera capture or a backend. Drag to rotate through a full turn; use the mouse wheel to zoom. **Front**, **Side**, **Back**, and **Reset view** are above the preview. Double-click also resets the view. Moving the head drives strand motion.
 3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Open **Root surface** and click **Extend root coverage** to distribute roots over the shared head. Enable eyebrows on their own page.
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
-5. Turn off measured landmark dots with **L**, root dots with **Roots → Show generated roots**, and virtual guides with **Landmarks → Show virtual landmarks**, for a clearer preview.
+5. Enable **Landmarks → Show landmark guides** (or the top toolbar's landmark button) to inspect guide dots. Measured dots also have the **L** toggle, roots have **Hair → Roots → Show generated roots**, and virtual guides have **Landmarks → Show virtual landmarks**. The master guide switch and generated roots start disabled.
 
 Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. Mouth collision can divert strands around the lips.
 
