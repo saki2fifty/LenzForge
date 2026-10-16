@@ -2,6 +2,7 @@ import {FilesetResolver, FaceLandmarker, HandLandmarker, PoseLandmarker} from '/
 
 let socket, fileset, config, features, face, hands, pose;
 let renderer = '';
+let delegate = 'GPU';
 let lastTimestamp = -1;
 let modelGeneration = 0;
 let sequence = Promise.resolve();
@@ -9,7 +10,7 @@ const encoder = new TextEncoder();
 
 function options(kind) {
   const base = {
-    baseOptions: {modelAssetPath: `/models/${kind}_landmarker${kind === 'pose' ? '_lite' : ''}.task`, delegate: 'GPU'},
+    baseOptions: {modelAssetPath: `/models/${kind}.task?model=${encodeURIComponent(config[kind + '_model'])}`, delegate},
     runningMode: 'VIDEO', minTrackingConfidence: config.tracking_confidence,
   };
   if (kind === 'face') return {...base, numFaces: config.num_faces,
@@ -31,20 +32,21 @@ async function updateTask(task, enabled, kind, factory) {
   if (!gl || gl.isContextLost()) throw new Error('WebGL2 GPU context is unavailable');
   const debug = gl.getExtension('WEBGL_debug_renderer_info');
   const device = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-  if (/swiftshader|llvmpipe|software rasterizer/i.test(device)) throw new Error('Browser is using software graphics');
+  if (delegate === 'GPU' && /swiftshader|llvmpipe|software rasterizer/i.test(device)) throw new Error('Browser is using software graphics');
   renderer = device;
   const loader = {...fileset, wasmLoaderPath: `${fileset.wasmLoaderPath}?generation=${++modelGeneration}`};
   return factory.createFromOptions(loader, {...options(kind), canvas});
 }
 
 async function configure(message) {
+  delegate = message.delegate ?? 'GPU';
   config = message.config;
   features = message.features;
   fileset ??= await FilesetResolver.forVisionTasks('/runtime/wasm', true);
   face = await updateTask(face, features.face || features.iris, 'face', FaceLandmarker);
   hands = await updateTask(hands, features.hands, 'hand', HandLandmarker);
   pose = await updateTask(pose, features.pose, 'pose', PoseLandmarker);
-  socket.send(JSON.stringify({type: 'ready', delegate: 'GPU', renderer}));
+  socket.send(JSON.stringify({type: 'ready', delegate, renderer}));
 }
 
 function detect(buffer) {

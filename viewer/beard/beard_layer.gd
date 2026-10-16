@@ -23,6 +23,10 @@ var virtual_markers := MultiMeshInstance2D.new()
 var virtual_anchors: Array = []
 var virtual_points := PackedVector2Array()
 var face_depth := PackedFloat32Array()
+var root_depth := PackedFloat32Array()
+var virtual_depth := PackedFloat32Array()
+var root_texture: ImageTexture
+var occlusion: RefCounted
 var selection := Control.new()
 var attachment: Array = []
 var generated_indices := PackedInt32Array()
@@ -83,6 +87,7 @@ func _ready() -> void:
 	drawing.hide()
 	var marker_mesh := MultiMesh.new()
 	marker_mesh.transform_format = MultiMesh.TRANSFORM_2D
+	marker_mesh.use_custom_data = true
 	marker_mesh.mesh = quad
 	root_markers.multimesh = marker_mesh
 	var marker_material := ShaderMaterial.new()
@@ -91,6 +96,7 @@ func _ready() -> void:
 	root_markers.hide()
 	var virtual_mesh := MultiMesh.new()
 	virtual_mesh.transform_format = MultiMesh.TRANSFORM_2D
+	virtual_mesh.use_custom_data = true
 	virtual_mesh.mesh = quad
 	virtual_markers.multimesh = virtual_mesh
 	virtual_markers.material = marker_material.duplicate()
@@ -285,11 +291,20 @@ func _attach() -> void:
 	var horizontal := (face[454] - face[234]) * video_size
 	var width := horizontal.length()
 	if width < 10: clear_face(); return
+	var basis := Head.frame(face,video_size,face_depth)
+	if basis.is_empty(): clear_face(); return
 	if config.virtual_enabled:
-		var basis := Head.frame(face,video_size,face_depth)
-		if basis.is_empty(): clear_face(); return
 		virtual_points = Head.project(virtual_anchors,face,video_size,basis)
+		virtual_depth = Head.FaceFrame.depths(virtual_anchors,face_depth,video_size,basis)
 	roots = Groom.root_positions(config,attachment,face,video_size,virtual_points)
+	root_depth = Groom.root_depths(config,attachment,face,video_size,face_depth,virtual_depth)
+	if not root_depth.is_empty():
+		var image := Image.create_from_data(1,root_depth.size(),false,Image.FORMAT_RF,root_depth.to_byte_array())
+		if root_texture == null or root_texture.get_height() != root_depth.size(): root_texture = ImageTexture.create_from_image(image)
+		else: root_texture.update(image)
+		drawing.material.set_shader_parameter("root_depths",root_texture)
+		drawing.material.set_shader_parameter("strand_segments",int(config.segments))
+	_apply_occlusion()
 	var down := Vector2(-horizontal.y, horizontal.x).normalized()
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
@@ -326,10 +341,11 @@ func _update_virtual_markers() -> void:
 	if mesh.instance_count != virtual_points.size(): mesh.instance_count = virtual_points.size()
 	var diameter := 4.5/maxf(.01,minf(size.x/video_size.x,size.y/video_size.y))
 	var buffer := PackedFloat32Array()
-	buffer.resize(virtual_points.size()*8)
+	buffer.resize(virtual_points.size()*12)
 	for i in virtual_points.size():
-		buffer[i*8] = diameter; buffer[i*8+3] = virtual_points[i].x
-		buffer[i*8+5] = diameter; buffer[i*8+7] = virtual_points[i].y
+		buffer[i*12] = diameter; buffer[i*12+3] = virtual_points[i].x
+		buffer[i*12+5] = diameter; buffer[i*12+7] = virtual_points[i].y
+		buffer[i*12+8] = virtual_depth[i] if i < virtual_depth.size() else 0.0
 	mesh.buffer = buffer
 
 func _update_root_markers() -> void:
@@ -347,11 +363,12 @@ func _update_root_markers() -> void:
 	if generated_indices.is_empty(): return
 	var diameter := 4.0/maxf(.01,minf(size.x/video_size.x,size.y/video_size.y))
 	var buffer := PackedFloat32Array()
-	buffer.resize(generated_indices.size()*8)
+	buffer.resize(generated_indices.size()*12)
 	for j in generated_indices.size():
 		var root := roots[generated_indices[j]]
-		buffer[j*8] = diameter; buffer[j*8+3] = root.x
-		buffer[j*8+5] = diameter; buffer[j*8+7] = root.y
+		buffer[j*12] = diameter; buffer[j*12+3] = root.x
+		buffer[j*12+5] = diameter; buffer[j*12+7] = root.y
+		buffer[j*12+8] = root_depth[generated_indices[j]] if generated_indices[j] < root_depth.size() else 0.0
 	mesh.buffer = buffer
 
 func _process(delta: float) -> void:
@@ -375,10 +392,16 @@ func _update_transform() -> void:
 		origin + Vector2(video_size.x*fit if mirror else 0.0, 0))
 	root_markers.transform = drawing.transform
 	virtual_markers.transform = drawing.transform
+	_apply_occlusion()
 	_update_root_markers()
 	_update_virtual_markers()
 	queue_redraw()
 	selection.queue_redraw()
+
+func _apply_occlusion() -> void:
+	if occlusion == null: return
+	for item in [drawing,root_markers,virtual_markers]:
+		if item.material: occlusion.apply(item.material,self,video_size,mirror,mannequin)
 
 func _screen(point: Vector2) -> Vector2:
 	return drawing.transform * point

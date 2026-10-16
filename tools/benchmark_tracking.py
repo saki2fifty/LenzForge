@@ -24,6 +24,7 @@ from tracking.browser_tracker import BrowserTracker
 
 def measure(task, images, warmup, frames):
     elapsed, model, points = [], [], []
+    stages = {}
     processes = [psutil.Process()]
     if isinstance(task, BrowserTracker):
         browser = psutil.Process(task.browser_process.pid)
@@ -47,11 +48,13 @@ def measure(task, images, warmup, frames):
             elapsed.append(ms)
             model.append(getattr(task, 'inference_ms', ms))
             points.append(len(result.get('face', [])))
+            for key, value in getattr(task, 'timings', {}).items(): stages.setdefault(key, []).append(value)
     def summary(values):
         return {name: round(float(value), 3) for name, value in
                 [('mean_ms', np.mean(values)), ('p50_ms', np.median(values)), ('p95_ms', np.percentile(values, 95))]}
     return {'round_trip': summary(elapsed), 'model': summary(model), 'face_frames': points.count(478), 'frames': frames,
-            'process_cpu_ms_per_frame': round((cpu_seconds() - cpu_start) * 1000 / frames, 3)}
+            'process_cpu_ms_per_frame': round((cpu_seconds() - cpu_start) * 1000 / frames, 3),
+            'stages': {key: summary(values) for key, values in stages.items()}}
 
 
 def main():
@@ -62,6 +65,7 @@ def main():
     parser.add_argument('--height', type=int, default=360)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--landmarks-only', action='store_true')
+    parser.add_argument('--browser-cpu', action='store_true', help='Also compare WASM CPU through the identical browser bridge')
     args = parser.parse_args()
     image = cv2.imread(str(Path(matplotlib.get_data_path()) / 'sample_data/grace_hopper.jpg'))
     scale = min(args.width / image.shape[1], args.height / image.shape[0])
@@ -76,20 +80,20 @@ def main():
     features = dict(face=True, iris=True, hands=False, pose=False)
     report = {'input': 'Matplotlib public-domain portrait with small deterministic translations',
               'width': width, 'height': height, 'warmup': args.warmup, 'settings': config.to_dict()}
-    for name in ('cpu', 'gpu', 'cpu_repeat'):
+    for name in (('cpu', 'browser_cpu', 'gpu', 'cpu_repeat') if args.browser_cpu else ('cpu', 'gpu', 'cpu_repeat')):
         start = time.perf_counter()
-        task = BrowserTracker(config, features) if name == 'gpu' else WebProcessor(replace(config, backend='cpu'))
+        task = BrowserTracker(config, features, delegate='CPU' if name == 'browser_cpu' else 'GPU') if name in ('gpu', 'browser_cpu') else WebProcessor(replace(config, backend='cpu'))
         try:
             if isinstance(task, WebProcessor):
                 task.enable_tracking('face', True)
                 task.enable_tracking('iris', True)
             report[name] = measure(task, images, args.warmup, args.frames)
             report[name]['startup_and_run_s'] = round(time.perf_counter() - start, 3)
-            if name == 'gpu':
+            if isinstance(task, BrowserTracker):
                 report[name]['renderer'] = task.renderer
             print(name, json.dumps(report[name]), flush=True)
         finally:
-            task.close() if name == 'gpu' else task.cleanup()
+            task.close() if isinstance(task, BrowserTracker) else task.cleanup()
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2), encoding='utf-8')

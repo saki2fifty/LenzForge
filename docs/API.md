@@ -50,4 +50,14 @@ Tracking configuration keys are `backend` (`auto`, `gpu`, `cpu`), `max_width` (0
 
 Worker status includes `requested_backend`, `active_backend`, `phase`, `fallback_reason`, `renderer`, `settings`, `settings_revision`, and `applied_revision`. Settings are accepted immediately and adopted by the worker on its next input frame. During GPU startup/calibration, the active backend remains CPU. Auto's `comparison` contains CPU/GPU median timings, sample count, and selection. It establishes a CPU baseline before starting GPU work and waits for a detected face when face tracking is enabled. Explicit GPU mode can warm up without a face.
 
+`face_model`, `hand_model`, and `pose_model` accept installed catalog IDs of the corresponding task type. Defaults are `face_landmarker`, `hand_landmarker`, and `pose_landmarker_lite`. A missing, corrupt, unknown, or wrong-task selection returns 400 atomically. These apply to both CPU and browser GPU.
+
+| Method | Model library endpoint | Behavior |
+| --- | --- | --- |
+| GET | `/api/tracking/models` | `models` list with ID, kind, label, size, hash, official/installed state; current `job` |
+| POST | `/api/tracking/models/download` | JSON `{"id":"pose_landmarker_full"}` starts background download; returns 202 |
+| POST | `/api/tracking/models/import` | Multipart `file` + `kind`, or raw octet-stream with `?kind=face&name=example.task`; returns 202 while validation runs |
+
+Library jobs report `idle`, `downloading`, `validating`, `ready`, or `error`, with byte progress and an error message when applicable. A concurrent job returns 409; invalid input returns 400. Downloads/imports never change tracking selection automatically: select a completed model through `/api/tracking/configure`. `/api/status.tracking.library` includes the same catalog/job snapshot for UI polling. See [model library behavior](MODELS_AND_VISIBILITY.md).
+
 `model_ms` reports the active inference call; GPU excludes bridge overhead. `last_inference_ms` and rolling `round_trip_p50_ms` / `round_trip_p95_ms` cover tracking preprocessing and the complete request/result path. `capture_to_landmarks_p95_ms` additionally includes waiting since the source timestamp. Rolling summaries use up to 240 results; tracking `fps` uses a recent two-second window. Optional multi-face JSON adds `faces` when more than one face is found; the existing `face` field and LMK1 follow the first face. Browser matrices are converted to the CPU API's row-array layout.

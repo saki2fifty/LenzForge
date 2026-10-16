@@ -1,0 +1,131 @@
+{
+  "input": "Matplotlib public-domain portrait with small deterministic translations",
+  "width": 640,
+  "height": 360,
+  "warmup": 30,
+  "settings": {
+    "backend": "auto",
+    "max_width": 640,
+    "num_faces": 1,
+    "detection_confidence": 0.5,
+    "presence_confidence": 0.5,
+    "tracking_confidence": 0.5,
+    "blendshapes": true,
+    "face_transform": true,
+    "face_model": "face_landmarker",
+    "hand_model": "hand_landmarker",
+    "pose_model": "pose_landmarker_lite"
+  },
+  "cpu": {
+    "round_trip": {
+      "mean_ms": 7.845,
+      "p50_ms": 7.792,
+      "p95_ms": 8.637
+    },
+    "model": {
+      "mean_ms": 7.845,
+      "p50_ms": 7.792,
+      "p95_ms": 8.637
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 8.42,
+    "stages": {},
+    "startup_and_run_s": 1.709
+  },
+  "browser_cpu": {
+    "round_trip": {
+      "mean_ms": 23.583,
+      "p50_ms": 20.826,
+      "p95_ms": 37.982
+    },
+    "model": {
+      "mean_ms": 19.096,
+      "p50_ms": 17.8,
+      "p95_ms": 25.74
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 31.597,
+    "stages": {
+      "prepare_ms": {
+        "mean_ms": 0.119,
+        "p50_ms": 0.104,
+        "p95_ms": 0.16
+      },
+      "bridge_and_worker_ms": {
+        "mean_ms": 22.78,
+        "p50_ms": 20.144,
+        "p95_ms": 37.066
+      },
+      "decode_ms": {
+        "mean_ms": 0.617,
+        "p50_ms": 0.541,
+        "p95_ms": 0.941
+      },
+      "task_call_ms": {
+        "mean_ms": 19.096,
+        "p50_ms": 17.8,
+        "p95_ms": 25.74
+      }
+    },
+    "startup_and_run_s": 6.517,
+    "renderer": "ANGLE (AMD, AMD Radeon RX 7900 XTX (0x0000744C) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "gpu": {
+    "round_trip": {
+      "mean_ms": 14.256,
+      "p50_ms": 13.01,
+      "p95_ms": 23.584
+    },
+    "model": {
+      "mean_ms": 10.44,
+      "p50_ms": 10.4,
+      "p95_ms": 11.6
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 15.365,
+    "stages": {
+      "prepare_ms": {
+        "mean_ms": 0.107,
+        "p50_ms": 0.101,
+        "p95_ms": 0.134
+      },
+      "bridge_and_worker_ms": {
+        "mean_ms": 13.515,
+        "p50_ms": 12.251,
+        "p95_ms": 22.974
+      },
+      "decode_ms": {
+        "mean_ms": 0.563,
+        "p50_ms": 0.511,
+        "p95_ms": 0.828
+      },
+      "task_call_ms": {
+        "mean_ms": 10.44,
+        "p50_ms": 10.4,
+        "p95_ms": 11.6
+      }
+    },
+    "startup_and_run_s": 7.24,
+    "renderer": "ANGLE (AMD, AMD Radeon RX 7900 XTX (0x0000744C) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "cpu_repeat": {
+    "round_trip": {
+      "mean_ms": 8.305,
+      "p50_ms": 8.198,
+      "p95_ms": 9.709
+    },
+    "model": {
+      "mean_ms": 8.305,
+      "p50_ms": 8.198,
+      "p95_ms": 9.709
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 9.809,
+    "stages": {},
+    "startup_and_run_s": 1.779
+  }
+}

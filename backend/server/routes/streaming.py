@@ -147,6 +147,8 @@ def stream_stats():
     from pipeline.tracking_config import get_tracking_config
     config, revision = get_tracking_config()
     tracking.update(settings=config.to_dict(), settings_revision=revision)
+    from tracking.models import library
+    tracking['library'] = library.snapshot()
     from .export_data import recorder
     return jsonify(recording=recorder.status()['recording'], fps=round(_fps, 1), camera_active=bool(camera and camera.is_opened()),
         resolution=[camera.width, camera.height] if camera else [0, 0],

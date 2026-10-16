@@ -95,7 +95,11 @@ class BrowserTracker:
     START_TIMEOUT = 25.0
     FRAME_TIMEOUT = .75
 
-    def __init__(self, config, features, stop_event=None):
+    def __init__(self, config, features, stop_event=None, delegate='GPU'):
+        if delegate not in ('GPU', 'CPU'):
+            raise ValueError('Invalid browser delegate')
+        self.delegate = delegate  # CPU is exposed only to the diagnostic benchmark.
+        self.timings = {}
         self.config = config
         self.features = features.copy()
         self.stop_event = stop_event or threading.Event()
@@ -161,9 +165,10 @@ class BrowserTracker:
             file = (self.runtime / path.removeprefix('/runtime/')).resolve()
             if not file.is_relative_to(self.runtime.resolve()):
                 return connection.respond(404, 'Not found\n')
-        elif path in ('/models/face_landmarker.task', '/models/hand_landmarker.task', '/models/pose_landmarker_lite.task'):
-            from graphs.tasks_compat import model_path
-            file = Path(model_path(path.rsplit('/', 1)[1]))
+        elif path in ('/models/face.task', '/models/hand.task', '/models/pose.task'):
+            from tracking.models import library
+            kind = path.rsplit('/', 1)[1].split('.')[0]
+            file = library.resolve(getattr(self.config, kind + '_model'), kind)
         else:
             return connection.respond(404, 'Not found\n')
         if not file.is_file():
@@ -204,17 +209,24 @@ class BrowserTracker:
             return result
 
     def _command(self, command, timeout=10, **values):
-        self.connection.send(json.dumps({'type': command, **values}))
+        self.connection.send(json.dumps({'type': command, 'delegate': self.delegate, **values}))
         response = self._receive(timeout)
-        if not isinstance(response, dict) or response.get('type') != 'ready' or response.get('delegate') != 'GPU':
-            raise RuntimeError('GPU delegate was not initialized')
+        if not isinstance(response, dict) or response.get('type') != 'ready' or response.get('delegate') != self.delegate:
+            raise RuntimeError('Requested browser delegate was not initialized')
         self.renderer = response.get('renderer', 'GPU')
 
     def configure(self, config, features):
-        self._command('configure', config=config.to_dict(), features=features)
+        previous = self.config
+        self.config = config  # Asset requests during setOptions use the new selection.
+        try:
+            self._command('configure', config=config.to_dict(), features=features)
+        except Exception:
+            self.config = previous
+            raise
         self.config, self.features = config, features.copy()
 
     def process(self, rgb, timeout=None):
+        start = time.perf_counter()
         height, width = rgb.shape[:2]
         size = 24 + height * width * 4
         if len(self._packet) != size:
@@ -224,9 +236,15 @@ class BrowserTracker:
         struct.pack_into('<IIIId', self._packet, 0, 0x3147464c, self._frame_id, width, height,
                          time.monotonic_ns() / 1_000_000)
         cv2.cvtColor(rgb, cv2.COLOR_RGB2RGBA, dst=self._rgba)
+        prepared = time.perf_counter()
         self.connection.send(memoryview(self._packet))
         response = self._receive(self.FRAME_TIMEOUT if timeout is None else timeout)
+        received = time.perf_counter()
         result, self.inference_ms = unpack_result(response, self._frame_id, self.features)
+        self.timings = {'prepare_ms': (prepared-start)*1000,
+                        'bridge_and_worker_ms': (received-prepared)*1000,
+                        'decode_ms': (time.perf_counter()-received)*1000,
+                        'task_call_ms': self.inference_ms}
         return result
 
     def close(self):

@@ -1,6 +1,7 @@
 """Tracking controls and measurements from the shared inference worker."""
 from flask import Blueprint, jsonify, request
 from pipeline.tracking_config import get_tracking_config, update_tracking_config
+from tracking.models import library
 
 bp = Blueprint('tracking', __name__)
 FEATURES = {'face_mesh': 'face', 'iris': 'iris', 'hands': 'hands', 'pose': 'pose'}
@@ -65,3 +66,34 @@ def configure_tracking():
 def reset_tracking():
     config, revision = update_tracking_config(reset=True)
     return jsonify(success=True, config=config.to_dict(), revision=revision)
+
+
+@bp.get('/models')
+def get_models():
+    return jsonify(success=True, **library.snapshot())
+
+
+@bp.post('/models/download')
+def download_model():
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict): raise ValueError('Supply a model id')
+        return jsonify(success=True, job=library.download(data.get('id'))), 202
+    except ValueError as exc:
+        return jsonify(success=False, error={'message': str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify(success=False, error={'message': str(exc)}), 409
+
+
+@bp.post('/models/import')
+def import_model():
+    try:
+        upload = request.files.get('file')
+        source = upload.stream if upload else request.stream
+        kind = request.form.get('kind') if upload else request.args.get('kind')
+        filename = upload.filename if upload else request.args.get('name', '')
+        return jsonify(success=True, job=library.import_stream(source, kind, filename)), 202
+    except ValueError as exc:
+        return jsonify(success=False, error={'message': str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify(success=False, error={'message': str(exc)}), 409

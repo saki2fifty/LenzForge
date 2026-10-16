@@ -15,6 +15,7 @@ var update_ms := 0.0
 var preview := false
 var preview_surface: Control
 var buffer := PackedFloat32Array()
+var occlusion: RefCounted
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -22,6 +23,7 @@ func _init() -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	instances.transform_format = MultiMesh.TRANSFORM_2D
+	instances.use_custom_data = true
 	instances.mesh = quad
 	drawing.multimesh = instances
 	var dots := ShaderMaterial.new()
@@ -87,12 +89,14 @@ func _upload() -> void:
 	drawing.material.set_shader_parameter("point_color",Color.html(model.config.color))
 	var count := model.points.size()
 	if instances.instance_count != count: instances.instance_count = count
-	buffer.resize(count*8)
+	buffer.resize(count*12)
 	var diameter := float(model.config.point_size)*2/fit
 	for i in count:
-		buffer[i*8] = diameter; buffer[i*8+3] = model.points[i].x
-		buffer[i*8+5] = diameter; buffer[i*8+7] = model.points[i].y
+		buffer[i*12] = diameter; buffer[i*12+3] = model.points[i].x
+		buffer[i*12+5] = diameter; buffer[i*12+7] = model.points[i].y
+		buffer[i*12+8] = model.point_depth[i] if i < model.point_depth.size() else 0.0
 	instances.buffer = buffer
+	if occlusion: occlusion.apply(drawing.material,self,video_size,mirror,preview)
 
 func _process(_delta: float) -> void:
 	if Time.get_ticks_msec()-face_seen_at > 250: clear_face()

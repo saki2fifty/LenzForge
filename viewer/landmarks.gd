@@ -8,11 +8,14 @@ var show_points := true
 var video_size := Vector2(1280, 720)
 var instances := MultiMesh.new()
 var preview_surface: Control
+var depth := PackedFloat32Array()
+var occlusion: RefCounted
 
 func _ready() -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	instances.transform_format = MultiMesh.TRANSFORM_2D
+	instances.use_custom_data = true
 	instances.mesh = quad
 	var dots := ShaderMaterial.new()
 	dots.shader = preload("res://landmarks.gdshader")
@@ -37,5 +40,7 @@ func _draw() -> void:
 		var uv := Vector2(1.0 - point.x if mirror else point.x, point.y)
 		instances.set_instance_transform_2d(index, Transform2D(
 			Vector2(diameter, 0), Vector2(0, diameter), origin + uv * fitted))
+		instances.set_instance_custom_data(index, Color(depth[index] if index < depth.size() else 0.0,0,0,0))
 	material.set_shader_parameter("point_color", tint)
+	if occlusion: occlusion.apply(material,self,video_size,mirror)
 	draw_multimesh(instances, null)

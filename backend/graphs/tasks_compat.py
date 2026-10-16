@@ -1,7 +1,7 @@
 """Result adapters for the current MediaPipe Tasks video API.
 
 Keeps existing graph consumers' data schema without using the removed Solutions
-API. Models are installed explicitly by Setup.ps1, never downloaded at runtime.
+API. Models are installed by Setup.ps1 or explicitly through the model library.
 """
 import os
 from pathlib import Path
@@ -44,10 +44,10 @@ class VideoTask:
 
 class FaceMesh(VideoTask):
     def __init__(self, max_num_faces=1, min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                 min_presence_confidence=0.5, output_blendshapes=True, output_transform=True, **_):
+                 min_presence_confidence=0.5, output_blendshapes=True, output_transform=True, model=None, **_):
         super().__init__()
         self.task = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
-            base_options=python.BaseOptions(model_asset_path=model_path('face_landmarker.task')),
+            base_options=python.BaseOptions(model_asset_path=model or model_path('face_landmarker.task')),
             running_mode=vision.RunningMode.VIDEO, num_faces=max_num_faces,
             min_face_detection_confidence=min_detection_confidence,
             min_face_presence_confidence=min_presence_confidence,
@@ -62,10 +62,10 @@ class FaceMesh(VideoTask):
 
 
 class Hands(VideoTask):
-    def __init__(self, max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5, min_presence_confidence=0.5, **_):
+    def __init__(self, max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5, min_presence_confidence=0.5, model=None, **_):
         super().__init__()
         self.task = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
-            base_options=python.BaseOptions(model_asset_path=model_path('hand_landmarker.task')),
+            base_options=python.BaseOptions(model_asset_path=model or model_path('hand_landmarker.task')),
             running_mode=vision.RunningMode.VIDEO, num_hands=max_num_hands,
             min_hand_detection_confidence=min_detection_confidence,
             min_hand_presence_confidence=min_presence_confidence,
@@ -82,10 +82,10 @@ class Hands(VideoTask):
 
 
 class Pose(VideoTask):
-    def __init__(self, min_detection_confidence=0.5, min_tracking_confidence=0.5, min_presence_confidence=0.5, enable_segmentation=False, **_):
+    def __init__(self, min_detection_confidence=0.5, min_tracking_confidence=0.5, min_presence_confidence=0.5, enable_segmentation=False, model=None, **_):
         super().__init__()
         self.task = vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
-            base_options=python.BaseOptions(model_asset_path=model_path('pose_landmarker_lite.task')),
+            base_options=python.BaseOptions(model_asset_path=model or model_path('pose_landmarker_lite.task')),
             running_mode=vision.RunningMode.VIDEO,
             min_pose_detection_confidence=min_detection_confidence,
             min_pose_presence_confidence=min_presence_confidence,

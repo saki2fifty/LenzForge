@@ -25,7 +25,20 @@ static func frame(face: PackedVector2Array, dimensions: Vector2, depth: PackedFl
 	down = down.normalized()
 	var back := right.cross(down).normalized()
 	return {"right":Vector2(right.x,right.y)*width,"down":Vector2(down.x,down.y)*width,
-		"back":Vector2(back.x,back.y)*width,"width":width}
+		"back":Vector2(back.x,back.y)*width,"width":width,"right3":right,"down3":down,"back3":back}
+
+static func depths(anchors: Array, depth: PackedFloat32Array, dimensions: Vector2, basis: Dictionary) -> PackedFloat32Array:
+	var result := PackedFloat32Array()
+	result.resize(anchors.size())
+	if depth.size() < 455 or basis.is_empty(): return result
+	var z_axis := Vector3(basis.right3.z,basis.down3.z,basis.back3.z)*float(basis.width)/dimensions.x
+	for i in anchors.size():
+		var b: Dictionary = anchors[i]
+		var ids: Vector3i = b.indices
+		var w: Vector3 = b.weights
+		var offset: Vector3 = b.offset if b.offset is Vector3 else Vector3(b.offset.x,b.offset.y,0)
+		result[i] = depth[ids.x]*w.x+depth[ids.y]*w.y+depth[ids.z]*w.z+z_axis.dot(offset)
+	return result
 
 static func project(anchors: Array, face: PackedVector2Array, dimensions: Vector2, basis: Dictionary) -> PackedVector2Array:
 	var result := PackedVector2Array()

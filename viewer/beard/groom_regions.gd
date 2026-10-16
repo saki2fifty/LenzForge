@@ -230,6 +230,22 @@ static func strand_settings(config: Dictionary, binding: Dictionary) -> Dictiona
 		if config.hair_style == "Regular": result.length *= lerpf(1.0,float(config.hair_sides),pow(absf(float(binding.u)),3))
 	return result
 
+static func root_depths(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array, virtual_depth: PackedFloat32Array) -> PackedFloat32Array:
+	var basis := Head.frame(face,dimensions,depth)
+	var result := Head.FaceFrame.depths(bindings,depth,dimensions,basis)
+	if basis.is_empty(): return result
+	var scale: float = basis.width/dimensions.x
+	for i in bindings.size():
+		var b: Dictionary = bindings[i]
+		if b.has("virtual_cell") and not virtual_depth.is_empty():
+			var c: Vector4i = b.virtual_cell
+			var w: Vector4 = b.virtual_weights
+			result[i] = virtual_depth[c.x]*w.x+virtual_depth[c.y]*w.y+virtual_depth[c.z]*w.z+virtual_depth[c.w]*w.w
+			if b.region == "hair": result[i] += float(basis.down3.z)*float(config.hairline)*scale + float(basis.right3.z)*scale*float(b.virtual_across)*.5*float(config.crown_width)*(float(config.hair_width)-1)
+		elif b.region == "mustache": result[i] -= float(basis.down3.z)*float(config.mustache_lift)*scale
+		elif b.region == "brow": result[i] += float(basis.down3.z)*(float(b.v)*float(config.brow_thickness)-float(config.brow_lift)-sin(float(b.u)*PI)*float(config.brow_arch))*scale
+	return result
+
 static func procedural_steps(config: Dictionary, b: Dictionary, index: int, curl: float) -> PackedVector2Array:
 	var result := PackedVector2Array()
 	var n := int(config.segments)

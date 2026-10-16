@@ -19,6 +19,7 @@ var source_b := PackedInt32Array()
 var weights := PackedFloat32Array()
 var offsets := PackedVector3Array()
 var points := PackedVector2Array()
+var point_depth := PackedFloat32Array()
 
 static func defaults() -> Dictionary:
 	# The rounded mannequin-preview fit is the starting and reset configuration.
@@ -132,9 +133,11 @@ func update(face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32A
 			points.clear()
 			return
 	points.resize(ids.size())
+	point_depth.resize(ids.size())
 	var right: Vector2 = basis.right
 	var down: Vector2 = basis.down
 	var back: Vector2 = basis.back
 	for i in points.size():
 		var offset := offsets[i]
 		points[i] = face[source_a[i]].lerp(face[source_b[i]],weights[i])*dimensions + right*offset.x + down*offset.y + back*offset.z
+		point_depth[i] = (lerpf(depth[source_a[i]],depth[source_b[i]],weights[i]) if depth.size() >= 455 else 0.0) + float(basis.width)/dimensions.x * Vector3(basis.right3.z,basis.down3.z,basis.back3.z).dot(offset)

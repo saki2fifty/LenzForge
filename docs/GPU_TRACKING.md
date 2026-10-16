@@ -4,6 +4,8 @@ Implemented October 16, 2026. LenzForge can run MediaPipe face, iris, hand, and 
 
 ## Start and configure
 
+The follow-up [model library and visibility guide](MODELS_AND_VISIBILITY.md) covers model downloads/imports, head self-occlusion, and a native CPU / browser CPU / browser GPU diagnostic that explains the runtime comparison more precisely.
+
 Existing installations should run `Setup.ps1 -SkipBuild` once to install the pinned browser JS/WASM assets and WebSocket dependency. This workspace already has them installed. Restart the backend and viewer to load the changes. GPU mode requires Microsoft Edge or Chrome and a working hardware WebGL2 context. A missing browser, missing assets, unsupported graphics context, model error, or lost connection leaves tracking on CPU and reports the reason.
 
 Open the desktop's **Tracking** tab on the right. The browser studio exposes the same controls below its appearance settings. Choose settings and press **Apply tracking settings**; capture continues without reopening the camera. Unsubmitted edits are preserved when status updates arrive.

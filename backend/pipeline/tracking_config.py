@@ -14,6 +14,9 @@ class TrackingConfig:
     tracking_confidence: float = 0.5
     blendshapes: bool = True
     face_transform: bool = True
+    face_model: str = 'face_landmarker'
+    hand_model: str = 'hand_landmarker'
+    pose_model: str = 'pose_landmarker_lite'
 
     def to_dict(self):
         return asdict(self)
@@ -34,6 +37,10 @@ class TrackingConfig:
                 raise ValueError(f'{key} must be a finite number from 0 to 1')
         if type(candidate.blendshapes) is not bool or type(candidate.face_transform) is not bool:
             raise ValueError('blendshapes and face_transform must be boolean')
+        from tracking.models import library
+        for kind in ('face', 'hand', 'pose'):
+            if kind + '_model' in changes:
+                library.resolve(getattr(candidate, kind + '_model'), kind)
         return candidate
 
 

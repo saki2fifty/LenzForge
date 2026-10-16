@@ -7,6 +7,7 @@ Processes camera frames and returns landmark data for overlay.
 import cv2
 from graphs.tasks_compat import solutions
 from pipeline.tracking_config import TrackingConfig
+from tracking.models import library
 import numpy as np
 from typing import Optional, Dict, List, Any
 import logging
@@ -82,6 +83,7 @@ class WebProcessor:
                         min_tracking_confidence=self.config.tracking_confidence,
                         output_blendshapes=self.config.blendshapes,
                         output_transform=self.config.face_transform,
+                        model=str(library.resolve(self.config.face_model, 'face')),
                     )
                     logger.info("Face Mesh initialized")
 
@@ -90,6 +92,7 @@ class WebProcessor:
                     self.hands = self.mp_hands.Hands(
                         static_image_mode=False,
                         max_num_hands=2,
+                        model=str(library.resolve(self.config.hand_model, 'hand')),
                         min_detection_confidence=self.config.detection_confidence,
                         min_presence_confidence=self.config.presence_confidence,
                         min_tracking_confidence=self.config.tracking_confidence,
@@ -99,6 +102,7 @@ class WebProcessor:
             if tracking_type == 'pose':
                 if self.pose is None:
                     self.pose = self.mp_pose.Pose(
+                        model=str(library.resolve(self.config.pose_model, 'pose')),
                         static_image_mode=False,
                         min_detection_confidence=self.config.detection_confidence,
                         min_presence_confidence=self.config.presence_confidence,

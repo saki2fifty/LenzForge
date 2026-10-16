@@ -38,6 +38,12 @@ func _run() -> void:
 			if "--render" in OS.get_cmdline_user_args() and tab == 3:
 				await RenderingServer.frame_post_draw
 				root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../artifacts/tracking-panel-%d.png" % dimensions.x))
+			if tab == 3:
+				studio.tracking_panel.model_group.show()
+				await process_frame
+				await process_frame
+				check(not scroll.get_h_scroll_bar().visible,"Expanded model library fits %s"%dimensions)
+				studio.tracking_panel.model_group.hide()
 	check(studio.tracking_panel.values().detection_confidence == .5,"Tracking controls round trip configuration")
 	studio.tracking_panel.controls.detection_confidence.value = 0
 	check(studio.tracking_panel.dirty and studio.tracking_panel.values().detection_confidence == 0,"Zero confidence is editable")

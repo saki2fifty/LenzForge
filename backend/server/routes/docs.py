@@ -9,6 +9,7 @@ DOCS = {
     'architecture': ('Architecture and modernization', 'docs/ARCHITECTURE.md'),
     'api_reference': ('Studio API', 'docs/API.md'),
     'gpu_tracking': ('GPU tracking and performance', 'docs/GPU_TRACKING.md'),
+    'models_visibility': ('Model library and head visibility', 'docs/MODELS_AND_VISIBILITY.md'),
 }
 
 

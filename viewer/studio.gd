@@ -4,6 +4,7 @@ const Overlay = preload("res://landmarks.gd")
 const ExtensionLayer = preload("res://tracking/extension_layer.gd")
 const LandmarksPanel = preload("res://tracking/landmarks_panel.gd")
 const TrackingPanel = preload("res://tracking/tracking_panel.gd")
+const HeadOcclusion = preload("res://tracking/head_occlusion.gd")
 const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
 const INK := Color("e4ebf3")
@@ -22,6 +23,7 @@ var overlay: Control
 var extensions: Control
 var landmarks_panel: VBoxContainer
 var tracking_panel: VBoxContainer
+var occlusion := HeadOcclusion.new()
 var beard: Control
 var beard_panel: VBoxContainer
 var sidebar_tabs: TabContainer
@@ -315,6 +317,20 @@ func _build_ui() -> void:
 	landmarks_panel = LandmarksPanel.new()
 	landmark_column.add_child(landmarks_panel)
 	landmarks_panel.setup(self, extensions)
+	_section(landmark_column, "Visibility", "Hide landmarks and strands behind the fitted head. Uncheck to inspect hidden guides. Head shape is estimated; hands and room objects are not occluders.")
+	var hide_back := CheckBox.new()
+	hide_back.text = "Hide behind head"
+	occlusion.enabled = bool(settings.get_value("view", "occlusion", true))
+	hide_back.button_pressed = occlusion.enabled
+	hide_back.toggled.connect(func(value): occlusion.enabled = value; _refresh_occlusion())
+	landmark_column.add_child(hide_back)
+	occlusion.head_depth = clampf(float(settings.get_value("view", "head_depth", .65)),.25,1.0)
+	occlusion.crown = clampf(float(settings.get_value("view", "head_crown", .20)),0,.5)
+	_slider(landmark_column, "Head depth", .25, 1.0, .01, occlusion.head_depth, func(value): occlusion.head_depth = value; _refresh_occlusion())
+	_slider(landmark_column, "Crown height", 0.0, .5, .01, occlusion.crown, func(value): occlusion.crown = value; _refresh_occlusion())
+	overlay.occlusion = occlusion
+	extensions.occlusion = occlusion
+	beard.occlusion = occlusion
 	landmark_column.add_child(HSeparator.new())
 	_section(landmark_column, "Measured landmarks")
 	points_check = CheckBox.new()
@@ -435,6 +451,7 @@ func _sync_preview_landmarks() -> void:
 	if empty_state: empty_state.hide()
 
 func _clear_tracking() -> void:
+	occlusion.valid = false
 	if beard.mannequin: return
 	overlay.preview_surface = null
 	extensions.preview_surface = null
@@ -607,9 +624,18 @@ func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 		normalized.append(Vector2(point.x, point.y))
 		depth.append(point.z)
 	overlay.points = normalized
+	overlay.depth = depth
+	occlusion.update(normalized,depth,overlay.video_size)
 	overlay.queue_redraw()
 	extensions.set_face(normalized, overlay.video_size, depth)
 	beard.set_face(normalized, overlay.video_size, depth)
+
+func _refresh_occlusion() -> void:
+	if beard.mannequin: return
+	occlusion.update(overlay.points,overlay.depth,overlay.video_size)
+	overlay.queue_redraw()
+	extensions._upload()
+	beard._apply_occlusion()
 
 func _set_look(index: int) -> void:
 	var looks := [[1.0, 1.0, 0.0], [0.0, 1.15, 0.0], [0.8, 1.05, 0.045], [1.15, 1.18, 0.0]]
@@ -658,6 +684,9 @@ func _store_settings() -> void:
 		settings.set_value("beard", "document", beard.get_document())
 		settings.set_value("beard", "enabled", beard.enabled)
 	if extensions: settings.set_value("landmarks", "extensions", extensions.model.config)
+	settings.set_value("view", "occlusion", occlusion.enabled)
+	settings.set_value("view", "head_depth", occlusion.head_depth)
+	settings.set_value("view", "head_crown", occlusion.crown)
 	if sidebar_tabs: settings.set_value("view", "sidebar_tab", sidebar_tabs.current_tab)
 
 func _exit_tree() -> void:

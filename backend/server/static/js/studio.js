@@ -5,7 +5,49 @@ let lastSource = null;
 let discoveryAttempted = false;
 let trackingDirty = false;
 let trackingRevision = -1;
+let modelSignature = '';
 const trackingForm = $('tracking-settings');
+for (const kind of ['face', 'hand', 'pose']) {
+  const label = document.createElement('label');
+  label.textContent = `${kind[0].toUpperCase() + kind.slice(1)} model`;
+  label.htmlFor = `model-${kind}`;
+  const picker = document.createElement('select');
+  picker.id = label.htmlFor; picker.name = `${kind}_model`;
+  const defaultId = `${kind}_landmarker${kind === 'pose' ? '_lite' : ''}`;
+  picker.add(new Option(defaultId, defaultId));
+  const download = document.createElement('button');
+  download.type = 'button'; download.textContent = `Download selected ${kind} model`;
+  download.onclick = () => action(() => api('/api/tracking/models/download', {id: picker.value}));
+  $('model-selectors').append(label, picker, download);
+}
+function updateModels(library) {
+  if (!library) return;
+  const signature = JSON.stringify(library.models);
+  if (signature !== modelSignature) {
+    modelSignature = signature;
+    for (const kind of ['face', 'hand', 'pose']) {
+      const picker = $(`model-${kind}`), selected = picker.value;
+      picker.replaceChildren();
+      for (const model of library.models.filter(item => item.kind === kind)) {
+        picker.add(new Option(`${model.label} · ${model.installed ? 'installed' : 'download'}`, model.id));
+      }
+      if ([...picker.options].some(item => item.value === selected)) picker.value = selected;
+    }
+  }
+  const job = library.job;
+  if (job.state !== 'idle') $('model-job').textContent = `${job.label} · ${job.state}` +
+    (job.state === 'downloading' ? ` · ${(job.received / 1048576).toFixed(1)} / ${(job.total / 1048576).toFixed(1)} MB` :
+      job.error ? `: ${job.error}` : job.state === 'ready' ? '. Select it, then Apply tracking settings.' : '');
+}
+$('import-model').onclick = () => action(async () => {
+  const file = $('model-file').files[0];
+  if (!file || file.size > 100 * 1048576) throw new Error('Choose a .task bundle under 100 MB.');
+  const data = new FormData(); data.set('file', file); data.set('kind', $('import-kind').value);
+  const response = await fetch('/api/tracking/models/import', {method: 'POST', body: data});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message || 'Import failed');
+  $('message').textContent = 'Validating model…';
+});
 trackingForm.addEventListener('input', () => { trackingDirty = true; });
 function acceptTracking(config, revision) {
   for (const [key, value] of Object.entries(config || {})) {
@@ -21,7 +63,7 @@ trackingForm.onsubmit = event => {
   const values = {};
   for (const field of trackingForm.elements) {
     if (!field.name) continue;
-    values[field.name] = field.type === 'checkbox' ? field.checked : field.name === 'backend' ? field.value : Number(field.value);
+    values[field.name] = field.type === 'checkbox' ? field.checked : field.name === 'backend' || field.name.endsWith('_model') ? field.value : Number(field.value);
   }
   action(async () => {
     const result = await api('/api/tracking/configure', values);
@@ -112,6 +154,7 @@ async function poll() {
     $('inference').textContent = (data.tracking.last_inference_ms || 0).toFixed(1);
     $('dropped').textContent = data.tracking.frames_dropped || '0';
     const tracking = data.tracking;
+    updateModels(tracking.library);
     if (!trackingDirty && trackingRevision !== tracking.settings_revision) acceptTracking(tracking.settings, tracking.settings_revision);
     let runtime = (tracking.active_backend || 'Waiting for capture').toUpperCase();
     if (tracking.phase && tracking.phase !== 'ready') runtime += ' · ' + tracking.phase.replaceAll('_', ' ');

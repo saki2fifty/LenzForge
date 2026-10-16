@@ -23,6 +23,7 @@ def main():
                         ('viewer', ['--quit-after', '10']),
                         ('sources', ['--script', 'res://tests/studio_sources.gd']),
                         ('layout', ['--script', 'res://tests/studio_layout.gd']),
+                        ('occlusion', ['--script', 'res://tests/occlusion_probe.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),
                         ('groom', ['--script', 'res://tests/groom_probe.gd']),

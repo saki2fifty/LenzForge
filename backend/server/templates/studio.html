@@ -33,6 +33,7 @@
         <label for="tracking-backend">Processing</label><select id="tracking-backend" name="backend"><option value="auto">Auto · fastest measured</option><option value="gpu">GPU · browser worker</option><option value="cpu">CPU · native</option></select>
         <label for="tracking-width">Tracking image width</label><select id="tracking-width" name="max_width"><option value="320">320 px</option><option value="480">480 px</option><option value="640" selected>640 px</option><option value="960">960 px</option><option value="0">Native resolution</option></select>
         <label for="tracking-faces">Maximum faces</label><input id="tracking-faces" name="num_faces" type="number" min="1" max="4" step="1" value="1" required>
+        <div id="model-selectors"></div>
         <label for="tracking-detection">Detection confidence</label><input id="tracking-detection" name="detection_confidence" type="number" min="0" max="1" step="0.05" value="0.5" required>
         <label for="tracking-presence">Presence confidence</label><input id="tracking-presence" name="presence_confidence" type="number" min="0" max="1" step="0.05" value="0.5" required>
         <label for="tracking-confidence">Tracking confidence</label><input id="tracking-confidence" name="tracking_confidence" type="number" min="0" max="1" step="0.05" value="0.5" required>
@@ -40,6 +41,10 @@
         <label class="check"><input name="face_transform" type="checkbox" checked> 3D face transform</label>
         <button type="submit" class="primary">Apply tracking settings</button><button id="tracking-reset" type="button">Restore tracking defaults</button>
       </form>
+      <p id="model-job" class="muted">Face has one official model. Pose offers Lite, Full, and Heavy.</p>
+      <label for="import-kind">Import model type</label><select id="import-kind"><option value="face">Face</option><option value="hand">Hands</option><option value="pose">Pose</option></select>
+      <label for="model-file">Compatible Landmarker .task bundle</label><input id="model-file" type="file" accept=".task">
+      <button id="import-model">Import model</button>
       <p class="muted">Settings apply during capture. Auto compares CPU and GPU while keeping tracking live. One face enables smoothing; the desktop follows the first detected face.</p>
       <hr><h3>Desktop studio</h3><p class="muted">Use the Godot viewer for GPU color grading, mirrored video, adjustable landmarks, and fullscreen previews.</p>
     </aside>
