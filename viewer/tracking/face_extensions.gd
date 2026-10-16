@@ -1,6 +1,6 @@
 extends RefCounted
 ## General virtual landmarks; independent of hair, tracking IDs, and rendering.
-const FaceFrame = preload("res://tracking/face_frame.gd")
+const Surface = preload("res://tracking/head_surface.gd")
 const REGIONS := ["forehead","left_side","right_side","chin"]
 # MediaPipe FACE_LANDMARKS_FACE_OVAL, clockwise from the forehead.
 const OUTLINE := [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,
@@ -20,6 +20,9 @@ var weights := PackedFloat32Array()
 var offsets := PackedVector3Array()
 var points := PackedVector2Array()
 var point_depth := PackedFloat32Array()
+var surface := Surface.new()
+var external_surface := false
+var bindings: Dictionary = {}
 
 static func defaults() -> Dictionary:
 	# The rounded mannequin-preview fit is the starting and reset configuration.
@@ -119,25 +122,24 @@ func _rebuild() -> void:
 					-blend.y*float(config.left_side_inset)+blend.z*float(config.right_side_inset),
 				direction.y*float(config.top if direction.y < 0 else config.bottom)*(upper.x if direction.y < 0 else lower.x)
 					+blend.dot(heights)+float(config.vertical_offset),blend.dot(depths)))
+	# Controls choose locations on the shared head, never a second floating shell.
+	# Fitting is cached here, not repeated for every tracking frame.
+	var reference := Surface.canonical_points()
+	var width := reference[234].distance_to(reference[454])
+	var targets := PackedVector3Array()
+	for i in offsets.size():
+		targets.append(reference[source_a[i]].lerp(reference[source_b[i]],weights[i])+offsets[i]*width)
+	bindings = surface.bind_nearest(targets)
+	for i in ids.size():
+		ids[i] = Surface.id_for(bindings,i)
+		# Quantized IDs and the guides resolve to precisely the same positions.
+		bindings.weights[i] = Surface.binding(ids[i]).weights[0]
 
 func update(face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array = PackedFloat32Array()) -> void:
-	if not config.enabled:
-		points.clear()
-		return
-	var basis := FaceFrame.frame(face,dimensions,depth)
-	if basis.is_empty():
-		points.clear()
-		return
-	for index in OUTLINE:
-		if not face[index].is_finite():
-			points.clear()
-			return
-	points.resize(ids.size())
-	point_depth.resize(ids.size())
-	var right: Vector2 = basis.right
-	var down: Vector2 = basis.down
-	var back: Vector2 = basis.back
-	for i in points.size():
-		var offset := offsets[i]
-		points[i] = face[source_a[i]].lerp(face[source_b[i]],weights[i])*dimensions + right*offset.x + down*offset.y + back*offset.z
-		point_depth[i] = (lerpf(depth[source_a[i]],depth[source_b[i]],weights[i]) if depth.size() >= 455 else 0.0) + float(basis.width)/dimensions.x * Vector3(basis.right3.z,basis.down3.z,basis.back3.z).dot(offset)
+	if not external_surface: surface.update(face,depth,dimensions)
+	var positions := surface.sample(bindings) if config.enabled else PackedVector3Array()
+	points.resize(positions.size())
+	point_depth.resize(positions.size())
+	for i in positions.size():
+		points[i] = Vector2(positions[i].x,positions[i].y)
+		point_depth[i] = positions[i].z/dimensions.x

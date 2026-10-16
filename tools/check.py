@@ -35,6 +35,7 @@ def main():
                         ('groom', ['--script', 'res://tests/groom_probe.gd']),
                         ('virtual-head', ['--script', 'res://tests/virtual_head_probe.gd']),
                         ('extensions', ['--script', 'res://tests/extensions_probe.gd']),
+                        ('head-surface', ['--script', 'res://tests/head_surface_probe.gd']),
                         ('mannequin', ['--script', 'res://tests/mannequin_probe.gd'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)

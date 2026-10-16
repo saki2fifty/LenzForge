@@ -17,6 +17,7 @@ var preview_surface: Control
 var buffer := PackedFloat32Array()
 var occlusion: RefCounted
 var guides_visible := true
+var _preview_points := PackedVector3Array()
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -58,6 +59,8 @@ func clear_face() -> void:
 	face.clear()
 	face_depth.clear()
 	model.points.clear()
+	model.point_depth.clear()
+	if not model.external_surface: model.surface.clear()
 	face_seen_at = 0
 	drawing.hide()
 	set_process(false)
@@ -67,7 +70,8 @@ func _refresh() -> void:
 	var started := Time.get_ticks_usec()
 	var previous_count := model.points.size()
 	if is_instance_valid(preview_surface) and preview_surface.active:
-		model.points = preview_surface.project_points(preview_surface.extension_points(model))
+		_preview_points = preview_surface.extension_points(model)
+		model.points = preview_surface.project_points(_preview_points)
 	else: model.update(face,video_size,face_depth)
 	_upload()
 	set_process(not preview and not face.is_empty())
@@ -76,7 +80,7 @@ func _refresh() -> void:
 
 func _upload() -> void:
 	if is_instance_valid(preview_surface) and preview_surface.active:
-		preview_surface.set_dots("extensions",preview_surface.extension_points(model),Color.html(model.config.color),
+		preview_surface.set_dots("extensions",_preview_points,Color.html(model.config.color),
 			float(model.config.point_size),guides_visible and bool(model.config.show_points))
 		drawing.hide()
 		return

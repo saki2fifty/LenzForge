@@ -1,51 +1,52 @@
-# Virtual face and head landmarks
+# Shared face and head landmarks
 
-Open the desktop **Landmarks** tab, between **Look** and **Hair**. Virtual points are enabled by default and appear in orange around the complete face outline. They work with **Show hair and beard** turned off.
+Open **Landmarks** for orange virtual points around the scalp, sides, and underside of the chin. They work with hair turned off. Green points retain the original measured/reference IDs. Both kinds now use the same attachment API and head geometry.
 
-![Independent orange landmarks above the head, around the sides, and below the chin, with no hair](images/landmark-extensions.png)
+![Virtual points fitted directly to the mannequin surface](images/landmark-extensions.png)
 
-Start the camera with **Face + iris** enabled, or select **Try on mannequin** in this tab. The mannequin is a shaded 3D head: drag to rotate, use the wheel to zoom, and choose **Front**, **Side**, or **Back** to inspect a contour. **Reset view** or a double-click restores the front view. The status reports the measured and virtual point counts and explains when it is waiting for a face. On the mannequin, the synthetic inputs are labeled “reference.”
+## Contours and controls
 
-| Control | Effect |
-| --- | --- |
-| Extend face / head landmarks | Enable or disable the independent virtual reference data. |
-| Show virtual landmarks | Show or hide the orange dots while retaining active reference data. |
-| Move up / down | Move the whole virtual set vertically: negative goes up, positive goes down, and zero restores the original placement. Follows head orientation and preserves the shape and density of the rings. |
-| Regional contour | Choose **Forehead**, **Left side**, **Right side**, or **Chin** to shape its rows independently. |
-| Start up / down | Move the selected region's starting rows vertically. Positive lowers them, negative raises them. |
-| Start in / out (sides) | Shift the selected side's starting rows inward toward the face with a negative value, or outward with a positive value. |
-| Outward reach | Height above the forehead, distance below the chin, or width outside the selected side. Left/right refer to the unmirrored image. |
-| Back reach | Additional distance behind the selected region. Adds to the whole-set **Front / back** value. |
-| Wrap angle | **0°** extends straight; **90°** curves backward along a quarter ellipse; angles above **90°** turn inward after reaching the crown or side. Maximum **180°** returns toward the starting height/width behind the head. |
-| Round this region | Apply a starting contour with **110°** wrap and **0.5** back reach (**0.3** for the chin). Preserves starting position, outward reach, and whole-set movement. |
-| Front / back | Negative values extend toward the front; positive values extend behind the face. Turn or tilt the head to see the depth offset in the preview. |
-| Outward layers | Number of progressively farther rings, from 1 to 12. |
-| Points around face | Samples per ring, from 36 to 144. |
-| Point size / color | Appearance of virtual dots, separate from measured points and hair roots. |
-| Reset extensions | Restore the visible, enabled default fit. |
+Virtual points are fitted to triangles on a closed head mesh, rather than floating offsets. The mannequin renders that exact mesh. Live capture deforms the same topology using measured face coordinates and relative depth. Hair roots and the live occlusion depth map use it too.
 
-Reach and position values use face widths. For example, **Chin → Outward reach = 0.2** with zero wrap extends the outer lower row one fifth of the face width below the chin. The intermediate rows sample the contour from its starting position toward the back. Default density is **72 × 4 = 288** points; the maximum is **144 × 12 = 1,728**. Changing density does not add hair strands or tracking work in the backend.
+- **Head depth** and **Crown height**, under **Landmarks → Visibility**, change the shared head shape, including the mannequin, hair attachment, and occlusion.
+- **Move up / down** shifts guide coverage along the skin. **Regional contour** adjusts forehead, left/right side, and chin coverage separately. Start position, reach, and wrap controls choose locations on the surface; they cannot lift guides off it.
+- **Guide rows** and **Points around face** change visible sampling density: 72 × 4 = 288 by default, at most 144 × 12 = 1,728. They do not add inference or hair strands.
+- **Show virtual landmarks** hides the orange guides. The toolbar's landmarks icon hides every guide group. Neither switch detaches placed items.
+- **Extend face / head landmarks** disables this displayed guide set. Existing saved attachments still resolve their surface locations.
+- **Reset extensions** restores the established coverage defaults. Existing stored control values load, but their locations are now constrained to the skin; an old floating fit is intentionally corrected.
 
-Use **Move up / down = -0.1** to lift every virtual point by one tenth of a face width, or **0.1** to lower them. This offset saves with the extension settings and follows head turns and tilts. **Reset extensions** restores the rounded preview defaults below.
+The previous up/down, regional reach, wrap, and density preferences remain saved automatically. Up/down now follows the surface instead of translating a detached shell. Different settings can converge on the same location at the head's limits.
 
-The starting and reset fit uses the tested rounded mannequin preview: **288 points**, whole-set up/down **−0.15**, each region's starting up/down **0.10**, and **110°** wrap in every region. Back reach is **0.5** for the forehead and sides, **0.3** for the chin. Both side insets are **−0.08**. Outward reach is **0.42** above the forehead, **0.18** on either side, and **0.20** below the chin; whole-set front/back is **0.15**. Existing saved fits continue to load their stored values.
+Start capture with **Face + iris**, or choose **Try on mannequin**. Drag the 3D head, scroll to zoom, and use **Front / Side / Back / Reset view** to inspect the fit. Hidden points remain part of the reference count.
 
-## Fit a contour around your head
+![Side view: points follow the actual skull and underside of the chin](images/mannequin-3d.png)
 
-The **Move up / down** control still moves the whole set. Use **Regional contour** for local fitting:
+The scalp and back of a real head are estimated from the visible face, not newly measured anatomy. Adjust head depth/crown to improve that estimate. Headphones, hands, and room objects are not part of this surface. The mannequin fit is exact to its mesh; a live fit is not a head scan.
 
-1. Choose **Forehead**, set **Start up / down** to **0.1** to lower its starting rows, and click **Round this region**. Adjust **Outward reach** to fit the crown and **Back reach** to carry the rows farther behind it. A wrap angle above 90° lets the rows turn downward again behind the crown.
-2. Choose either side. Try **Start in / out = -0.08** to tuck its starting rows toward the face, then **Round this region** to curve toward the back of the head. **Start up / down** adjusts the height of that side around the ear.
-3. Choose **Chin**. A negative **Start up / down** raises its starting rows; **Outward reach**, **Back reach**, and **Wrap angle** fit a curve underneath and behind the chin.
+## Attach hair
 
-Turn or tilt your head to judge backward reach: depth projects onto the preview during rotation. Neighboring regions blend through the temples and jaw. These are adjustable estimated contours; no head scan or automatic skull fitting is performed. Existing saved settings retain their previous shape until a regional contour is adjusted. All controls save independently of hairstyles.
+Open **Hair → Strands**, enable selection, and click a strand root. **Attach root to landmark** lists all 478 measured IDs and the current virtual guide locations. Both use the same root position and depth as the corresponding landmark. **Restore root placement** returns that strand to its procedural placement.
 
-![Forehead contour controls, with regional starting height, backward reach, and wrap angle](images/landmark-contours.png)
+Attachments autosave and are included in saved/exported looks. Their locations remain stable when guide density, coverage, or visibility changes. To move an existing attachment to a different location, choose another landmark. Changes to the shared head shape deform all attachments with the surface.
 
-The lower part of this tab contains the measured-landmark visibility, size, and color controls. **L** toggles measured dots only. General virtual points, measured points, and hair visibility are independent. The **landmarks icon above the preview** and **Show landmark guides** checkbox hide/show all measured, virtual, and hair-root dots together, preserving the individual choices. Tracking and hair attachment continue while guides are hidden. The master switch also works on the 3D mannequin and saves automatically. Extension settings persist across normal viewer restarts, separately from saved hairstyles. Existing hair-root fitting remains under **Hair → Root surface**.
+**Hair → Root surface** distributes procedural roots over the same surface. There is no second orange hair-only grid. Magenta dots still represent individual generated hair roots and have their own display switch.
 
-The outline follows MediaPipe's [face-oval connections](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/python/vision/face_landmarker.py). Each virtual point interpolates between adjacent tracked outline landmarks, then adds an offset in a head-relative frame. Existing relative depth drives yaw and pitch; the same frame follows roll, translation, and scale. These are estimated references, not newly measured anatomy. The live camera has no full-head depth occlusion. Invalid or lost tracking clears the virtual data instead of leaving floating points behind.
+## Attachment API
 
-The offline mannequin evaluates those same offsets directly against its canonical 3D reference points. It supports side and rear views, with points behind its solid head hidden by the depth buffer. Hidden points remain part of the reference count. The head shape is a neutral model; fitting it does not scan or automatically fit your own head. The rounded defaults and saved extension settings are unchanged.
+`tracking/head_surface.gd` exposes:
 
-For other overlays, `viewer/tracking/face_extensions.gd` exposes `ids` and `points` separately from the measured 478-point array. Positions are in source-image pixels before mirroring/letterboxing. IDs use `extension:<ring>:<column>` and remain stable during movement and extent changes; density changes alter the sampling layout. Topology, elliptical contour profiles, and blended offsets are rebuilt only when fitting changes. Each tracking result projects the same packed arrays once; visible dots use one instanced batch. No hair simulation or additional model is needed.
+- `face:<index>` for original IDs 0–477; measured coordinates are preserved.
+- `virtual:<triangle>:<weight-a>:<weight-b>` for stable surface locations. Integer barycentric weights use millionths; the third weight is the remainder. These IDs are independent of the displayed guide layout.
+- `binding(id)` returns packed triangle indices/weights, usable for batched attachments.
+- `sample(bindings)` evaluates packed bindings in native code.
+- `resolve(id)` returns position, outward normal, an orthonormal transform, and an `estimated` flag, or an empty dictionary if unavailable.
+
+Live positions use camera pixels before mirroring/letterboxing: X right, Y down, Z away from the camera, with all three axes in pixel units. The mannequin's local surface uses canonical model units with those same axis directions. Convert Y/Z signs when parenting objects beneath its Godot 3D pivot.
+
+`tracking/landmark_attachment.gd` is a reusable Node3D attachment for an object or effect. Put geometry beneath it, assign a surface and `landmark_id`, and set `surface_transform` to the destination coordinate system. Optional `normal_offset` lifts the object along the skin normal. It updates on new surface data, hides on tracking loss, and uses the same resolver for either landmark type. A 3D child uses its viewport's depth buffer; a custom live 2D renderer must pass the resolved depth to the existing occlusion shader. This is an attachment component, not a general accessory-library UI.
+
+## Performance and validation
+
+The head has fixed topology: 478 measured/reference vertices plus 20 × 36 closure vertices (1,198 total; iris vertices are attachment references rather than face triangles). It is built once per tracking result and shared by overlays. Native nearest-triangle fitting uses a bounding-volume tree and runs only when placement changes; animation uses linear-time packed barycentric sampling. Force/color changes reuse hair bindings; force-only changes also bypass strand/rest-guide rebuilding. Visible markers and hair remain instanced batches.
+
+Tests cover actual triangle contact, measured ID preservation, virtual/hair/object equality, rotations through profile and rear views, head-shape deformation, hidden guides, density changes, malformed IDs, tracking loss, save/load and process restart. See [performance results](PERFORMANCE.md#shared-head-surface) for the before/after CPU benchmark.

@@ -367,6 +367,12 @@ func _build_ui() -> void:
 	overlay.occlusion = occlusion
 	extensions.occlusion = occlusion
 	beard.occlusion = occlusion
+	beard.surface = occlusion.surface
+	beard.external_surface = true
+	extensions.model.surface = occlusion.surface
+	extensions.model.external_surface = true
+	beard.extension_model = extensions.model
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown)
 	landmark_column.add_child(HSeparator.new())
 	_section(landmark_column, "Measured landmarks")
 	points_check = CheckBox.new()
@@ -494,6 +500,7 @@ func _sync_preview_landmarks() -> void:
 func _clear_tracking() -> void:
 	occlusion.valid = false
 	if beard.mannequin: return
+	occlusion.surface.clear()
 	overlay.preview_surface = null
 	extensions.preview_surface = null
 	extensions.clear_face()
@@ -690,10 +697,12 @@ func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 	beard.set_face(normalized, overlay.video_size, depth)
 
 func _refresh_occlusion() -> void:
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown)
 	if beard.mannequin: return
 	occlusion.update(overlay.points,overlay.depth,overlay.video_size)
 	overlay.queue_redraw()
-	extensions._upload()
+	extensions._refresh()
+	if beard.enabled and beard._face_live: beard._attach()
 	beard._apply_occlusion()
 
 func _set_look(index: int) -> void:

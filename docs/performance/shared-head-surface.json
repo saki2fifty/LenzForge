@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-16",
+  "godot": "4.7.2",
+  "baseline_commit": "56fa98f",
+  "baseline": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 1.126,
+          "p50": 0.898,
+          "p95": 0.962
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 3.574,
+          "p50": 2.235,
+          "p95": 2.746
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 8.021,
+          "p50": 7.03,
+          "p95": 7.609
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 15.596,
+          "p50": 9.609,
+          "p95": 13.699
+        }
+      }
+    ],
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  },
+  "shared_surface": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 1.206,
+          "p50": 0.942,
+          "p95": 1.113
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 1.885,
+          "p50": 1.282,
+          "p95": 1.522
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 8.615,
+          "p50": 7.102,
+          "p95": 7.455
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 3.036,
+          "p50": 2.388,
+          "p95": 2.73
+        }
+      }
+    ],
+    "edit_costs": {
+      "maximum_force_ms": 0.61,
+      "maximum_placement_ms": 98.101
+    },
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  },
+  "intermediate_edit_costs_before_spatial_search_and_direct_forces": {
+    "maximum_placement_ms": 303.501,
+    "maximum_force_ms": 74.222
+  },
+  "notes": [
+    "Headless viewer CPU benchmark; synthetic canonical face with yaw/pitch; no camera, inference, GPU completion or presentation.",
+    "30 warmup updates and 240 recorded updates per case.",
+    "Maximum placement edit adds 2048 hairs, 16 segments and 1728 guides; force edit changes gravity without geometry changes.",
+    "Short development runs on the same workstation; not end-to-end FPS or statistically controlled trials."
+  ]
+}

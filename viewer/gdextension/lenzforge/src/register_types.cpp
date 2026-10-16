@@ -4,6 +4,7 @@
 #include "god1_writer.h"
 #include "beard_simulator.h"
 #include "face_occluder.h"
+#include "head_surface_math.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -22,6 +23,7 @@ void initialize_lenzforge_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<GOD1Writer>();
 	ClassDB::register_class<BeardSimulator>();
 	ClassDB::register_class<FaceOccluder>();
+	ClassDB::register_class<HeadSurfaceMath>();
 }
 
 void uninitialize_lenzforge_module(ModuleInitializationLevel p_level) {

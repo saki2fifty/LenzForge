@@ -73,6 +73,8 @@ static func validate(data: Variant) -> String:
 				if not _color_valid(edits[index][key]): return "Invalid strand color."
 			elif key == "guide":
 				if not _guide_valid(edits[index][key]): return "Invalid custom strand curve."
+			elif key == "anchor":
+				if not edits[index][key] is String or preload("res://tracking/head_surface.gd").binding(edits[index][key]).is_empty(): return "Invalid landmark attachment."
 			else: return "Unknown strand setting: " + str(key)
 	return ""
 
@@ -123,26 +125,27 @@ static func with_geometry(data: Dictionary) -> Dictionary:
 	var result := data.duplicate(true)
 	var config := Groom.normalized(data.settings)
 	var bindings := all_anchors(config)
-	var face := mannequin()
-	var dimensions := Vector2(1280,720)
-	var scale := ((face[454]-face[234])*dimensions).length()
-	var roots := Groom.root_positions(config,bindings,face,dimensions)
+	var surface := preload("res://tracking/head_surface.gd").new()
+	surface.set_reference()
+	var fitted := preload("res://beard/surface_groom.gd").build(surface,config,bindings,data.get("strands",{}))
+	var roots := surface.sample(fitted)
 	var guides: Array = []
 	for i in bindings.size():
 		var a: Dictionary = bindings[i]
-		var root := (roots[i]-dimensions*.5)/scale
+		var root := Vector2(roots[i].x,roots[i].y)/surface.width
+		var z := -roots[i].z/surface.width
 		var edit: Dictionary = data.get("strands",{}).get(a.id,{})
 		var regional := Groom.strand_settings(config,a)
 		var length: float = float(regional.length)*float(edit.get("length",1.0))
-		var points: Array = [[root.x, -root.y, 0.0]]
+		var points: Array = [[root.x, -root.y, z]]
 		var point := root
 		for step in strand_steps(config,data.get("strands",{}),i,a):
 			point += step*length
-			points.append([point.x,-point.y,0.0])
+			points.append([point.x,-point.y,z])
 		guides.append({"index":a.id,"region":a.region,"points":points,"base_length":maxf(.0001,float(regional.length)),
 			"root_width":float(edit.get("root_width",regional.root_width))/300.0,
 			"tip_width":float(edit.get("tip_width",regional.tip_width))/300.0})
-	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z depth; 2D guides", "guides":guides}
+	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z toward camera; planar strands with 3D surface roots", "guides":guides}
 	return result
 
 static func _number_in(value: Variant, bounds: Array) -> bool:

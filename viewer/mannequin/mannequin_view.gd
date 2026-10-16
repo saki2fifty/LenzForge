@@ -1,7 +1,6 @@
 extends Control
 ## On-demand 3D preview. The head is constructed only when first opened.
 const HeadModel = preload("res://mannequin/head_model.gd")
-const Groom = preload("res://beard/groom_regions.gd")
 signal pose_changed
 const FRAME := Vector2(1280,720)
 var viewport := SubViewport.new()
@@ -24,7 +23,8 @@ var hair_image: Image
 var root_positions := PackedVector3Array()
 var _built := false
 var _roots_dirty := true
-var _surface_bins: Dictionary = {}
+var surface := preload("res://tracking/head_surface.gd").new()
+var shared_root_bindings: Dictionary = {}
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -62,10 +62,10 @@ func _build() -> void:
 	pivot = Node3D.new()
 	hair = MultiMeshInstance3D.new()
 	reference = HeadModel.reference_points()
-	_surface_bins = HeadModel.surface_bins(reference)
+	surface.set_reference()
 	face_width = reference[454].distance_to(reference[234])
 	viewport.add_child(pivot)
-	pivot.add_child(HeadModel.build(reference))
+	pivot.add_child(HeadModel.build(reference,surface))
 	viewport.add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.position = Vector3(0,-2,50)
@@ -123,6 +123,20 @@ func request_frame() -> void:
 		if not RenderingServer.frame_post_draw.is_connected(_frame_rendered):
 			RenderingServer.frame_post_draw.connect(_frame_rendered,CONNECT_ONE_SHOT)
 
+func set_surface_shape(depth: float, crown_height: float) -> void:
+	if is_equal_approx(surface.head_depth,depth) and is_equal_approx(surface.crown,crown_height): return
+	surface.head_depth = depth
+	surface.crown = crown_height
+	if not _built: return
+	surface.set_reference()
+	pivot.get_child(0).free()
+	var bust := HeadModel.build(reference,surface)
+	pivot.add_child(bust)
+	pivot.move_child(bust,0)
+	_roots_dirty = true
+	pose_changed.emit()
+	request_frame()
+
 func _frame_rendered() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
@@ -169,12 +183,9 @@ func face_depth() -> PackedFloat32Array:
 	return result
 
 func extension_points(model: RefCounted) -> PackedVector3Array:
-	var result := PackedVector3Array()
-	if not model.config.enabled: return result
-	result.resize(model.offsets.size())
-	for i in result.size():
-		var offset: Vector3 = model.offsets[i]
-		result[i] = reference[model.source_a[i]].lerp(reference[model.source_b[i]],model.weights[i])+Vector3(offset.x,-offset.y,-offset.z)*face_width
+	if not model.config.enabled: return PackedVector3Array()
+	var result: PackedVector3Array = surface.sample(model.bindings)
+	for i in result.size(): result[i] *= Vector3(1,-1,-1)
 	return result
 
 func set_dots(key: String, points: PackedVector3Array, color: Color, radius: float, shown: bool) -> void:
@@ -191,20 +202,11 @@ func set_dots(key: String, points: PackedVector3Array, color: Color, radius: flo
 		drawing.material_override.set_shader_parameter("point_color",color)
 	request_frame()
 
-func bound_points(bindings: Array) -> PackedVector3Array:
-	var result := PackedVector3Array()
-	for b in bindings:
-		var ids: Vector3i = b.indices
-		var weights: Vector3 = b.weights
-		var offset: Vector3 = b.offset
-		result.append(reference[ids.x]*weights.x+reference[ids.y]*weights.y+reference[ids.z]*weights.z+Vector3(offset.x,-offset.y,-offset.z)*face_width)
-	return result
-
-func attach_roots(config: Dictionary, bindings: Array, virtual_surface: PackedVector3Array) -> PackedVector2Array:
+func attach_roots() -> PackedVector2Array:
 	# Use the established grooming rules in the neutral face plane, then rotate
 	# the resulting 3D roots. This stays well-defined at profile and rear views.
 	if _roots_dirty:
-		_build_roots(config,bindings,virtual_surface)
+		_build_roots()
 		_roots_dirty = false
 	var positions := PackedVector2Array()
 	positions.resize(root_positions.size())
@@ -214,29 +216,15 @@ func attach_roots(config: Dictionary, bindings: Array, virtual_surface: PackedVe
 		var world := world_point(root_positions[i])
 		positions[i] = project_world(world)
 		depths[i] = world.z
-	var data := Image.create_from_data(1,bindings.size(),false,Image.FORMAT_RF,depths.to_byte_array())
-	if root_texture == null or root_texture.get_height() != bindings.size(): root_texture = ImageTexture.create_from_image(data)
+	var data := Image.create_from_data(1,root_positions.size(),false,Image.FORMAT_RF,depths.to_byte_array())
+	if root_texture == null or root_texture.get_height() != root_positions.size(): root_texture = ImageTexture.create_from_image(data)
 	else: root_texture.update(data)
 	hair_material.set_shader_parameter("root_depth",root_texture)
 	return positions
 
-func _build_roots(config: Dictionary, bindings: Array, virtual_surface: PackedVector3Array) -> void:
-	var neutral := PackedVector2Array()
-	for p in reference: neutral.append((FRAME*.5+Vector2(p.x,-p.y+camera.position.y)*pixels_per_unit())/FRAME)
-	var surface := PackedVector2Array()
-	for p in virtual_surface: surface.append(FRAME*.5+Vector2(p.x,-p.y+camera.position.y)*pixels_per_unit())
-	var positions := Groom.root_positions(config,bindings,neutral,FRAME,surface)
-	root_positions.resize(bindings.size())
-	for i in bindings.size():
-		var b: Dictionary = bindings[i]
-		var z: float = reference[b.indices.x].z*b.weights.x+reference[b.indices.y].z*b.weights.y+reference[b.indices.z].z*b.weights.z
-		if b.has("virtual_cell") and not virtual_surface.is_empty():
-			var cell: Vector4i = b.virtual_cell; var w: Vector4 = b.virtual_weights
-			z = virtual_surface[cell.x].z*w.x+virtual_surface[cell.y].z*w.y+virtual_surface[cell.z].z*w.z+virtual_surface[cell.w].z*w.w
-		var xy := (positions[i]-FRAME*.5)/pixels_per_unit()
-		var point := Vector3(xy.x,-xy.y+camera.position.y,z)
-		if not b.has("virtual_cell"): point = HeadModel.fit_surface(point,_surface_bins,reference)
-		root_positions[i] = point+Vector3(0,0,.08)
+func _build_roots() -> void:
+	root_positions = surface.sample(shared_root_bindings)
+	for i in root_positions.size(): root_positions[i] *= Vector3(1,-1,-1)
 
 func update_hair(buffer: PackedFloat32Array, segments: int, shown: bool) -> void:
 	if not _built: return

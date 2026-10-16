@@ -20,6 +20,7 @@ public:
                      const godot::Vector2 &down, const godot::Vector2 &mouth,
                      const godot::Vector2 &mouth_radii);
     void advance(double delta);
+    bool set_forces(double gravity, double wind, double turbulence, double damping);
     void reset();
     godot::PackedFloat32Array get_render_buffer() const;
     godot::PackedVector2Array get_strand_points(int strand) const;

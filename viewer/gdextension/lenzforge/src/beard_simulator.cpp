@@ -9,10 +9,18 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps", "strand_options"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()), DEFVAL(PackedFloat32Array()));
     ClassDB::bind_method(D_METHOD("set_anchors", "roots", "face_width", "down", "mouth", "mouth_radii"), &BeardSimulator::set_anchors);
     ClassDB::bind_method(D_METHOD("advance", "delta"), &BeardSimulator::advance);
+    ClassDB::bind_method(D_METHOD("set_forces", "gravity", "wind", "turbulence", "damping"), &BeardSimulator::set_forces);
     ClassDB::bind_method(D_METHOD("reset"), &BeardSimulator::reset);
     ClassDB::bind_method(D_METHOD("get_render_buffer"), &BeardSimulator::get_render_buffer);
     ClassDB::bind_method(D_METHOD("get_strand_points", "strand"), &BeardSimulator::get_strand_points);
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
+}
+
+bool BeardSimulator::set_forces(double g, double w, double t, double d) {
+    if (!std::isfinite(g) || !std::isfinite(w) || !std::isfinite(t) || !std::isfinite(d) ||
+        g<0 || g>12 || w<-10 || w>10 || t<0 || t>5 || d<0 || d>.95) return false;
+    gravity=g; wind=w; turbulence=t; damping=d;
+    return true;
 }
 
 bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps, const PackedFloat32Array &options) {

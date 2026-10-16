@@ -1,7 +1,7 @@
 """Blender add-on: round-trip LenzForge beard guides as editable poly curves.
 
 Install this file as a Blender add-on, then use File > Import/Export > LenzForge
-beard (.json). Geometry is a face-width reference in the XY plane. The viewer
+beard (.json). Geometry uses face-width units, with planar strands rooted on a 3D head. The viewer
 rebinds roots to live landmarks; curve edits control each strand's rest shape.
 """
 import copy

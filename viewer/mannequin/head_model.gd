@@ -1,78 +1,28 @@
 extends RefCounted
 ## A complete neutral bust, with the canonical face's original landmark indices.
-const Extensions = preload("res://tracking/face_extensions.gd")
+const Surface = preload("res://tracking/head_surface.gd")
 
 static func reference_points() -> PackedVector3Array:
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://mannequin/assets/canonical_face.json"))
-	var points := PackedVector3Array()
-	for p in data.vertices: points.append(Vector3(p[0],p[1],p[2]))
-	# Refined iris IDs follow the same order as the tracking stream.
-	for side in [-1.0,1.0]:
-		var center := Vector3(side*3.15,2.62,3.88)
-		points.append(center)
-		for offset in [Vector3(.34,0,0),Vector3(0,.34,0),Vector3(-.34,0,0),Vector3(0,-.34,0)]:
-			points.append(center+offset)
+	var points := Surface.canonical_points().duplicate()
+	for i in points.size(): points[i] *= Vector3(1,-1,-1)
 	return points
 
-static func surface_bins(points: PackedVector3Array) -> Dictionary:
-	# Small XY bins keep root fitting proportional to roots, not roots × mesh size.
-	var bins := {}
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://mannequin/assets/canonical_face.json"))
-	for face in data.triangles:
-		var ids := Vector3i(face[0],face[1],face[2])
-		var a := Vector2(points[ids.x].x,points[ids.x].y)
-		var b := Vector2(points[ids.y].x,points[ids.y].y)
-		var c := Vector2(points[ids.z].x,points[ids.z].y)
-		var low := Vector2i((a.min(b).min(c)*2).floor())
-		var high := Vector2i((a.max(b).max(c)*2).floor())
-		for y in range(low.y,high.y+1):
-			for x in range(low.x,high.x+1):
-				var key := Vector2i(x,y)
-				if not bins.has(key): bins[key] = []
-				bins[key].append(ids)
-	return bins
-
-static func fit_surface(point: Vector3, bins: Dictionary, points: PackedVector3Array) -> Vector3:
-	var xy := Vector2(point.x,point.y)
-	for ids in bins.get(Vector2i((xy*2).floor()),[]):
-		var a := Vector2(points[ids.x].x,points[ids.x].y)
-		var b := Vector2(points[ids.y].x,points[ids.y].y)-a
-		var c := Vector2(points[ids.z].x,points[ids.z].y)-a
-		var determinant := b.cross(c)
-		if absf(determinant) < .000001: continue
-		var u := (xy-a).cross(c)/determinant
-		var v := b.cross(xy-a)/determinant
-		if u >= 0 and v >= 0 and u+v <= 1:
-			point.z = maxf(point.z,points[ids.x].z*(1-u-v)+points[ids.y].z*u+points[ids.z].z*v)
-	return point
-
-static func build(points: PackedVector3Array) -> Node3D:
+static func build(_points: PackedVector3Array, surface: RefCounted = null) -> Node3D:
 	var bust := Node3D.new()
 	var clay := _material(Color("b3a899"))
 	var dark := _material(Color("303e43"))
 	var eye := _material(Color("d0c9ba"))
-	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://mannequin/assets/canonical_face.json"))
-	var vertices := points.slice(0,468)
-	var indices := PackedInt32Array()
-	# OBJ is counterclockwise; Godot's front faces are clockwise.
-	for triangle in data.triangles:
-		indices.append_array(PackedInt32Array([triangle[0],triangle[2],triangle[1]]))
-	var previous := PackedInt32Array(Extensions.OUTLINE)
-	var rings := 20
-	for ring in range(1,rings+1):
-		var t := float(ring)/rings
-		var next := PackedInt32Array()
-		for index in Extensions.OUTLINE:
-			var start := points[index]
-			var radial := cos(t*PI*.5)
-			var crown := pow(maxf(start.y,0)/8.3,2)*4.6*sin(t*PI)
-			var point := Vector3(start.x*radial,1.4+(start.y-1.4)*radial+crown,lerpf(start.z,-10.5,sin(t*PI*.5)))
-			next.append(vertices.size())
-			vertices.append(point)
-		for column in previous.size():
-			var after := (column+1)%previous.size()
-			indices.append_array(PackedInt32Array([previous[column],next[column],previous[after],previous[after],next[column],next[after]]))
-		previous = next
+	if surface == null:
+		surface = Surface.new()
+		surface.set_reference()
+	var vertices: PackedVector3Array = surface.vertices.duplicate()
+	for i in vertices.size(): vertices[i] *= Vector3(1,-1,-1)
+	var indices: PackedInt32Array = surface.topology().duplicate()
+	# Surface triangles have outward counterclockwise winding; Godot uses clockwise.
+	for i in range(0,indices.size(),3):
+		var swap := indices[i+1]
+		indices[i+1] = indices[i+2]
+		indices[i+2] = swap
 	var normals := PackedVector3Array()
 	normals.resize(vertices.size())
 	for i in range(0,indices.size(),3):

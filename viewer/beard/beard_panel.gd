@@ -25,6 +25,7 @@ var delete_dialog: ConfirmationDialog
 var _syncing := false
 var pages: Dictionary = {}
 var page_picker: OptionButton
+var anchor_picker: OptionButton
 
 func setup(layer: Control, studio: Control) -> void:
 	beard = layer
@@ -70,23 +71,21 @@ func setup(layer: Control, studio: Control) -> void:
 	roots_page.add_child(host._button("Fit root surface…",func(): show_page("Root surface")))
 
 	var virtual_page := _page("Root surface")
-	host._section(virtual_page,"Hair root surface","Fit a surface for hair roots. General face and head extensions are in the Landmarks tab and work with hair off.")
-	_config_check(virtual_page,"virtual_enabled","Use virtual head for roots")
-	_config_check(virtual_page,"show_virtual_landmarks","Show root surface guides")
-	_color(virtual_page,"virtual_color","Root surface color")
+	host._section(virtual_page,"Hair root surface","All roots attach to the same head surface as the landmarks. These controls distribute roots along that surface.")
+	_config_check(virtual_page,"virtual_enabled","Expand root coverage")
+	virtual_page.add_child(host._button("Show shared landmarks…",func(): host.sidebar_tabs.current_tab = 1))
 	virtual_page.add_child(host._button("Extend root coverage",func():
 		beard.set_settings(Groom.virtual_preset())
 		beard.set_enabled(true),true))
-	for row in [["crown_height","Crown height",0,.8,.01],["crown_width","Crown width",.6,1.8,.02],
+	for row in [["crown_height","Scalp coverage",0,.8,.01],["crown_width","Scalp spread",.6,1.8,.02],
 		["crown_back","Crown back reach",0,1,.01],["chin_extension","Below chin",0,.8,.01],
 		["jaw_expansion","Jaw expansion",0,.5,.01],["chin_back","Under-chin depth",0,.5,.01],
 		["ear_reach","Toward ears",0,.6,.01],["side_back","Side / back reach",0,.8,.02],
-		["sideburn_height","Height around ears",0,1,.05],["virtual_columns","Columns per region",8,48,1],
-		["virtual_rows","Rows per region",2,10,1]]:
+		["sideburn_height","Height around ears",0,1,.05]]:
 		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
-	controls.crown_height.tooltip_text = "Distance above the tracked forehead, in face widths. Fit the orange top row to your crown."
+	controls.crown_height.tooltip_text = "Spread roots from forehead toward crown. Roots stay attached to the skin."
 	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
-	host._section(virtual_page,"Fitting","Adjust Crown height and width to your head. Back reach uses the existing landmark depth during turns. Point density is independent of hair density; increase strand counts separately for more hair.")
+	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. General guide density is independent of hair count. Select a strand to attach it to any measured or virtual landmark.")
 
 	var mustache := _page("Mustache")
 	_config_check(mustache,"mustache_enabled","Include mustache")
@@ -163,6 +162,21 @@ func setup(layer: Control, studio: Control) -> void:
 	_spin(selected_group,"curl","Curl",0,1,.01,true)
 	_color(selected_group,"root_color","Root color",true)
 	_color(selected_group,"tip_color","Tip color",true)
+	selected_group.add_child(host._label("Attach root to landmark",12,host.MUTED))
+	anchor_picker = OptionButton.new()
+	anchor_picker.fit_to_longest_item = false
+	anchor_picker.clip_text = true
+	anchor_picker.get_popup().about_to_popup.connect(_fill_anchors)
+	anchor_picker.item_selected.connect(func(index):
+		var id: String = anchor_picker.get_item_metadata(index)
+		if not id.is_empty(): beard.set_strand_setting("anchor",id))
+	selected_group.add_child(anchor_picker)
+	selected_group.add_child(host._button("Restore root placement",func():
+		var id: String = beard.selected_key()
+		if beard.overrides.has(id):
+			beard.overrides[id].erase("anchor")
+			beard._rebuild()
+			beard.changed.emit()))
 	selected_group.add_child(host._button("Restore strand defaults",func(): beard.reset_selected()))
 	selected_group.add_child(host._button("Hide this strand",func(): beard.set_strand_setting("length",0.0)))
 
@@ -299,12 +313,36 @@ func _sync() -> void:
 	selected_group.visible = beard.selected_strand >= 0
 	selected_label.text = "%s · %s" % [beard.attachment[beard.selected_strand].zone,beard.selected_key()] if beard.selected_strand >= 0 else "Click a strand root to edit it."
 	var edit: Dictionary = beard.overrides.get(beard.selected_key(), {})
+	anchor_picker.clear()
+	anchor_picker.add_item(edit.get("anchor","Automatic surface placement"))
+	anchor_picker.set_item_metadata(0,edit.get("anchor",""))
 	var regional: Dictionary = beard.selected_defaults()
 	for key in strand_controls:
 		var value = edit.get(key, 1.0 if key == "length" else regional[key])
 		if key.ends_with("color"): strand_controls[key].color = Color.html(value)
 		else: strand_controls[key].set_value_no_signal(value)
 	_syncing = false
+
+func _fill_anchors() -> void:
+	var current: String = beard.overrides.get(beard.selected_key(),{}).get("anchor","")
+	anchor_picker.clear()
+	anchor_picker.add_item("Choose a landmark…")
+	anchor_picker.set_item_metadata(0,"")
+	anchor_picker.set_item_disabled(0,true)
+	var ids := PackedStringArray()
+	for i in 478:
+		ids.append("face:%d"%i)
+		anchor_picker.add_item("Measured %d"%i)
+	if beard.extension_model != null:
+		for i in beard.extension_model.ids.size():
+			ids.append(beard.extension_model.ids[i])
+			anchor_picker.add_item("Virtual %d · row %d"%[i%int(beard.extension_model.config.columns)+1,i/int(beard.extension_model.config.columns)+1])
+	if not current.is_empty() and not current in ids:
+		ids.append(current)
+		anchor_picker.add_item("Saved virtual anchor")
+	for i in ids.size():
+		anchor_picker.set_item_metadata(i+1,ids[i])
+		if ids[i] == current: anchor_picker.select(i+1)
 
 func _create() -> void:
 	var chosen: String = Profile.STYLES[style.selected]
@@ -424,4 +462,4 @@ func _update_stats() -> void:
 	if not beard.last_error.is_empty(): stats.text = beard.last_error
 	elif not beard.enabled: stats.text = "Hair is hidden; physics is idle."
 	elif not beard._face_live: stats.text = "Waiting for a face. Try the mannequin to design offline."
-	else: stats.text = "%d / 2048 strands · %d segments\n%d root surface guides · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.virtual_points.size(),beard.update_ms]
+	else: stats.text = "%d / 2048 strands · %d segments\nShared head surface · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.update_ms]

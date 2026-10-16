@@ -1,5 +1,6 @@
 extends RefCounted
-## Bounded virtual surfaces, fitted to the existing face and relative depth.
+## Legacy grooming distribution targets, fitted to the shared skin mesh by
+## surface_groom.gd at configuration time. Not a separate rendered surface.
 ## X/Y/Z offsets use one face width; +Z points behind the face plane.
 const FaceFrame = preload("res://tracking/face_frame.gd")
 const PATCHES := ["scalp","chin","left_side","right_side"]

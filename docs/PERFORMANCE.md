@@ -151,3 +151,24 @@ Use the index returned by `/api/camera/list` for your webcam; `--camera -1` uses
 ```
 
 Success prints `LANDMARKS_RENDER_PASS` without engine/script errors. This check uses synthetic points and requires a graphics context; the default headless CI checks import its code but do not validate rendered pixels.
+
+## Shared head surface
+
+Measured October 16, 2026 using Godot 4.7.2 and the same Windows workstation. Baseline: `56fa98f`. The fixture rotates the canonical face through yaw/pitch, warms up for 30 updates, then records 240. It measures the actual studio callback (shared head construction, depth rasterization/upload preparation, virtual guides and hair attachment), followed by native strand simulation and upload preparation.
+
+| Workload | Landmark update median before → after | Landmark update p95 before → after | Physics/upload median before → after |
+| --- | ---: | ---: | ---: |
+| 512 strands × 8 segments, 288 guides | 2.235 → 1.282 ms | 2.746 → 1.522 ms | 0.898 → 0.942 ms |
+| 2,048 strands × 16 segments, 1,728 guides | 9.609 → 2.388 ms | 13.699 → 2.730 ms | 7.030 → 7.102 ms |
+
+Median landmark-result CPU time fell by about **43% / 75%**. Physics cost remained similar; the change removes duplicate fitting/projection work rather than reducing strand quality. One fixed 1,198-vertex surface now supplies landmarks, roots, mannequin geometry and live occlusion. Native packed barycentric sampling replaces per-frame dictionary-heavy root fitting.
+
+Settings responsiveness was measured separately. The intermediate exhaustive fitter took **303.501 ms** to switch to the maximum-density look and guide layout. Exact nearest-triangle search with bounding-volume pruning reduced this to **98.101 ms**, including all strand/rest-guide rebuilding. Force-only changes previously rebuilt those arrays in **74.222 ms**; direct validated gravity/wind/turbulence/damping updates now took **0.610 ms**, preserving current strand positions. These edit measurements compare two implementations within this change, not the baseline commit.
+
+These short synthetic CPU measurements exclude camera capture, AI inference, GPU completion and presentation. They do not establish a live-camera FPS gain. Maximum-density placement changes still rebuild the groom and can take around a tenth of a second; ordinary force edits avoid that work. [Raw before/after report](performance/shared-head-surface.json).
+
+```powershell
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --headless --path viewer --script res://tests/surface_performance.gd -- current
+```
+
+The fixture disables settings persistence and writes `artifacts/surface-performance-current.json`. The older virtual-head-grid measurements above describe the retired separate-grid implementation.

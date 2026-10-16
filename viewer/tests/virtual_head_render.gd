@@ -11,7 +11,7 @@ func _run() -> void:
 	studio.persist_settings = false
 	studio.backend_url = "http://127.0.0.1:9"
 	root.add_child(studio)
-	studio.extensions.set_settings({"enabled":false})
+	studio.extensions.set_settings({"enabled":true})
 	studio.sidebar_tabs.current_tab = 2
 	var config := Profile.defaults()
 	config.merge(Groom.hair_preset("Mohawk"),true)
@@ -20,8 +20,8 @@ func _run() -> void:
 	studio.beard_panel.show_page("Root surface")
 	for child in studio.beard_panel.pages["Root surface"].get_children():
 		if child is Button and child.text == "Extend root coverage": child.pressed.emit()
-	if not studio.beard.enabled or not studio.beard.config.virtual_enabled or studio.beard.virtual_points.size() != 380:
-		failures.append("Extend root coverage button did not enable and fit the virtual grid")
+	if not studio.beard.enabled or not studio.beard.config.virtual_enabled or studio.extensions.model.points.size() != 288:
+		failures.append("Extend root coverage button did not enable roots on the shared head surface")
 	studio.beard.simulator.reset()
 	for i in 60: studio.beard.simulator.advance(1.0/120)
 	await process_frame
@@ -40,9 +40,8 @@ func _run() -> void:
 	if not is_equal_approx(float(studio.beard.config.chin_extension),.25) or not is_equal_approx(studio.beard_panel.controls.chin_extension.value,.25):
 		failures.append("Shared chin controls did not synchronize between pages")
 	var count: int = studio.beard.attachment.size()
-	studio.beard_panel.controls.virtual_columns.value = 32
-	studio.beard_panel.controls.virtual_rows.value = 8
-	if studio.beard.virtual_points.size() != 900 or studio.beard.attachment.size() != count:
+	studio.extensions.set_settings({"columns":108,"rings":8})
+	if studio.extensions.model.points.size() != 864 or studio.beard.attachment.size() != count:
 		failures.append("Virtual density controls changed the wrong budget")
 	# Exercise the actual native-reader callback, which previously discarded Z.
 	studio.beard.set_mannequin(false)
@@ -53,8 +52,8 @@ func _run() -> void:
 	studio._on_landmarks(landmarks,1,studio.frame_timestamp)
 	if studio.beard.face_depth.size() != 478 or not is_equal_approx(studio.beard.face_depth[234],landmarks[234].z):
 		failures.append("Studio did not forward existing landmark depth")
-	studio.beard_panel.controls.show_virtual_landmarks.button_pressed = false
-	if studio.beard.virtual_markers.visible: failures.append("Show virtual landmarks switch did not hide the grid")
+	studio.extensions.set_settings({"show_points":false})
+	if studio.extensions.drawing.visible: failures.append("Show virtual landmarks switch did not hide the grid")
 	studio.beard_panel.controls.virtual_enabled.button_pressed = false
 	if not studio.beard.virtual_anchors.is_empty(): failures.append("Disabling virtual fitting retained virtual bindings")
 	print("VIRTUAL_HEAD_RENDER orange_pixels=",orange," failures=",failures)

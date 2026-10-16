@@ -62,6 +62,24 @@ func _run() -> void:
 	studio.beard.set_settings({"strands":1024,"brow_enabled":true,"brow_count":256,"hair_style":"Afro","hair_count":768,"segments":16})
 	await frame()
 	check(view.hair.multimesh.instance_count == 32768 and view.hair_texture.get_size() == Vector2(256,512),"Maximum groom fits a bounded GPU texture")
+	# Exercise the actual strand picker, including its virtual entries.
+	studio.beard.selected_strand = 0
+	studio.beard.strand_selected.emit(0)
+	studio.beard_panel.show_page("Strands")
+	studio.beard_panel._fill_anchors()
+	var picker: OptionButton = studio.beard_panel.anchor_picker
+	check(picker.item_count == 1+478+288,"Strand picker offers measured and virtual landmarks")
+	picker.select(479)
+	picker.item_selected.emit(479)
+	check(studio.beard.overrides["0"].anchor == studio.extensions.model.ids[0],"Strand picker attaches to a displayed virtual landmark")
+	var previous: PackedVector3Array = view.surface.vertices.duplicate()
+	studio.occlusion.head_depth = .85
+	studio.occlusion.crown = .32
+	studio._refresh_occlusion()
+	check(view.surface.vertices != previous,"Head shape controls update the rendered mannequin surface")
+	var mesh: ArrayMesh = view.pivot.get_child(0).get_child(0).mesh
+	var mesh_points: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	for i in mesh_points.size(): check(mesh_points[i].distance_to(view.surface.vertices[i]*Vector3(1,-1,-1)) < .00001,"Rendered head and attachment surface remain identical after resizing")
 	studio.beard.set_enabled(false)
 	await frame()
 	await frame()

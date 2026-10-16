@@ -80,7 +80,8 @@ func _run() -> void:
 	var settled: PackedVector2Array = solver.get_strand_points(0)
 	check(rest[-1].distance_to(settled[-1]) < .001, "Zero-force strand must remain at rest")
 	config.wind = 4
-	solver.configure(1, 8, config, attributes)
+	check(solver.set_forces(config.gravity,config.wind,config.turbulence,config.damping),"Update forces without rebuilding strands")
+	check(solver.get_strand_points(0) == settled,"Force edits preserve the current pose")
 	for i in 120: solver.advance(1.0/60)
 	var windy: PackedVector2Array = solver.get_strand_points(0)
 	check(windy[-1].x > rest[-1].x + 1, "Wind must move the strand")

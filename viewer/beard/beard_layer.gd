@@ -1,8 +1,14 @@
 extends Control
 const Profile = preload("res://beard/beard_profile.gd")
 const Groom = preload("res://beard/groom_regions.gd")
-const Head = preload("res://beard/virtual_head.gd")
 const MannequinView = preload("res://mannequin/mannequin_view.gd")
+const SurfaceGroom = preload("res://beard/surface_groom.gd")
+var surface := preload("res://tracking/head_surface.gd").new()
+var external_surface := false
+var extension_model: RefCounted
+var root_bindings: Dictionary = {}
+var _binding_config: Dictionary = {}
+var _binding_overrides: Dictionary = {}
 signal changed
 var guides_visible := true
 signal preview_face_changed
@@ -137,6 +143,13 @@ func set_settings(values: Dictionary) -> void:
 	if not Profile.validate(candidate).is_empty(): return
 	config = candidate.settings
 	overrides = candidate.strands
+	var forces_only := simulator != null and not root_bindings.is_empty()
+	for key in values:
+		if key not in ["gravity","wind","turbulence","damping"]: forces_only = false
+	if forces_only:
+		simulator.set_forces(config.gravity,config.wind,config.turbulence,config.damping)
+		changed.emit()
+		return
 	_rebuild()
 	changed.emit()
 
@@ -217,6 +230,7 @@ func set_face(points: PackedVector2Array, dimensions: Vector2, depth: PackedFloa
 
 func clear_face() -> void:
 	_face_live = false
+	if not external_surface: surface.clear()
 	face_seen_at = 0
 	drawing.hide()
 	root_markers.hide()
@@ -243,7 +257,22 @@ func _rebuild() -> void:
 	mannequin_view._roots_dirty = true
 	var selected_id := selected_key()
 	attachment = Profile.all_anchors(config)
-	virtual_anchors = Head.build(config) if config.virtual_enabled else []
+	# Physics and color changes reuse the cached surface fit too.
+	var placement := {}
+	for key in ["style","strands","seed","mustache_enabled","mustache_density","mustache_width","mustache_thickness","mustache_lift",
+		"brow_enabled","brow_count","brow_width","brow_thickness","brow_lift","brow_arch","brow_style",
+		"hair_style","hair_count","hawk_width","hair_width","hairline","crown_width","crown_height","crown_back",
+		"chin_extension","jaw_expansion","ear_reach","sideburn_height","root_layers","coverage_fill","chin_back","side_back",
+		"virtual_enabled","virtual_columns","virtual_rows"]: placement[key] = config[key]
+	var anchors_only := {}
+	for id in overrides:
+		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
+	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty():
+		root_bindings = SurfaceGroom.build(surface,config,attachment,anchors_only)
+		_binding_config = placement
+		_binding_overrides = anchors_only
+	mannequin_view.shared_root_bindings = root_bindings
+	virtual_anchors.clear()
 	virtual_points.clear()
 	generated_indices.clear()
 	for i in attachment.size():
@@ -289,16 +318,16 @@ func _attach() -> void:
 	if mannequin:
 		_attach_mannequin()
 		return
-	var horizontal := (face[454] - face[234]) * video_size
-	var width := horizontal.length()
+	if not external_surface: surface.update(face,face_depth,video_size)
+	var width: float = surface.width
 	if width < 10: clear_face(); return
-	var basis := Head.frame(face,video_size,face_depth)
-	if basis.is_empty(): clear_face(); return
-	if config.virtual_enabled:
-		virtual_points = Head.project(virtual_anchors,face,video_size,basis)
-		virtual_depth = Head.FaceFrame.depths(virtual_anchors,face_depth,video_size,basis)
-	roots = Groom.root_positions(config,attachment,face,video_size,virtual_points)
-	root_depth = Groom.root_depths(config,attachment,face,video_size,face_depth,virtual_depth)
+	var positions: PackedVector3Array = surface.sample(root_bindings)
+	if positions.size() != attachment.size(): clear_face(); return
+	roots.resize(positions.size())
+	root_depth.resize(positions.size())
+	for i in positions.size():
+		roots[i] = Vector2(positions[i].x,positions[i].y)
+		root_depth[i] = positions[i].z/video_size.x
 	if not root_depth.is_empty():
 		var image := Image.create_from_data(1,root_depth.size(),false,Image.FORMAT_RF,root_depth.to_byte_array())
 		if root_texture == null or root_texture.get_height() != root_depth.size(): root_texture = ImageTexture.create_from_image(image)
@@ -306,7 +335,7 @@ func _attach() -> void:
 		drawing.material.set_shader_parameter("root_depths",root_texture)
 		drawing.material.set_shader_parameter("strand_segments",int(config.segments))
 	_apply_occlusion()
-	var down := Vector2(-horizontal.y, horizontal.x).normalized()
+	var down: Vector2 = surface.screen_down
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55 + width*.015)
@@ -316,9 +345,7 @@ func _attach() -> void:
 	_update_virtual_markers()
 
 func _attach_mannequin() -> void:
-	var surface := mannequin_view.bound_points(virtual_anchors)
-	virtual_points = mannequin_view.project_points(surface)
-	roots = mannequin_view.attach_roots(config,attachment,surface)
+	roots = mannequin_view.attach_roots()
 	var width := mannequin_view.face_width*mannequin_view.pixels_per_unit()
 	var down3: Vector3 = mannequin_view.pivot.basis*Vector3.DOWN
 	var down := Vector2(down3.x,-down3.y).normalized()
@@ -331,23 +358,10 @@ func _attach_mannequin() -> void:
 	_update_virtual_markers()
 
 func _update_virtual_markers() -> void:
-	if mannequin:
-		virtual_markers.hide()
-		mannequin_view.set_dots("surface",mannequin_view.bound_points(virtual_anchors),Color.html(config.virtual_color),2.25,
-			guides_visible and enabled and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks))
-		return
-	virtual_markers.visible = guides_visible and enabled and _face_live and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks)
-	if not virtual_markers.visible or virtual_markers.multimesh == null: return
-	var mesh := virtual_markers.multimesh
-	if mesh.instance_count != virtual_points.size(): mesh.instance_count = virtual_points.size()
-	var diameter := 4.5/maxf(.01,minf(size.x/video_size.x,size.y/video_size.y))
-	var buffer := PackedFloat32Array()
-	buffer.resize(virtual_points.size()*12)
-	for i in virtual_points.size():
-		buffer[i*12] = diameter; buffer[i*12+3] = virtual_points[i].x
-		buffer[i*12+5] = diameter; buffer[i*12+7] = virtual_points[i].y
-		buffer[i*12+8] = virtual_depth[i] if i < virtual_depth.size() else 0.0
-	mesh.buffer = buffer
+	# General landmarks own the shared surface guides, independently of hair.
+	virtual_markers.hide()
+	if mannequin: mannequin_view.set_dots("surface",PackedVector3Array(),Color.WHITE,2,false)
+	return
 
 func _update_root_markers() -> void:
 	if mannequin:

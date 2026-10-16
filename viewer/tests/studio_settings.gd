@@ -36,6 +36,7 @@ func _run() -> void:
 		studio.beard.set_mannequin(true)
 		studio.beard.selected_strand = 0
 		studio.beard.set_strand_setting("curl", .37)
+		studio.beard.set_strand_setting("anchor", "virtual:1000:250000:250000")
 		studio.beard.mannequin_view.set_pose(35,-12,1.2)
 		studio.beard_panel.select_check.button_pressed = true
 		studio.beard_panel.name_field.text = "Persistence look"
@@ -72,6 +73,7 @@ func _run() -> void:
 		check(is_equal_approx(studio.beard.config.length,.63) and is_equal_approx(studio.beard.config.gravity,4.1), "Restore hair and physics settings")
 		check(studio.beard.model_name == "Persistence look", "Restore working look name")
 		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")
+		check(studio.beard.overrides.get("0",{}).get("anchor","") == "virtual:1000:250000:250000", "Restore virtual attachment after restarting the app")
 		check(is_equal_approx(studio.beard.mannequin_view.yaw,35) and is_equal_approx(studio.beard.mannequin_view.zoom,1.2), "Restore 3D mannequin pose")
 		check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.23) and is_equal_approx(studio.extensions.model.config.top,.61), "Restore virtual landmark shape")
 		check(not studio.occlusion.enabled and is_equal_approx(studio.occlusion.head_depth,.81) and is_equal_approx(studio.occlusion.crown,.29), "Restore visibility settings")
