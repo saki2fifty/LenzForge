@@ -116,7 +116,7 @@ func _run() -> void:
 	layer.set_enabled(true)
 	layer.set_mannequin(true)
 	layer._process(1.0/60)
-	check(layer.roots.size() == int(Profile.defaults().strands) and layer.drawing.visible, "Offline preview attaches all strands")
+	check(layer.roots.size() == int(Profile.defaults().strands) and layer.mannequin_view.hair.visible, "Offline 3D preview attaches all strands")
 	# Include the actual lip collider: a still face must not keep hair jittering.
 	for i in 1200: layer.simulator.advance(1.0/120)
 	var calm_tips := PackedVector2Array()

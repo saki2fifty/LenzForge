@@ -2,6 +2,7 @@ extends Control
 const Profile = preload("res://beard/beard_profile.gd")
 const Groom = preload("res://beard/groom_regions.gd")
 const Head = preload("res://beard/virtual_head.gd")
+const MannequinView = preload("res://mannequin/mannequin_view.gd")
 signal changed
 signal preview_face_changed
 signal strand_selected(index: int)
@@ -31,16 +32,37 @@ var face_seen_at := 0
 var update_ms := 0.0
 var last_error := ""
 var _face_live := false
-var _demo_offset := Vector2.ZERO
+var mannequin_view := MannequinView.new()
+var mannequin_toolbar := HBoxContainer.new()
 
 func _init() -> void:
 	# Own child nodes even when controls are built outside the tree in tests.
+	mannequin_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(mannequin_view)
+	mannequin_view.pose_changed.connect(_set_demo_face)
 	add_child(drawing)
 	add_child(root_markers)
 	add_child(virtual_markers)
 	selection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	selection.draw.connect(_draw_selection)
 	add_child(selection)
+	mannequin_toolbar.position = Vector2(12,12)
+	mannequin_toolbar.add_theme_constant_override("separation",8)
+	add_child(mannequin_toolbar)
+	for entry in [["Front",0],["Side",90],["Back",180]]:
+		var button := Button.new()
+		button.text = entry[0]
+		button.pressed.connect(func(): mannequin_view.set_pose(entry[1],0,mannequin_view.zoom))
+		mannequin_toolbar.add_child(button)
+	var reset := Button.new()
+	reset.text = "Reset view"
+	reset.pressed.connect(mannequin_view.reset_view)
+	mannequin_toolbar.add_child(reset)
+	var hint := Label.new()
+	hint.text = "Drag to rotate · Wheel to zoom"
+	hint.add_theme_font_size_override("font_size",12)
+	mannequin_toolbar.add_child(hint)
+	mannequin_toolbar.hide()
 
 func _ready() -> void:
 	set_process(false)
@@ -140,15 +162,20 @@ func set_enabled(value: bool) -> void:
 	if not enabled: drawing.hide(); root_markers.hide(); virtual_markers.hide()
 	elif mannequin: _set_demo_face()
 	elif _face_live: _attach()
+	if mannequin:
+		mannequin_view.update_hair(PackedFloat32Array(),int(config.segments),enabled)
+		_update_root_markers()
+		_update_virtual_markers()
 	queue_redraw()
 	selection.queue_redraw()
 	changed.emit()
 
 func set_mannequin(value: bool) -> void:
 	mannequin = value
-	_demo_offset = Vector2.ZERO
 	clear_face()
-	if mannequin: _set_demo_face()
+	mannequin_view.set_active(value)
+	mannequin_toolbar.visible = value and size.x >= 320
+	if mannequin: mannequin_view.reset_view()
 	_update_mouse()
 	queue_redraw()
 	changed.emit()
@@ -165,6 +192,7 @@ func _update_mouse() -> void:
 
 func set_mirror(value: bool) -> void:
 	mirror = value
+	mannequin_view.set_mirror(value)
 	_update_transform()
 
 func set_face(points: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array = PackedFloat32Array()) -> void:
@@ -193,17 +221,19 @@ func clear_face() -> void:
 	selection.queue_redraw()
 
 func _set_demo_face() -> void:
-	video_size = Vector2(1280, 720)
-	face = Profile.mannequin()
-	face_depth.clear()
-	for i in face.size(): face[i] += _demo_offset
-	preview_face_changed.emit()
+	if not mannequin: return
+	video_size = MannequinView.FRAME
+	face = mannequin_view.project_points(mannequin_view.reference)
+	for i in face.size(): face[i] /= video_size
+	face_depth = mannequin_view.face_depth()
 	_face_live = true
 	set_process(enabled and simulator != null)
 	if enabled: _attach()
 	_update_transform()
+	preview_face_changed.emit()
 
 func _rebuild() -> void:
+	mannequin_view._roots_dirty = true
 	var selected_id := selected_key()
 	attachment = Profile.all_anchors(config)
 	virtual_anchors = Head.build(config) if config.virtual_enabled else []
@@ -249,6 +279,9 @@ func _rebuild() -> void:
 
 func _attach() -> void:
 	if simulator == null or face.size() < 455: return
+	if mannequin:
+		_attach_mannequin()
+		return
 	var horizontal := (face[454] - face[234]) * video_size
 	var width := horizontal.length()
 	if width < 10: clear_face(); return
@@ -266,7 +299,27 @@ func _attach() -> void:
 	_update_root_markers()
 	_update_virtual_markers()
 
+func _attach_mannequin() -> void:
+	var surface := mannequin_view.bound_points(virtual_anchors)
+	virtual_points = mannequin_view.project_points(surface)
+	roots = mannequin_view.attach_roots(config,attachment,surface)
+	var width := mannequin_view.face_width*mannequin_view.pixels_per_unit()
+	var down3: Vector3 = mannequin_view.pivot.basis*Vector3.DOWN
+	var down := Vector2(down3.x,-down3.y).normalized()
+	var mouth := (face[0]+face[17])*.5*video_size
+	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
+		((face[17]-face[0])*video_size).length()*.55+width*.015)
+	if not simulator.set_anchors(roots,width,down,mouth,radii): clear_face(); return
+	drawing.hide()
+	_update_root_markers()
+	_update_virtual_markers()
+
 func _update_virtual_markers() -> void:
+	if mannequin:
+		virtual_markers.hide()
+		mannequin_view.set_dots("surface",mannequin_view.bound_points(virtual_anchors),Color.html(config.virtual_color),2.25,
+			enabled and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks))
+		return
 	virtual_markers.visible = enabled and _face_live and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks)
 	if not virtual_markers.visible or virtual_markers.multimesh == null: return
 	var mesh := virtual_markers.multimesh
@@ -280,6 +333,13 @@ func _update_virtual_markers() -> void:
 	mesh.buffer = buffer
 
 func _update_root_markers() -> void:
+	if mannequin:
+		var generated := PackedVector3Array()
+		for index in generated_indices:
+			if index < mannequin_view.root_positions.size(): generated.append(mannequin_view.root_positions[index])
+		mannequin_view.set_dots("generated",generated,Color.html(config.generated_root_color),2,enabled and bool(config.show_generated_roots))
+		root_markers.hide()
+		return
 	root_markers.visible = enabled and _face_live and bool(config.show_generated_roots)
 	if not root_markers.visible or root_markers.multimesh == null: return
 	var mesh := root_markers.multimesh
@@ -300,11 +360,15 @@ func _process(delta: float) -> void:
 	if not _face_live or simulator == null: return
 	var started := Time.get_ticks_usec()
 	simulator.advance(delta)
-	instances.buffer = simulator.get_render_buffer()
+	var buffer: PackedFloat32Array = simulator.get_render_buffer()
+	if mannequin: mannequin_view.update_hair(buffer,int(config.segments),enabled)
+	else: instances.buffer = buffer
 	update_ms = (Time.get_ticks_usec() - started) / 1000.0
 	if edit_strands and selected_strand >= 0: selection.queue_redraw()
 
 func _update_transform() -> void:
+	mannequin_toolbar.visible = mannequin and size.x >= 320
+	mannequin_toolbar.get_child(4).visible = size.x >= 540
 	var fit := minf(size.x / video_size.x, size.y / video_size.y)
 	var origin := (size - video_size*fit)*.5
 	drawing.transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
@@ -331,24 +395,13 @@ func _gui_input(event: InputEvent) -> void:
 		queue_redraw()
 		selection.queue_redraw()
 	elif event is InputEventMouseMotion and mannequin and not edit_strands and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
-		var fit := minf(size.x/video_size.x, size.y/video_size.y)
-		_demo_offset += Vector2(-event.relative.x if mirror else event.relative.x, event.relative.y) / (video_size*fit)
-		_demo_offset = _demo_offset.clamp(Vector2(-.2,-.2), Vector2(.2,.15))
-		_set_demo_face()
-
-func _draw() -> void:
-	if mannequin:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("101925"))
-		var outline := PackedVector2Array()
-		for i in 64:
-			var angle := float(i)/64*TAU
-			outline.append(_screen((Vector2(.5 + sin(angle)*.135, .43 + cos(angle)*.31) + _demo_offset)*video_size))
-		draw_colored_polygon(outline, Color("ae8470"))
-		for x in [.447, .553]:
-			var center := _screen((Vector2(x,.43)+_demo_offset)*video_size)
-			draw_circle(center, maxf(2, size.y*.012), Color("322c30"))
-		var mouth := _screen((Vector2(.5,.568)+_demo_offset)*video_size)
-		draw_line(mouth-Vector2(size.x*.035,0), mouth+Vector2(size.x*.035,0), Color("70463e"), 3, true)
+		mannequin_view.orbit(event.relative)
+	elif event is InputEventMouseButton and mannequin and event.pressed:
+		if event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+			mannequin_view.set_pose(mannequin_view.yaw,mannequin_view.pitch,
+				mannequin_view.zoom*(1.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1/1.1))
+		elif event.button_index == MOUSE_BUTTON_LEFT and event.double_click and not edit_strands:
+			mannequin_view.reset_view()
 
 func _draw_selection() -> void:
 	if enabled and edit_strands and _face_live:

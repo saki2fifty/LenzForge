@@ -7,6 +7,7 @@ var tint := Color("68dfc3")
 var show_points := true
 var video_size := Vector2(1280, 720)
 var instances := MultiMesh.new()
+var preview_surface: Control
 
 func _ready() -> void:
 	var quad := QuadMesh.new()
@@ -19,6 +20,9 @@ func _ready() -> void:
 	resized.connect(queue_redraw)
 
 func _draw() -> void:
+	if is_instance_valid(preview_surface) and preview_surface.active:
+		preview_surface.set_dots("reference",preview_surface.reference,tint,point_size,show_points)
+		return
 	if not show_points or points.is_empty():
 		return
 	if instances.instance_count < points.size():

@@ -388,14 +388,18 @@ func _setup_readers() -> void:
 	landmark_reader.face_lost.connect(_clear_tracking)
 
 func _sync_preview_landmarks() -> void:
+	overlay.preview_surface = beard.mannequin_view
+	extensions.preview_surface = beard.mannequin_view
 	overlay.points = beard.face
 	overlay.video_size = beard.video_size
 	overlay.queue_redraw()
-	extensions.set_face(beard.face,beard.video_size,PackedFloat32Array(),true)
+	extensions.set_face(beard.face,beard.video_size,beard.face_depth,true)
 	if empty_state: empty_state.hide()
 
 func _clear_tracking() -> void:
 	if beard.mannequin: return
+	overlay.preview_surface = null
+	extensions.preview_surface = null
 	extensions.clear_face()
 	overlay.points.clear()
 	overlay.queue_redraw()
@@ -540,7 +544,7 @@ func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int
 		video.texture = y
 		material_video.set_shader_parameter("y_texture", y)
 		material_video.set_shader_parameter("uv_texture", uv)
-		overlay.video_size = Vector2(y.get_width(), y.get_height())
+	if not beard.mannequin: overlay.video_size = Vector2(y.get_width(), y.get_height())
 	video.show()
 	empty_state.hide()
 	frame_timestamp = timestamp
@@ -587,7 +591,7 @@ func _set_points(value: bool) -> void:
 	settings.set_value("view", "points", value)
 
 func _snapshot() -> void:
-	if video.texture == null:
+	if video.texture == null and not beard.mannequin:
 		message.text = "Start a source before taking a snapshot."
 		return
 	var path := "user://captures"

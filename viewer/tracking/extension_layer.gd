@@ -13,6 +13,7 @@ var face_depth := PackedFloat32Array()
 var face_seen_at := 0
 var update_ms := 0.0
 var preview := false
+var preview_surface: Control
 var buffer := PackedFloat32Array()
 
 func _init() -> void:
@@ -62,13 +63,20 @@ func clear_face() -> void:
 func _refresh() -> void:
 	var started := Time.get_ticks_usec()
 	var previous_count := model.points.size()
-	model.update(face,video_size,face_depth)
+	if is_instance_valid(preview_surface) and preview_surface.active:
+		model.points = preview_surface.project_points(preview_surface.extension_points(model))
+	else: model.update(face,video_size,face_depth)
 	_upload()
 	set_process(not preview and not face.is_empty())
 	update_ms = (Time.get_ticks_usec()-started)/1000.0
 	if previous_count != model.points.size(): tracking_changed.emit()
 
 func _upload() -> void:
+	if is_instance_valid(preview_surface) and preview_surface.active:
+		preview_surface.set_dots("extensions",preview_surface.extension_points(model),Color.html(model.config.color),
+			float(model.config.point_size),bool(model.config.show_points))
+		drawing.hide()
+		return
 	drawing.visible = model.config.show_points and not model.points.is_empty()
 	if not drawing.visible: return
 	var fit := minf(size.x/video_size.x,size.y/video_size.y)

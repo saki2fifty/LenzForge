@@ -74,7 +74,12 @@ func _run() -> void:
 	check(Profile.validate(layer.get_document()).is_empty(),"Minimum legacy length migrates to a valid editable document")
 	layer.apply_document(Profile.document("Combined",config,{"hair:0":{"length":1.4},"brow:0":{"root_width":3}}))
 	layer.set_enabled(true); layer.set_mannequin(true)
-	check(layer.last_error.is_empty() and layer.root_markers.multimesh.instance_count > 100,"Combined groom and generated root overlay initialize")
+	check(layer.last_error.is_empty() and layer.mannequin_view.dots.generated.multimesh.instance_count > 100,"Combined groom and generated root overlay initialize")
+	# Translation/scale/roll assertions compare the same planar live fixture.
+	# The offline mannequin now uses an actual anatomical 3D reference mesh.
+	layer.set_mannequin(false)
+	layer.set_face(face,dims)
+	layer.simulator.advance(1.0/120)
 	var brow_index := int(config.strands)
 	var static_before: PackedVector2Array = layer.simulator.get_strand_points(brow_index)
 	layer.set_settings({"wind":8.0,"gravity":12.0})
@@ -116,7 +121,7 @@ func _run() -> void:
 	layer.set_settings({"strands":1024,"brow_count":256,"hair_count":768,"segments":16})
 	check(layer.attachment.size() == 2048 and layer.last_error.is_empty(),"Maximum combined allocation is bounded at 2048")
 	layer._process(1.0/60)
-	check(layer.instances.buffer.size() == 2048*16*16,"One packed draw batch contains all regions")
+	check(layer.mannequin_view.hair.multimesh.instance_count == 2048*16,"One 3D draw batch contains all regions")
 	var dense: Dictionary = layer.get_document()
 	var guide: Array = []
 	for j in 65: guide.append([sin(j*.12)*.06,j/64.0])

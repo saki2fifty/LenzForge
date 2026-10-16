@@ -64,16 +64,16 @@ func _run() -> void:
 	studio.points_check.button_pressed = false
 	studio.beard.set_enabled(true)
 	studio.beard.set_enabled(false)
-	check(studio.extensions.drawing.visible and studio.extensions.model.points == cached,"Virtual markers survive measured-dot and hair visibility changes")
+	check(studio.beard.mannequin_view.dots.extensions.visible and studio.extensions.model.points == cached,"Virtual markers survive measured-dot and hair visibility changes")
 	studio.landmarks_panel.controls.show_points.button_pressed = false
-	check(not studio.extensions.drawing.visible and studio.extensions.model.points.size() == 576,"Hide dots retains usable references")
+	check(not studio.beard.mannequin_view.dots.extensions.visible and studio.extensions.model.points.size() == 576,"Hide dots retains usable references")
 	studio.landmarks_panel.controls.show_points.button_pressed = true
 	studio._set_mirror(false)
 	var local: Vector2 = studio.extensions.model.points[0]
-	var unmirrored: Vector2 = studio.extensions.drawing.transform*local
+	var unmirrored: Vector2 = studio.beard._screen(local)
 	studio._set_mirror(true)
-	var mirrored: Vector2 = studio.extensions.drawing.transform*local
-	check(absf(unmirrored.x+mirrored.x-studio.extensions.size.x) < .01 and is_equal_approx(unmirrored.y,mirrored.y),"Mirror and letterboxing align")
+	var mirrored: Vector2 = studio.beard._screen(local)
+	check(studio.beard.mannequin_view.picture.flip_h and absf(unmirrored.x+mirrored.x-studio.extensions.size.x) < .01 and is_equal_approx(unmirrored.y,mirrored.y),"Mirror and letterboxing align")
 	studio.landmarks_panel.preview_check.button_pressed = false
 	check(studio.extensions.model.points.is_empty(),"Leaving mannequin clears synthetic landmarks")
 	var raw: Array = []

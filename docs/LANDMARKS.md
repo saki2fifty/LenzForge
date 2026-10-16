@@ -4,7 +4,7 @@ Open the desktop **Landmarks** tab, between **Look** and **Hair**. Virtual point
 
 ![Independent orange landmarks above the head, around the sides, and below the chin, with no hair](images/landmark-extensions.png)
 
-Start the camera with **Face + iris** enabled, or select **Try on mannequin** in this tab. The status reports the measured and virtual point counts and explains when it is waiting for a face. On the mannequin, the synthetic inputs are labeled “reference.”
+Start the camera with **Face + iris** enabled, or select **Try on mannequin** in this tab. The mannequin is a shaded 3D head: drag to rotate, use the wheel to zoom, and choose **Front**, **Side**, or **Back** to inspect a contour. **Reset view** or a double-click restores the front view. The status reports the measured and virtual point counts and explains when it is waiting for a face. On the mannequin, the synthetic inputs are labeled “reference.”
 
 | Control | Effect |
 | --- | --- |
@@ -44,6 +44,8 @@ Turn or tilt your head to judge backward reach: depth projects onto the preview 
 
 The lower part of this tab contains the measured-landmark visibility, size, and color controls. **L** toggles measured dots only. General virtual points, measured points, and hair visibility are independent. Extension settings persist across normal viewer restarts, separately from saved hairstyles. Existing hair-root fitting remains under **Hair → Root surface**.
 
-The outline follows MediaPipe's [face-oval connections](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/python/vision/face_landmarker.py). Each virtual point interpolates between adjacent tracked outline landmarks, then adds an offset in a head-relative frame. Existing relative depth drives yaw and pitch; the same frame follows roll, translation, and scale. These are estimated references, not newly measured anatomy, and the preview has no full-head depth occlusion. Invalid or lost tracking clears the virtual data instead of leaving floating points behind.
+The outline follows MediaPipe's [face-oval connections](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/python/vision/face_landmarker.py). Each virtual point interpolates between adjacent tracked outline landmarks, then adds an offset in a head-relative frame. Existing relative depth drives yaw and pitch; the same frame follows roll, translation, and scale. These are estimated references, not newly measured anatomy. The live camera has no full-head depth occlusion. Invalid or lost tracking clears the virtual data instead of leaving floating points behind.
+
+The offline mannequin evaluates those same offsets directly against its canonical 3D reference points. It supports side and rear views, with points behind its solid head hidden by the depth buffer. Hidden points remain part of the reference count. The head shape is a neutral model; fitting it does not scan or automatically fit your own head. The rounded defaults and saved extension settings are unchanged.
 
 For other overlays, `viewer/tracking/face_extensions.gd` exposes `ids` and `points` separately from the measured 478-point array. Positions are in source-image pixels before mirroring/letterboxing. IDs use `extension:<ring>:<column>` and remain stable during movement and extent changes; density changes alter the sampling layout. Topology, elliptical contour profiles, and blended offsets are rebuilt only when fitting changes. Each tracking result projects the same packed arrays once; visible dots use one instanced batch. No hair simulation or additional model is needed.

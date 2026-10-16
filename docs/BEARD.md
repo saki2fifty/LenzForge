@@ -9,7 +9,7 @@ The **Full beard** defaults are **512 facial strands**, **8 segments per strand*
 ## Try it
 
 1. Open **Hair**. Use the page dropdown to switch between **Beard**, **Roots**, **Root surface**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**.
-2. Check **Try on mannequin** to design without camera capture or a backend. Drag the mannequin to see the strands respond to movement.
+2. Check **Try on mannequin** to design on a shaded 3D head without camera capture or a backend. Drag to rotate through a full turn; use the mouse wheel to zoom. **Front**, **Side**, **Back**, and **Reset view** are above the preview. Double-click also resets the view. Moving the head drives strand motion.
 3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Open **Root surface** and click **Extend root coverage** to fit a larger reference head. Enable eyebrows on their own page.
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
 5. Turn off measured landmark dots with **L**, root dots with **Roots → Show generated roots**, and the fitted grid with **Root surface → Show root surface guides**, for a clearer preview.
@@ -43,7 +43,11 @@ Start with **Extend root coverage**, face the camera, and adjust Crown height/wi
 
 The viewer now retains the relative Z values already present in its landmark stream. A frame derived from the cheek-to-cheek and forehead-to-chin axes projects the virtual offsets during yaw, pitch, and roll. This is an approximate face-based reference frame, not a calibrated head scan. It uses [MediaPipe's normalized coordinates and relative-depth convention](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/face_mesh.md#face-geometry-module); no additional model or inference worker is needed. Missing/invalid depth falls back to the planar reference frame. Face loss clears the virtual overlay.
 
-The mannequin's forehead reference has also been moved below the skull crown so fitting it exercises the same extrapolation needed on a real face.
+The mannequin uses a complete 3D bust with a face mesh, skull, ears, eyes, neck, and stand. Its 478 synthetic reference points retain the tracking landmark IDs. The forehead reference sits below the skull crown, so fitting it exercises the same extrapolation needed on a real face. Landmarks and hair roots have depth and are hidden by the head when they pass behind it. General virtual landmarks use their actual local 3D offsets, including backward reach, when the mannequin turns.
+
+![3D mannequin with virtual contours, rotated to inspect the side and crown](images/mannequin-3d.png)
+
+The face mesh comes from the [MediaPipe canonical face model](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj), bundled locally under Apache-2.0 with its [license and provenance](../viewer/mannequin/assets/NOTICE.txt). The surrounding bust is procedural geometry. No network access, face inference, or webcam is needed to use it. This is a neutral reference head, not a reconstruction of your head.
 
 ## Expanded roots and regional controls
 
@@ -130,11 +134,15 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 ## Runtime scope and performance
 
-Hair physics and rendering remain a stylized 2D overlay over the camera preview. Virtual attachment can use relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. There is no full head occlusion, hair-to-hair collision, or full skin collision; mouth collision is an ellipse approximation. Far-side roots can remain visible through the face. Extreme profile views and convincing back-of-head hair need a calibrated 3D head and depth-aware hair rendering.
+Live-camera hair remains a stylized 2D overlay. Virtual attachment uses relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. The live camera has no head-depth occlusion; far-side roots can remain visible through the face.
+
+The offline mannequin has real 3D geometry and depth-tested landmark/hair rendering. It keeps the fast native planar strand solver: roots rotate in 3D, while each strand's simulated segments use its root's camera-space depth. This is not a full volumetric strand simulation. There is no hair-to-hair or full skin collision; mouth collision remains an ellipse approximation. Changing view can therefore reveal clipping or flattened strand shapes. Full 3D strand dynamics and calibrated live-head occlusion remain separate improvements. Existing Blender exports retain their documented neutral 2D guide coordinates.
+
+The mannequin builds its mesh only when first opened. Root fitting is cached between setting changes, and hair uses one instanced batch with the native packed buffer uploaded directly to a bounded texture. The 3D viewport follows the displayed preview resolution up to 1280×720 and stops rendering when inactive. With hair disabled, it renders only when the pose, fitting, visibility, or size changes. Library thumbnails use the same head at thumbnail resolution.
 
 Physics runs in the C++ GDExtension at a fixed 120 Hz, with at most four catch-up steps. Roots interpolate between tracking updates; free points retain world-space momentum. Neighboring free points share tension corrections, followed by a length correction pass. Strand points use contiguous arrays; rest directions are prepared only when a design changes. One instanced GPU batch draws all segments with taper and edge antialiasing. There is no scene node or rigid body per strand. Disabled or untracked beards stop simulation. The camera, shared-memory readers, and inference worker stay independent.
 
-On the development Ryzen 5 5500 / RX 7900 XTX machine, the corrected free-hanging solver at the default 256 × 8 size averaged **0.57 ms** for physics plus packed upload preparation. The 20-second webcam run reported 60 FPS rendering and about 60 FPS capture. These costs exclude landmark attachment, GPU completion, and presentation; see [measurements and limits](PERFORMANCE.md#beard-physics), including the earlier solver's maximum-density run.
+On the development Ryzen 5 5500 / RX 7900 XTX machine, the corrected free-hanging solver at the then-default 256 × 8 size averaged **0.57 ms** for physics plus packed upload preparation. The 20-second webcam run reported 60 FPS rendering and about 60 FPS capture. These costs exclude landmark attachment, GPU completion, and presentation; see [measurements and limits](PERFORMANCE.md#beard-physics), including the earlier solver's maximum-density run.
 
 The expanded 864 × 8 combined look averaged **2.77 ms including root attachment, generated markers, physics, and upload preparation** in an offline animated-face test. The maximum 2,048 × 16 setting averaged 10.76 ms with markers. These synthetic timings exclude camera/inference and GPU completion; see the [combined measurements](PERFORMANCE.md#combined-hair-regions). All regions share one native solver and one hair draw batch.
 
@@ -163,4 +171,4 @@ Additional checks requiring a graphics context or Blender:
 .\buildtools\python-3.15.0\python.exe -B tools\check_blender.py --blender 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe'
 ```
 
-The rendered checks exercise pixels, generated-marker colors, presets, visibility, strand selection, controls, and library thumbnails using a mannequin. The Blender check exports all regions from Godot, edits real curves, exports them, then runs the returned guides through native physics. Checks write synthetic artifacts under `artifacts/`. The rendered editor, capture, and performance probes disable settings persistence to preserve the user's working design.
+The rendered checks exercise pixels, generated-marker colors, presets, visibility, strand selection, controls, and library thumbnails using a mannequin. `viewer/tests/mannequin_probe.gd` is part of `tools/check.py`; it verifies true 3D projection, profile/rear attachment, orbit, zoom, mirroring, and the return to live rendering. Run `viewer/tests/mannequin_render.gd` with the same Godot command pattern above to check front/side/rear screenshots, depth occlusion, actual 3D hair pixels, maximum GPU allocation, and idle viewport shutdown. The Blender check exports all regions from Godot, edits real curves, exports them, then runs the returned guides through native physics. Checks write synthetic artifacts under `artifacts/`. The rendered editor, capture, and performance probes disable settings persistence to preserve the user's working design.

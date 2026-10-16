@@ -32,7 +32,7 @@ func setup(layer: Control, studio: Control) -> void:
 	host._section(self, "Hair & beard", "Design roots, facial hair, and scalp styles.")
 	enabled_check = _check("Show hair and beard", func(value): beard.set_enabled(value))
 	mannequin_check = _check("Try on mannequin", func(value): beard.set_mannequin(value))
-	mannequin_check.tooltip_text = "Drag the mannequin to test motion. Camera capture can stay off."
+	mannequin_check.tooltip_text = "Rotate the 3D head by dragging; use the wheel to zoom. Camera capture can stay off."
 	page_picker = OptionButton.new()
 	for title in ["Beard","Roots","Root surface","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
 	add_child(page_picker)

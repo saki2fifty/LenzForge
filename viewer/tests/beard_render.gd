@@ -26,6 +26,14 @@ func _run() -> void:
 	await RenderingServer.frame_post_draw
 	if not FileAccess.file_exists(studio.beard_panel.library.thumbnail_path(studio.beard_panel.current_id)):
 		failures.append("Saved beard thumbnail missing")
+	else:
+		var thumbnail := Image.load_from_file(studio.beard_panel.library.thumbnail_path(studio.beard_panel.current_id))
+		var head_pixels := 0
+		for y in thumbnail.get_height():
+			for x in thumbnail.get_width():
+				var c := thumbnail.get_pixel(x,y)
+				if c.r > .4 and c.g > .35 and c.b > .25: head_pixels += 1
+		if head_pixels < 300: failures.append("3D mannequin did not render in the saved thumbnail")
 	var args := OS.get_cmdline_user_args()
 	var output := args[0] if not args.is_empty() else ProjectSettings.globalize_path("res://../artifacts/beard-studio.png")
 	root.get_texture().get_image().save_png(output)
