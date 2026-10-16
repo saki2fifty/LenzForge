@@ -10,6 +10,7 @@ Start the camera with **Face + iris** enabled, or select **Try on mannequin** in
 | --- | --- |
 | Extend face / head landmarks | Enable or disable the independent virtual reference data. |
 | Show virtual landmarks | Show or hide the orange dots while retaining active reference data. |
+| Move up / down | Move the whole virtual set vertically: negative goes up, positive goes down, and zero restores the original placement. Follows head orientation and preserves the shape and density of the rings. |
 | Above head | Extend beyond the tracked forehead toward the top of the head. |
 | Below chin | Extend the lower outline down below the chin. |
 | Left side / Right side | Independently extend the temples, cheeks, and jaw outward. Left/right refer to the unmirrored camera image and follow head rotation. |
@@ -20,6 +21,8 @@ Start the camera with **Face + iris** enabled, or select **Try on mannequin** in
 | Reset extensions | Restore the visible, enabled default fit. |
 
 Reach values use face widths. For example, **Below chin = 0.2** places the outer lower row one fifth of the tracked face width below the chin. The intermediate rings fill the distance from the measured outline to the outer extension. Default density is **72 × 4 = 288** points; the maximum is **144 × 12 = 1,728**. Changing density does not add hair strands or tracking work in the backend.
+
+Use **Move up / down = -0.1** to lift every virtual point by one tenth of a face width, or **0.1** to lower them. This offset saves with the extension settings and follows head turns and tilts. **Reset extensions** returns it to zero.
 
 The lower part of this tab contains the measured-landmark visibility, size, and color controls. **L** toggles measured dots only. General virtual points, measured points, and hair visibility are independent. Extension settings persist across normal viewer restarts, separately from saved hairstyles. Existing hair-root fitting remains under **Hair → Root surface**.
 

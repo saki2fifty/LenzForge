@@ -21,10 +21,12 @@ func setup(studio: Control, extension_layer: Control) -> void:
 	preview_check.toggled.connect(func(value): host.beard.set_mannequin(value))
 	add_child(preview_check)
 	host.beard.changed.connect(func(): preview_check.set_pressed_no_signal(host.beard.mannequin))
-	for row in [["top","Above head",0,1.5,.01],["bottom","Below chin",0,1.5,.01],
+	for row in [["vertical_offset","Move up / down",-1.5,1.5,.01],
+		["top","Above head",0,1.5,.01],["bottom","Below chin",0,1.5,.01],
 		["left","Left side",0,1.5,.01],["right","Right side",0,1.5,.01],["depth","Front / back",-1,1,.01],
 		["rings","Outward layers",1,12,1],["columns","Points around face",36,144,4],["point_size","Point size",1,6,.25]]:
 		_spin(row)
+	controls.vertical_offset.tooltip_text = "Negative moves all virtual points up; positive moves them down. Zero centers the fit. The offset follows your head, in face widths."
 	controls.depth.tooltip_text = "Negative reaches forward; positive reaches behind the face. Turn or tilt your head to see the depth offset."
 	controls.left.tooltip_text = "Left in the unmirrored camera image; follows the head when rotated."
 	controls.right.tooltip_text = controls.left.tooltip_text

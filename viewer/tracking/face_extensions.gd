@@ -4,7 +4,7 @@ const FaceFrame = preload("res://tracking/face_frame.gd")
 # MediaPipe FACE_LANDMARKS_FACE_OVAL, clockwise from the forehead.
 const OUTLINE := [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,
 	152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109]
-const LIMITS := {"top":[0,1.5],"bottom":[0,1.5],"left":[0,1.5],"right":[0,1.5],
+const LIMITS := {"vertical_offset":[-1.5,1.5],"top":[0,1.5],"bottom":[0,1.5],"left":[0,1.5],"right":[0,1.5],
 	"depth":[-1,1],"columns":[36,144],"rings":[1,12],"point_size":[1,6]}
 var config := defaults()
 var ids := PackedStringArray()
@@ -15,7 +15,7 @@ var offsets := PackedVector3Array()
 var points := PackedVector2Array()
 
 static func defaults() -> Dictionary:
-	return {"enabled":true,"show_points":true,"top":.42,"bottom":.2,"left":.18,"right":.18,
+	return {"enabled":true,"show_points":true,"vertical_offset":0.0,"top":.42,"bottom":.2,"left":.18,"right":.18,
 		"depth":.15,"columns":72,"rings":4,"point_size":2.5,"color":"ffbf69ff"}
 
 static func validate(values: Dictionary) -> bool:
@@ -39,7 +39,7 @@ func configure(values: Dictionary) -> bool:
 	if not validate(values): return false
 	var rebuild := false
 	for key in values:
-		if key in ["top","bottom","left","right","depth","columns","rings"] and values[key] != config[key]: rebuild = true
+		if key in ["vertical_offset","top","bottom","left","right","depth","columns","rings"] and values[key] != config[key]: rebuild = true
 	config.merge(values,true)
 	config.columns = int(config.columns)
 	config.rings = int(config.rings)
@@ -61,7 +61,8 @@ func _rebuild() -> void:
 			source_b.append(OUTLINE[(edge+1)%OUTLINE.size()])
 			weights.append(along-edge)
 			offsets.append(Vector3(direction.x*float(config.left if direction.x < 0 else config.right),
-				direction.y*float(config.top if direction.y < 0 else config.bottom),float(config.depth))*v)
+				direction.y*float(config.top if direction.y < 0 else config.bottom),float(config.depth))*v
+				+Vector3(0,float(config.vertical_offset),0))
 
 func update(face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array = PackedFloat32Array()) -> void:
 	if not config.enabled:

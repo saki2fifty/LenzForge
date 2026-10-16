@@ -36,6 +36,9 @@ func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var suffix := args[0] if not args.is_empty() else ""
 	screenshot.save_png(ProjectSettings.globalize_path("res://../artifacts/landmark-extensions%s.png"%suffix))
+	var first_point: Vector2 = studio.extensions.model.points[0]
+	studio.landmarks_panel.controls.vertical_offset.value = -.15
+	check(studio.extensions.model.points[0].y < first_point.y and studio.extensions.model.points[0].x == first_point.x,"Move up / down control shifts the virtual set immediately")
 	studio.landmarks_panel.controls.left.value = .4
 	studio.landmarks_panel.controls.columns.value = 96
 	studio.landmarks_panel.controls.rings.value = 6

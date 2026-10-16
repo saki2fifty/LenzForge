@@ -28,6 +28,13 @@ func _run() -> void:
 	var unique := {}
 	for id in model.ids: unique[id] = true
 	check(unique.size() == 288,"Virtual identifiers are unique and separate from measured indices")
+	var original_ids := model.ids.duplicate()
+	for shift in [-.25,.25]:
+		model.configure({"vertical_offset":shift})
+		model.update(face,dims)
+		check(model.ids == original_ids,"Moving the virtual set preserves its identities and density")
+		for i in points.size():
+			check(model.points[i].distance_to(points[i]+Vector2(0,shift*width)) < .001,"Every ring moves equally up or down without changing shape")
 	# Every virtual point must transform with the measured face in 3D.
 	var rotation := Basis(Vector3.BACK,.3)*Basis(Vector3.UP,.6)*Basis(Vector3.RIGHT,-.25)
 	var moved := PackedVector2Array()
@@ -51,7 +58,7 @@ func _run() -> void:
 	model.update(face,dims)
 	check(is_equal_approx(model.points[272].x,face[234].x*dims.x-.6*width),"Asymmetric side extension")
 	var before := model.config.duplicate()
-	for invalid in [{"rings":13},{"columns":36.5},{"left":INF},{"color":"oops"},{"enabled":1},{"unknown":true}]:
+	for invalid in [{"rings":13},{"columns":36.5},{"left":INF},{"vertical_offset":-1.6},{"vertical_offset":INF},{"color":"oops"},{"enabled":1},{"unknown":true}]:
 		check(not model.configure(invalid) and model.config == before,"Invalid configuration is rejected atomically")
 	model.configure({"columns":144,"rings":12})
 	model.update(face,dims)
@@ -61,6 +68,10 @@ func _run() -> void:
 	check(restored.configure(saved),"JSON settings reload")
 	restored.update(face,dims)
 	check(restored.points == model.points,"Saved fitting reproduces virtual references")
+	var older_settings := Extensions.defaults()
+	older_settings.erase("vertical_offset")
+	var older := Extensions.new()
+	check(older.configure(older_settings) and older.config.vertical_offset == 0,"Older settings keep the original vertical placement")
 	face[338] = Vector2(INF,0)
 	model.update(face,dims)
 	check(model.points.is_empty(),"A malformed outline cannot produce invalid render transforms")
