@@ -8,8 +8,10 @@ func _initialize() -> void:
 func _run() -> void:
 	var studio = load("res://studio.tscn").instantiate()
 	studio.persist_settings = false
+	studio.backend_url = "http://127.0.0.1:9"
 	root.add_child(studio)
 	studio.sidebar_tabs.current_tab = 1
+	studio.beard.apply_document(Profile.document("Render test",Profile.defaults(),{}))
 	studio.beard_panel._create()
 	studio.beard.set_mannequin(true)
 	studio.beard.set_setting("wind", 1.5)

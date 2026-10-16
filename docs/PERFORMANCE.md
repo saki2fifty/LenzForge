@@ -56,6 +56,30 @@ To profile a beard, append `--beard --beard-strands 256 --beard-segments 8` to t
 
 After the free-hanging physics correction, another 20-second run at 256 × 8 measured **0.57 ms mean / 0.68 ms p95** for physics and upload preparation, **60 renderer FPS**, **59.93 capture FPS**, and **52.2 distinct preview frames/sec**. All 1,045 delivered frames had a live beard sample (the interval counter is one smaller). The [raw report](performance/beard-free.json) uses the same timing boundaries. This is another short observation, not a controlled performance comparison with the earlier solver.
 
+## Combined hair regions
+
+The expanded editor was measured on the same Ryzen 5 5500 / RX 7900 XTX using an animated synthetic face, Godot's debug extension, a 60 Hz display, and 120 Hz physics. Each case warmed up for 30 frames and measured 240 frames. These runs did **not** open a webcam or run inference. They include root attachment and generated-marker updates, unlike the older beard-only timer above.
+
+| Configuration | Attachment + markers, mean | Physics + upload preparation, mean | Total CPU, mean / p95 |
+| --- | ---: | ---: | ---: |
+| Beard only, 256 × 8 | 0.34 ms | 0.55 ms | 0.89 / 1.09 ms |
+| Beard + eyebrows + Afro, 864 × 8 | 1.05 ms | 1.59 ms | 2.64 / 3.03 ms |
+| Same, generated markers visible | 1.19 ms | 1.57 ms | 2.77 / 3.16 ms |
+| Maximum combined, 2,048 × 16 | 2.44 ms | 8.31 ms | 10.75 / 11.70 ms |
+| Maximum with markers visible | 2.65 ms | 8.10 ms | 10.76 / 11.56 ms |
+
+Mean frame intervals were approximately 16.66 ms in all five cases. This is a short synthetic measurement, not a live-camera FPS guarantee; CPU timings exclude GPU completion and presentation. Individual frames varied, and the maximum setting leaves considerably less time for the rest of the studio. Default facial density remains 256, brows 96 when enabled, and scalp hair 512 when enabled. Static eyebrows skip force/constraint work. All regions share one solver and one hair draw batch; generated dots use one additional batch. No new tracking model or Python inference is introduced.
+
+Profile reconstruction took about 24–27 ms at the combined default and 72 ms at maximum, once per settings change. Root-marker indices and rest guides are cached between changes. [Raw measurements](performance/groom-combined.json).
+
+To reproduce without touching camera capture or saved designs:
+
+```powershell
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --resolution 1000x700 --script res://tests/groom_performance.gd
+```
+
+The report is written to `artifacts/groom-performance.json`.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:

@@ -9,7 +9,7 @@ import json
 import math
 
 bl_info = {'name': 'LenzForge Beard Curves', 'author': 'saki2fifty',
-           'version': (1, 0, 0), 'blender': (4, 0, 0),
+           'version': (2, 0, 0), 'blender': (4, 0, 0),
            'location': 'File > Import/Export', 'category': 'Import-Export'}
 
 
@@ -32,10 +32,10 @@ def curve_override(points, base_length, root_width, tip_width):
 
 
 def edited_document(original, curves):
-    if original.get('format') != 'lenzforge-beard' or original.get('version') != 1:
+    if original.get('format') != 'lenzforge-beard' or original.get('version') not in (1, 2):
         raise ValueError('Unsupported beard file.')
     guides = original.get('geometry', {}).get('guides', [])
-    if not 16 <= len(guides) <= 1024 or len(curves) != len(guides):
+    if not 16 <= len(guides) <= 2048 or len(curves) != len(guides):
         raise ValueError('Keep the exported strand count; change density in LenzForge.')
     result = copy.deepcopy(original)
     result.setdefault('strands', {})
@@ -67,13 +67,13 @@ if bpy:
         def execute(self, context):
             try:
                 with open(self.filepath, encoding='utf-8-sig') as file:
-                    text = file.read(8 * 1024 * 1024 + 1)
-                if len(text.encode('utf-8')) > 8 * 1024 * 1024:
-                    raise ValueError('File exceeds 8 MB.')
+                    text = file.read(16 * 1024 * 1024 + 1)
+                if len(text.encode('utf-8')) > 16 * 1024 * 1024:
+                    raise ValueError('File exceeds 16 MB.')
                 data = json.loads(text)
                 guides = data.get('geometry', {}).get('guides', [])
-                if data.get('format') != 'lenzforge-beard' or data.get('version') != 1 or not 16 <= len(guides) <= 1024:
-                    raise ValueError('Use Export in the LenzForge Beard tab to include curve geometry.')
+                if data.get('format') != 'lenzforge-beard' or data.get('version') not in (1, 2) or not 16 <= len(guides) <= 2048:
+                    raise ValueError('Use Hair > Library > Export in LenzForge to include curve geometry.')
                 # Validate every guide before adding an object to the scene.
                 for guide in guides:
                     if any(len(point) != 3 for point in guide['points']):

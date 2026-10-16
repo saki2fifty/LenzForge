@@ -6,7 +6,7 @@
 using namespace godot;
 namespace lenzforge {
 void BeardSimulator::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()));
+    ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps", "strand_options"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()), DEFVAL(PackedFloat32Array()));
     ClassDB::bind_method(D_METHOD("set_anchors", "roots", "face_width", "down", "mouth", "mouth_radii"), &BeardSimulator::set_anchors);
     ClassDB::bind_method(D_METHOD("advance", "delta"), &BeardSimulator::advance);
     ClassDB::bind_method(D_METHOD("reset"), &BeardSimulator::reset);
@@ -15,8 +15,8 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
 }
 
-bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps) {
-    if (p_count < 1 || p_count > 1024 || p_segments < 2 || p_segments > 16 || data.size() != p_count * 12) return false;
+bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps, const PackedFloat32Array &options) {
+    if (p_count < 1 || p_count > 2048 || p_segments < 2 || p_segments > 16 || data.size() != p_count * 12) return false;
     const char *keys[] = {"length", "gravity", "wind", "turbulence", "damping", "stiffness"};
     const double defaults[] = {.45, 3, 0, 0, .025, .4};
     const double minimum[] = {.02, 0, -10, 0, 0, 0}, maximum[] = {1.5, 12, 10, 5, .95, 1};
@@ -29,12 +29,20 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     for (int i = 0; i < data.size(); ++i) if (!std::isfinite(src[i])) return false;
     for (int s = 0; s < p_count; ++s) {
         const float *a = src + s * 12;
-        if (a[0] < 0 || a[0] > 4 || a[1] < 0 || a[1] > 12 || a[2] < 0 || a[2] > 12 || a[3] < 0 || a[3] > 1) return false;
+        if (a[0] < 0 || a[0] > 8 || a[1] < 0 || a[1] > 12 || a[2] < 0 || a[2] > 12 || a[3] < 0 || a[3] > 1) return false;
         for (int c = 4; c < 12; ++c) if (a[c] < 0 || a[c] > 1) return false;
     }
     if (!steps.is_empty()) {
         if (steps.size() != p_count * p_segments) return false;
         for (int i=0; i<steps.size(); ++i) if (!steps[i].is_finite() || steps[i].length() > 4) return false;
+    }
+    if (!options.is_empty()) {
+        if (options.size() != p_count*3) return false;
+        for (int s=0; s<p_count; ++s) {
+            float mode=options[s*3], hold=options[s*3+1], collision=options[s*3+2];
+            if (!std::isfinite(mode) || mode < 0 || mode > 2 || mode != std::floor(mode) ||
+                !std::isfinite(hold) || hold < 0 || hold > 1 || (collision != 0 && collision != 1)) return false;
+        }
     }
     bool changed = count != p_count || segments != p_segments;
     count = p_count; segments = p_segments;
@@ -47,6 +55,9 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     for (int s = 0; s < count; ++s) {
         auto &a = attributes[s]; const float *p = src + s * 12;
         a.length = p[0]; a.root_width = p[1]; a.tip_width = p[2]; a.curl = p[3];
+        a.mode=options.is_empty() ? (preserve_shape ? 1 : 0) : int(options[s*3]);
+        a.hold=options.is_empty() ? stiffness : options[s*3+1];
+        a.collision=options.is_empty() ? collisions : options[s*3+2] != 0;
         for (int c = 0; c < 4; ++c) { a.root[c] = p[4+c]; a.tip[c] = p[8+c]; }
         for (int j=1; j<=segments; ++j) {
             const int k=s*segments+j-1;
@@ -82,7 +93,7 @@ void BeardSimulator::reset() {
         const int base = s * (segments + 1);
         positions[base] = roots[s];
         for (int j = 1; j <= segments; ++j) {
-            const Vector2 direction = preserve_shape ? rest_direction(s,j) : Vector2(0,1);
+            const Vector2 direction = attributes[s].mode != 0 ? rest_direction(s,j) : Vector2(0,1);
             positions[base+j] = positions[base+j-1] + direction * segment_length(s,j);
         }
     }
@@ -104,6 +115,13 @@ void BeardSimulator::step(double dt, double root_fraction) {
         const int base = s * (segments + 1);
         if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; continue; }
         const Vector2 root = positions[base].lerp(roots[s], root_fraction);
+        const auto &attribute=attributes[s];
+        if (attribute.mode == 2) {
+            positions[base]=previous[base]=root;
+            for (int j=1; j<=segments; ++j)
+                positions[base+j]=previous[base+j]=positions[base+j-1]+rest_direction(s,j)*segment_length(s,j);
+            continue;
+        }
         for (int j = 1; j <= segments; ++j) {
             const int k = base+j;
             const Vector2 velocity = (positions[k] - previous[k]) * (1.0 - damping);
@@ -116,8 +134,8 @@ void BeardSimulator::step(double dt, double root_fraction) {
             for (int j=1; j<=segments; ++j) {
                 const int k=base+j;
                 const double rest=segment_length(s,j);
-                if (preserve_shape && stiffness > 0)
-                    positions[k] = positions[k].lerp(positions[k-1] + rest_direction(s,j) * rest, stiffness * .12);
+                if (attribute.mode == 1 && attribute.hold > 0)
+                    positions[k] = positions[k].lerp(positions[k-1] + rest_direction(s,j) * rest, attribute.hold * .12);
                 Vector2 diff = positions[k] - positions[k-1];
                 double distance = diff.length();
                 if (distance > 1e-8) {
@@ -127,7 +145,7 @@ void BeardSimulator::step(double dt, double root_fraction) {
                     if (j == 1) positions[k] -= correction;
                     else { positions[k-1] += correction * .5; positions[k] -= correction * .5; }
                 }
-                if (collisions) {
+                if (attribute.collision) {
                     Vector2 offset = positions[k] - mouth;
                     Vector2 local(offset.dot(right) / mouth_radii.x, offset.dot(down) / mouth_radii.y);
                     const double radius = local.length();
@@ -145,7 +163,7 @@ void BeardSimulator::step(double dt, double root_fraction) {
             const Vector2 diff=positions[k]-positions[k-1];
             const double distance=diff.length();
             if (distance > 1e-8) positions[k]=positions[k-1]+diff*(segment_length(s,j)/distance);
-            if (collisions) {
+            if (attribute.collision) {
                 const Vector2 offset=positions[k]-mouth;
                 Vector2 local(offset.dot(right)/mouth_radii.x, offset.dot(down)/mouth_radii.y);
                 const double radius=local.length();

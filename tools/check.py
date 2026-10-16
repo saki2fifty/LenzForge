@@ -23,7 +23,8 @@ def main():
                         ('viewer', ['--quit-after', '10']),
                         ('sources', ['--script', 'res://tests/studio_sources.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
-                        ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd'])]:
+                        ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),
+                        ('groom', ['--script', 'res://tests/groom_probe.gd'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)
         output = result.stdout + result.stderr
@@ -32,7 +33,7 @@ def main():
             raise RuntimeError(f'Godot {name} exited with {result.returncode}:\n{output}')
     subprocess.run([sys.executable, str(ROOT / 'tools/check_ipc.py')], cwd=ROOT, check=True)
     subprocess.run([sys.executable, str(ROOT / 'tools/check_studio.py')], cwd=ROOT, check=True)
-    print('Python tests, Godot import/startup, beard physics/library, native IPC, and Start capture button passed.')
+    print('Python tests, Godot import/startup, beard/groom physics and library, native IPC, and Start capture button passed.')
 
 
 if __name__ == '__main__':

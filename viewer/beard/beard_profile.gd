@@ -1,6 +1,7 @@
 extends RefCounted
 ## Versioned, bounded data shared by the editor, library and interchange tools.
-const VERSION := 1
+const VERSION := 2
+const Groom = preload("res://beard/groom_regions.gd")
 const STYLES := ["Full beard", "Goatee", "Mustache", "Sideburns"]
 const LIMITS := {
 	"strands": [16, 1024], "segments": [2, 16], "length": [.02, 1.5],
@@ -27,6 +28,7 @@ static func defaults(style := "Full beard") -> Dictionary:
 		"Goatee": result.strands = 144; result.length = .5
 		"Mustache": result.strands = 128; result.length = .3; result.stiffness = .7
 		"Sideburns": result.strands = 128; result.length = .3
+	result.merge(Groom.defaults(style))
 	return result
 
 static func document(name: String, config: Dictionary, overrides: Dictionary) -> Dictionary:
@@ -34,13 +36,15 @@ static func document(name: String, config: Dictionary, overrides: Dictionary) ->
 		"settings": config.duplicate(true), "strands": overrides.duplicate(true)}
 
 static func validate(data: Variant) -> String:
-	if not data is Dictionary or data.get("format") != "lenzforge-beard" or data.get("version") != VERSION:
+	if not data is Dictionary or data.get("format") != "lenzforge-beard" or (data.get("version") != 1 and data.get("version") != VERSION):
 		return "This is not a supported LenzForge beard file."
 	if not data.get("name") is String or data.name.strip_edges().is_empty() or data.name.length() > 80:
 		return "Use a beard name between 1 and 80 characters."
 	var config = data.get("settings")
 	if not config is Dictionary or not config.get("style") in STYLES:
 		return "Unknown beard style."
+	var grooming_error := Groom.validate(config)
+	if not grooming_error.is_empty(): return grooming_error
 	for key in LIMITS:
 		if not _number_in(config.get(key), LIMITS[key]):
 			return "Invalid beard setting: " + key
@@ -55,10 +59,10 @@ static func validate(data: Variant) -> String:
 		if not _color_valid(config.get(key)):
 			return "Invalid " + key
 	var edits = data.get("strands", {})
-	if not edits is Dictionary or edits.size() > int(config.strands):
+	if not edits is Dictionary or edits.size() > int(config.strands)+int(config.get("brow_count",96))+int(config.get("hair_count",512)):
 		return "Invalid strand edits."
 	for index in edits:
-		if not index is String or not index.is_valid_int() or int(index) < 0 or int(index) >= int(config.strands):
+		if not index is String or not Groom.valid_id(index,config):
 			return "Invalid strand index."
 		if not edits[index] is Dictionary:
 			return "Invalid strand settings."
@@ -86,8 +90,9 @@ static func _guide_valid(guide: Variant) -> bool:
 		previous = point
 	return distance > .001 and distance <= 4
 
-static func strand_steps(config: Dictionary, overrides: Dictionary, index: int) -> PackedVector2Array:
-	var edit: Dictionary = overrides.get(str(index), {})
+static func strand_steps(config: Dictionary, overrides: Dictionary, index: int, binding: Dictionary = {}) -> PackedVector2Array:
+	var id: String = binding.get("id",str(index))
+	var edit: Dictionary = overrides.get(id, {})
 	var result := PackedVector2Array()
 	var segments := int(config.segments)
 	if edit.has("guide"):
@@ -108,36 +113,35 @@ static func strand_steps(config: Dictionary, overrides: Dictionary, index: int) 
 			previous = point
 		for i in result.size(): result[i] /= maxf(total,.0001)
 	else:
-		var curl := float(edit.get("curl",config.curl))
-		for j in range(1,segments+1):
-			var angle := sin((float(j)/segments)*(2+curl*3)*TAU+sin(index*12.9898)*2)*curl*1.15
-			result.append(Vector2(-sin(angle),cos(angle))/segments)
+		var normalized := config if config.has("hair_style") else Groom.normalized(config)
+		var region_settings := Groom.strand_settings(normalized,binding) if not binding.is_empty() else {"curl":config.curl}
+		result = Groom.procedural_steps(normalized,binding,index,float(edit.get("curl",region_settings.curl)))
 	return result
 
 static func with_geometry(data: Dictionary) -> Dictionary:
 	# Export neutral guides, never a captured face or the current camera pose.
 	var result := data.duplicate(true)
-	var config: Dictionary = data.settings
-	var bindings := anchors(config)
+	var config := Groom.normalized(data.settings)
+	var bindings := all_anchors(config)
 	var face := mannequin()
 	var dimensions := Vector2(1280,720)
 	var scale := ((face[454]-face[234])*dimensions).length()
+	var roots := Groom.root_positions(config,bindings,face,dimensions)
 	var guides: Array = []
 	for i in bindings.size():
 		var a: Dictionary = bindings[i]
-		var indices: Vector3i = a.indices
-		var weights: Vector3 = a.weights
-		var root := ((face[indices.x]*weights.x+face[indices.y]*weights.y+face[indices.z]*weights.z)-Vector2(.5,.5))*dimensions/scale
-		var edit: Dictionary = data.strands.get(str(i),{})
-		var length: float = float(config.length)*float(a.length)*float(edit.get("length",1.0))
+		var root := (roots[i]-dimensions*.5)/scale
+		var edit: Dictionary = data.get("strands",{}).get(a.id,{})
+		var regional := Groom.strand_settings(config,a)
+		var length: float = float(regional.length)*float(edit.get("length",1.0))
 		var points: Array = [[root.x, -root.y, 0.0]]
 		var point := root
-		for step in strand_steps(config,data.strands,i):
+		for step in strand_steps(config,data.get("strands",{}),i,a):
 			point += step*length
 			points.append([point.x,-point.y,0.0])
-		guides.append({"index":i,"points":points,"base_length":float(config.length)*a.length,
-			"root_width":float(edit.get("root_width",config.root_width))/300.0,
-			"tip_width":float(edit.get("tip_width",config.tip_width))/300.0})
+		guides.append({"index":a.id,"region":a.region,"points":points,"base_length":maxf(.0001,float(regional.length)),
+			"root_width":float(edit.get("root_width",regional.root_width))/300.0,
+			"tip_width":float(edit.get("tip_width",regional.tip_width))/300.0})
 	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z depth; 2D guides", "guides":guides}
 	return result
 
@@ -148,15 +152,23 @@ static func _color_valid(value: Variant) -> bool:
 	return value is String and value.length() in [6, 8] and Color.html_is_valid(value)
 
 static func anchors(config: Dictionary) -> Array:
-	var triangles: Array = CHEEKS + MUSTACHE
+	config = Groom.normalized(config)
+	var triangles: Array = CHEEKS.duplicate(true)
 	match config.style:
-		"Goatee": triangles = CHIN
-		"Mustache": triangles = MUSTACHE
-		"Sideburns": triangles = SIDES
+		"Goatee": triangles = CHIN.duplicate(true)
+		"Mustache": triangles = []
+		"Sideburns": triangles = SIDES.duplicate(true)
+	if config.mustache_enabled or config.style == "Mustache":
+		for triangle in MUSTACHE:
+			var item: Array = triangle.duplicate()
+			item[3] *= float(config.mustache_density)
+			triangles.append(item)
 	var total := 0.0
 	for triangle in triangles: total += triangle[3]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(config.seed)
+	var extension_rng := RandomNumberGenerator.new()
+	extension_rng.seed = int(config.seed)+1919
 	var result: Array = []
 	for index in int(config.strands):
 		var choice := rng.randf() * total
@@ -166,8 +178,21 @@ static func anchors(config: Dictionary) -> Array:
 			if choice <= 0: triangle = candidate; break
 		var u := sqrt(rng.randf())
 		var v := rng.randf()
-		result.append({"indices": Vector3i(triangle[0], triangle[1], triangle[2]),
-			"weights": Vector3(1-u, u*(1-v), u*v), "length": triangle[4] * (1.0 - float(config.variation)*rng.randf())})
+		var noise := rng.randf()
+		var mustache: bool = triangle[0] == 2
+		var binding := {"id":str(index),"region":"mustache" if mustache else "beard","zone":"Mustache" if mustache else "Beard",
+			"synthetic":mustache and (not is_equal_approx(config.mustache_width,1) or not is_equal_approx(config.mustache_thickness,1) or config.mustache_lift != 0),
+			"offset":Vector2.ZERO,"side":-1.0 if triangle[1] in [98,61] else 1.0,
+			"indices": Vector3i(triangle[0], triangle[1], triangle[2]),
+			"weights": Vector3(1-u, u*(1-v), u*v), "noise":noise,"length": triangle[4] * (1.0 - float(config.variation)*noise)}
+		Groom.extend_beard(binding,config,extension_rng)
+		result.append(binding)
+	return result
+
+static func all_anchors(config: Dictionary) -> Array:
+	var normalized := Groom.normalized(config)
+	var result := anchors(normalized)
+	Groom.append_regions(normalized,result)
 	return result
 
 static func mannequin() -> PackedVector2Array:
@@ -177,6 +202,8 @@ static func mannequin() -> PackedVector2Array:
 	var positions := {127: [.32,.3], 234: [.30,.43], 93: [.32,.51], 132: [.34,.58], 172: [.37,.65],
 		136: [.40,.69], 150: [.45,.72], 152: [.5,.74], 379: [.55,.72], 365: [.60,.69],
 		397: [.63,.65], 361: [.66,.58], 323: [.68,.51], 454: [.70,.43], 356: [.68,.3],
-		61: [.41,.56], 291: [.59,.56], 0: [.5,.54], 17: [.5,.60], 2: [.5,.49], 98: [.44,.49], 327: [.56,.49]}
+		61: [.41,.56], 291: [.59,.56], 0: [.5,.54], 17: [.5,.60], 2: [.5,.49], 98: [.44,.49], 327: [.56,.49],
+		10:[.5,.12], 70:[.37,.32],63:[.405,.295],105:[.44,.285],66:[.47,.30],107:[.485,.32],
+		300:[.63,.32],293:[.595,.295],334:[.56,.285],296:[.53,.30],336:[.515,.32]}
 	for index in positions: points[index] = Vector2(.5 + (positions[index][0] - .5) * .65, positions[index][1])
 	return points

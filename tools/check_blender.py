@@ -36,9 +36,11 @@ addon = runpy.run_path(str(ROOT/'tools/blender_beard.py'), run_name='lenzforge_a
 addon['register']()
 assert bpy.ops.import_curve.lenzforge_beard(filepath=str(ROOT/'artifacts/beard-to-blender.json')) == {'FINISHED'}
 obj = bpy.context.active_object
-assert len(obj.data.splines) == 256
+assert len(obj.data.splines) == 864
 obj.data.splines[0].points[1].co.x += .015
 obj.data.splines[0].points[0].radius = 3.2
+obj.data.splines[352].points[1].co.x += .005
+obj.data.splines[352].points[0].radius = 4.5
 assert bpy.ops.export_curve.lenzforge_beard(filepath=str(ROOT/'artifacts/beard-from-blender.json')) == {'FINISHED'}
 print('BLENDER_BEARD_PASS')
 ''' % str(ROOT), encoding='utf-8')

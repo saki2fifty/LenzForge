@@ -1,5 +1,6 @@
 extends Control
 const Profile = preload("res://beard/beard_profile.gd")
+const Groom = preload("res://beard/groom_regions.gd")
 signal changed
 signal strand_selected(index: int)
 var config := Profile.defaults()
@@ -14,8 +15,10 @@ var video_size := Vector2(1280, 720)
 var simulator: RefCounted
 var instances := MultiMesh.new()
 var drawing := MultiMeshInstance2D.new()
+var root_markers := MultiMeshInstance2D.new()
 var selection := Control.new()
 var attachment: Array = []
+var generated_indices := PackedInt32Array()
 var roots := PackedVector2Array()
 var face := PackedVector2Array()
 var face_seen_at := 0
@@ -27,6 +30,7 @@ var _demo_offset := Vector2.ZERO
 func _init() -> void:
 	# Own child nodes even when controls are built outside the tree in tests.
 	add_child(drawing)
+	add_child(root_markers)
 	selection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	selection.draw.connect(_draw_selection)
 	add_child(selection)
@@ -48,15 +52,24 @@ func _ready() -> void:
 	shader.shader = preload("res://beard/strands.gdshader")
 	drawing.material = shader
 	drawing.hide()
+	var marker_mesh := MultiMesh.new()
+	marker_mesh.transform_format = MultiMesh.TRANSFORM_2D
+	marker_mesh.mesh = quad
+	root_markers.multimesh = marker_mesh
+	var marker_material := ShaderMaterial.new()
+	marker_material.shader = preload("res://landmarks.gdshader")
+	root_markers.material = marker_material
+	root_markers.hide()
 	resized.connect(_update_transform)
 	_rebuild()
+	_update_transform()
 	set_process(false)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func apply_document(data: Dictionary) -> String:
 	var error := Profile.validate(data)
 	if not error.is_empty(): return error
-	config = data.settings.duplicate(true)
+	config = Groom.normalized(data.settings)
 	config["preserve_shape"] = bool(config.get("preserve_shape", false))
 	for key in ["strands", "segments", "seed"]: config[key] = int(config[key])
 	overrides = data.get("strands", {}).duplicate(true)
@@ -70,22 +83,25 @@ func get_document() -> Dictionary:
 	return Profile.document(model_name, config, overrides)
 
 func set_setting(key: String, value: Variant) -> void:
+	set_settings({key:value})
+
+func set_settings(values: Dictionary) -> void:
 	var candidate := get_document()
-	candidate.settings[key] = value
-	if key == "strands":
-		for index in candidate.strands.keys():
-			if int(index) >= int(value): candidate.strands.erase(index)
+	candidate.settings.merge(values,true)
+	# Validate counts before using them to prune edits; bad settings stay atomic.
+	if not Profile.validate(Profile.document(model_name,candidate.settings,{})).is_empty(): return
+	for id in candidate.strands.keys():
+		if not Groom.valid_id(id,candidate.settings): candidate.strands.erase(id)
 	if not Profile.validate(candidate).is_empty(): return
 	config = candidate.settings
 	overrides = candidate.strands
-	if selected_strand >= int(config.strands): selected_strand = -1
 	_rebuild()
 	changed.emit()
 
 func set_strand_setting(key: String, value: Variant) -> void:
 	if selected_strand < 0: return
 	var candidate := get_document()
-	var id := str(selected_strand)
+	var id := selected_key()
 	if not candidate.strands.has(id): candidate.strands[id] = {}
 	candidate.strands[id][key] = value
 	if key == "curl": candidate.strands[id].erase("guide")
@@ -95,14 +111,20 @@ func set_strand_setting(key: String, value: Variant) -> void:
 	changed.emit()
 
 func reset_selected() -> void:
-	overrides.erase(str(selected_strand))
+	overrides.erase(selected_key())
 	_rebuild()
 	changed.emit()
+
+func selected_key() -> String:
+	return attachment[selected_strand].id if selected_strand >= 0 and selected_strand < attachment.size() else ""
+
+func selected_defaults() -> Dictionary:
+	return Groom.strand_settings(config,attachment[selected_strand]) if selected_strand >= 0 and selected_strand < attachment.size() else config
 
 func set_enabled(value: bool) -> void:
 	enabled = value
 	set_process(enabled and simulator != null)
-	if not enabled: drawing.hide()
+	if not enabled: drawing.hide(); root_markers.hide()
 	elif mannequin: _set_demo_face()
 	elif _face_live: _attach()
 	queue_redraw()
@@ -135,18 +157,20 @@ func set_mirror(value: bool) -> void:
 func set_face(points: PackedVector2Array, dimensions: Vector2) -> void:
 	if mannequin: return
 	if points.size() < 455: clear_face(); return
+	var dimensions_changed := dimensions != video_size
 	face = points
 	video_size = dimensions
 	face_seen_at = Time.get_ticks_msec()
 	_face_live = true
 	set_process(enabled and simulator != null)
 	if enabled: _attach()
-	_update_transform()
+	if dimensions_changed: _update_transform()
 
 func clear_face() -> void:
 	_face_live = false
 	face_seen_at = 0
 	drawing.hide()
+	root_markers.hide()
 	set_process(false)
 	queue_redraw()
 	selection.queue_redraw()
@@ -161,45 +185,74 @@ func _set_demo_face() -> void:
 	_update_transform()
 
 func _rebuild() -> void:
-	attachment = Profile.anchors(config)
+	var selected_id := selected_key()
+	attachment = Profile.all_anchors(config)
+	generated_indices.clear()
+	for i in attachment.size():
+		if attachment[i].synthetic: generated_indices.append(i)
+	selected_strand = -1
+	for i in attachment.size():
+		if attachment[i].id == selected_id: selected_strand = i
 	roots.resize(attachment.size())
 	if simulator == null: return
 	var attributes := PackedFloat32Array()
 	var steps := PackedVector2Array()
-	attributes.resize(int(config.strands) * 12)
+	var options := PackedFloat32Array()
+	attributes.resize(attachment.size() * 12)
+	options.resize(attachment.size()*3)
 	for i in attachment.size():
-		var edit: Dictionary = overrides.get(str(i), {})
-		var root_color := Color.html(edit.get("root_color", config.root_color))
-		var tip_color := Color.html(edit.get("tip_color", config.tip_color))
-		var values := [attachment[i].length * float(edit.get("length", 1.0)),
-			edit.get("root_width", config.root_width), edit.get("tip_width", config.tip_width), edit.get("curl", config.curl),
+		var edit: Dictionary = overrides.get(attachment[i].id, {})
+		var regional := Groom.strand_settings(config,attachment[i])
+		var root_color := Color.html(edit.get("root_color", regional.root_color))
+		var tip_color := Color.html(edit.get("tip_color", regional.tip_color))
+		var values := [float(regional.length) * float(edit.get("length", 1.0)),
+			edit.get("root_width", regional.root_width), edit.get("tip_width", regional.tip_width), edit.get("curl", regional.curl),
 			root_color.r, root_color.g, root_color.b, root_color.a, tip_color.r, tip_color.g, tip_color.b, tip_color.a]
 		for j in 12: attributes[i*12+j] = values[j]
-		steps.append_array(Profile.strand_steps(config,overrides,i))
-	if not simulator.configure(int(config.strands), int(config.segments), config, attributes, steps):
+		steps.append_array(Profile.strand_steps(config,overrides,i,attachment[i]))
+		options[i*3] = regional.mode
+		options[i*3+1] = regional.hold
+		options[i*3+2] = 1.0 if regional.collision else 0.0
+	var physics := config.duplicate()
+	physics.length = 1.0 # Attributes carry absolute lengths in face widths for every region.
+	if not simulator.configure(attachment.size(), int(config.segments), physics, attributes, steps, options):
 		last_error = "The beard configuration could not be applied."
 		return
 	last_error = ""
-	var count := int(config.strands) * int(config.segments)
+	root_markers.material.set_shader_parameter("point_color",Color.html(config.generated_root_color))
+	var count := attachment.size() * int(config.segments)
 	if instances.instance_count != count: instances.instance_count = count
 	if _face_live: _attach()
 	queue_redraw()
 
 func _attach() -> void:
 	if simulator == null or face.size() < 455: return
-	for i in attachment.size():
-		var indices: Vector3i = attachment[i].indices
-		var weights: Vector3 = attachment[i].weights
-		roots[i] = (face[indices.x]*weights.x + face[indices.y]*weights.y + face[indices.z]*weights.z) * video_size
 	var horizontal := (face[454] - face[234]) * video_size
 	var width := horizontal.length()
 	if width < 10: clear_face(); return
+	roots = Groom.root_positions(config,attachment,face,video_size)
 	var down := Vector2(-horizontal.y, horizontal.x).normalized()
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55 + width*.015)
 	if not simulator.set_anchors(roots, width, down, mouth, radii): clear_face(); return
 	drawing.visible = enabled
+	_update_root_markers()
+
+func _update_root_markers() -> void:
+	root_markers.visible = enabled and _face_live and bool(config.show_generated_roots)
+	if not root_markers.visible or root_markers.multimesh == null: return
+	var mesh := root_markers.multimesh
+	if mesh.instance_count != generated_indices.size(): mesh.instance_count = generated_indices.size()
+	if generated_indices.is_empty(): return
+	var diameter := 4.0/maxf(.01,minf(size.x/video_size.x,size.y/video_size.y))
+	var buffer := PackedFloat32Array()
+	buffer.resize(generated_indices.size()*8)
+	for j in generated_indices.size():
+		var root := roots[generated_indices[j]]
+		buffer[j*8] = diameter; buffer[j*8+3] = root.x
+		buffer[j*8+5] = diameter; buffer[j*8+7] = root.y
+	mesh.buffer = buffer
 
 func _process(delta: float) -> void:
 	if not mannequin and (not face_seen_at or Time.get_ticks_msec() - face_seen_at > 250):
@@ -216,6 +269,8 @@ func _update_transform() -> void:
 	var origin := (size - video_size*fit)*.5
 	drawing.transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
 		origin + Vector2(video_size.x*fit if mirror else 0.0, 0))
+	root_markers.transform = drawing.transform
+	_update_root_markers()
 	queue_redraw()
 	selection.queue_redraw()
 

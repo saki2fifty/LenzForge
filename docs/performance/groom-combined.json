@@ -1,0 +1,160 @@
+{
+	"cases": [
+		{
+			"attachment_and_markers_ms": {
+				"max": 0.735,
+				"mean": 0.3361,
+				"p50": 0.321,
+				"p95": 0.442
+			},
+			"case": "beard",
+			"frame_interval_ms": {
+				"max": 23.138,
+				"mean": 16.65365,
+				"p50": 16.496,
+				"p95": 20.24
+			},
+			"physics_and_upload_ms": {
+				"max": 0.805,
+				"mean": 0.550816666666667,
+				"p50": 0.533,
+				"p95": 0.661
+			},
+			"rebuild_ms": 9.007,
+			"samples": 240,
+			"segments": 8,
+			"strands": 256,
+			"total_cpu_ms": {
+				"max": 1.51,
+				"mean": 0.8895625,
+				"p50": 0.858,
+				"p95": 1.088
+			}
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 1.623,
+				"mean": 1.04554583333333,
+				"p50": 1.008,
+				"p95": 1.297
+			},
+			"case": "combined",
+			"frame_interval_ms": {
+				"max": 23.828,
+				"mean": 16.6591791666667,
+				"p50": 16.495,
+				"p95": 19.877
+			},
+			"physics_and_upload_ms": {
+				"max": 3.035,
+				"mean": 1.59309166666667,
+				"p50": 1.554,
+				"p95": 1.81
+			},
+			"rebuild_ms": 24.001,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 4.088,
+				"mean": 2.64239583333333,
+				"p50": 2.581,
+				"p95": 3.028
+			}
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 1.968,
+				"mean": 1.18995833333333,
+				"p50": 1.139,
+				"p95": 1.509
+			},
+			"case": "combined_markers",
+			"frame_interval_ms": {
+				"max": 24.861,
+				"mean": 16.6658958333333,
+				"p50": 16.572,
+				"p95": 19.58
+			},
+			"physics_and_upload_ms": {
+				"max": 2.147,
+				"mean": 1.57337916666667,
+				"p50": 1.536,
+				"p95": 1.772
+			},
+			"rebuild_ms": 26.753,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 4.077,
+				"mean": 2.76715,
+				"p50": 2.697,
+				"p95": 3.16
+			}
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 3.828,
+				"mean": 2.4353,
+				"p50": 2.377,
+				"p95": 2.782
+			},
+			"case": "maximum",
+			"frame_interval_ms": {
+				"max": 24.712,
+				"mean": 16.6644958333333,
+				"p50": 16.607,
+				"p95": 19.243
+			},
+			"physics_and_upload_ms": {
+				"max": 10.248,
+				"mean": 8.30589583333334,
+				"p50": 8.225,
+				"p95": 9.226
+			},
+			"rebuild_ms": 72.146,
+			"samples": 240,
+			"segments": 16,
+			"strands": 2048,
+			"total_cpu_ms": {
+				"max": 13.825,
+				"mean": 10.7525291666667,
+				"p50": 10.664,
+				"p95": 11.704
+			}
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 3.633,
+				"mean": 2.6540125,
+				"p50": 2.565,
+				"p95": 3.187
+			},
+			"case": "maximum_markers",
+			"frame_interval_ms": {
+				"max": 24.002,
+				"mean": 16.6657,
+				"p50": 16.486,
+				"p95": 20.114
+			},
+			"physics_and_upload_ms": {
+				"max": 9.881,
+				"mean": 8.09742916666667,
+				"p50": 8.031,
+				"p95": 8.7
+			},
+			"rebuild_ms": 72.167,
+			"samples": 240,
+			"segments": 16,
+			"strands": 2048,
+			"total_cpu_ms": {
+				"max": 13.526,
+				"mean": 10.7634125,
+				"p50": 10.693,
+				"p95": 11.564
+			}
+		}
+	],
+	"fixture": "Synthetic animated face; no camera or inference. 60 Hz display, 120 Hz physics. CPU times exclude GPU completion/presentation."
+}

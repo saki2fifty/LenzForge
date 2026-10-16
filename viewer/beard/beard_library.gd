@@ -20,7 +20,7 @@ func list_models() -> Array:
 func read_path(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null: return {"error": "Could not open beard file.", "data": {}}
-	if file.get_length() > 8 * 1024 * 1024: return {"error": "Beard file exceeds 8 MB.", "data": {}}
+	if file.get_length() > 16 * 1024 * 1024: return {"error": "Hair file exceeds 16 MB.", "data": {}}
 	var data = JSON.parse_string(file.get_as_text())
 	var error := Profile.validate(data)
 	return {"error": error, "data": data if error.is_empty() else {}}

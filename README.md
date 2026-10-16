@@ -41,7 +41,7 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 - One background capture owner and one inference worker, shared by both interfaces. Capture runs without an open browser.
 - Face tracking with 478 landmarks, 52 blendshape scores, and a face transform; optional hand and body tracking. Hand/body results appear in the browser and JSON exports. The desktop overlay currently displays face/iris points.
 - GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.
-- A [physics beard editor](docs/BEARD.md): full beard, goatee, mustache, and sideburn presets; strand count/length/taper/color; gravity, wind, damping, curl, and individual strand edits. Save a thumbnail library or exchange editable curves with Blender.
+- A [hair and beard editor](docs/BEARD.md): expanded chin/jaw/ear roots with distinct markers, separate mustache and eyebrow controls, and Regular, Mohawk, and Afro scalp presets. Adjust coverage, density, length, taper, curl, colors, gravity, wind, and static/styled/free motion. Save complete looks with thumbnails or exchange individual curves with Blender.
 - Responsive dark studio interfaces, measured frame/inference statistics, source controls, and a camera-free demo.
 - Browser preview effects and JPEG quality control. Preview effects are independent between the desktop and browser.
 - Source recording to playable MJPEG AVI with timestamped landmark JSONL in `recordings/`. Recording memory stays bounded; files grow with recording duration.
@@ -50,7 +50,7 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 
 **Recordings keep the original camera source**, without preview looks, mirror, or overlays. Virtual-camera output is not connected end to end; the earlier GOD1 writer is retained as a foundation. Background segmentation and face-specific effects remain experimental and are withheld from the new browser effect picker.
 
-Open the desktop **Beard** tab, choose a style, and click **Create beard**. Enable **Try on mannequin** to design without a camera; drag the mannequin to test motion. For your live face, turn the mannequin off and start capture with **Face + iris** enabled. Scroll the Beard tab for shape, physics, and individual strand controls. After updating an existing checkout, close the viewer and run `Setup.ps1 -SkipInstall` once to build the native solver.
+Open the desktop **Hair** tab. Its page selector opens **Beard**, **Roots**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**. Choose **Roots → Fuller coverage** for extra chin/ear coverage, or select a scalp style. Enable **Try on mannequin** to design without a camera; drag the mannequin to test motion. For your live face, turn the mannequin off and start capture with **Face + iris** enabled. After updating an existing checkout, close the viewer and run `Setup.ps1 -SkipInstall` once to rebuild the native solver. Scalp and ear extensions are adjustable 2D estimates, not additional measured landmarks.
 
 ## Toolchain
 

@@ -302,7 +302,7 @@ func _build_ui() -> void:
 	var note := _label("Video keeps moving when tracking pauses. Stale overlays clear automatically.", 12, MUTED)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(note)
-	var beard_column := _tab_column("Beard")
+	var beard_column := _tab_column("Hair")
 	beard_panel = BeardPanel.new()
 	beard_column.add_child(beard_panel)
 	beard_panel.setup(beard, self)

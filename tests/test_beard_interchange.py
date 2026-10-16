@@ -34,3 +34,18 @@ def test_hidden_strands_and_other_edits_are_preserved():
     assert result['strands']['0']['root_color'] == 'ffffffff'
     assert 'guide' not in result['strands']['0']
     assert 'geometry' not in result and 'geometry' in original
+
+
+def test_v2_combined_groom_preserves_region_ids_and_motion():
+    ids = [str(i) for i in range(16)] + ['brow:0', 'hair:0']
+    original = {'format': 'lenzforge-beard', 'version': 2,
+                'settings': {'mustache_motion': 'Static', 'hair_motion': 'Styled', 'chin_extension': .15},
+                'geometry': {'guides': [{'index': i, 'base_length': .4} for i in ids]},
+                'strands': {'hair:0': {'root_color': 'ffffffff'}}}
+    curves = [{'points': [(0, 0, 0), (.02, -.3, 0)], 'root_width': 3, 'tip_width': .2} for _ in ids]
+    result = bridge.edited_document(original, curves)
+    assert set(result['strands']) == set(ids)
+    assert result['strands']['hair:0']['root_color'] == 'ffffffff'
+    assert 'guide' in result['strands']['brow:0']
+    assert result['settings'] == original['settings']
+    assert result['version'] == 2

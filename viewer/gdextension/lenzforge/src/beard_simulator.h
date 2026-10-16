@@ -14,7 +14,8 @@ class BeardSimulator : public godot::RefCounted {
 public:
     bool configure(int strands, int segments, const godot::Dictionary &settings,
                    const godot::PackedFloat32Array &attributes,
-                   const godot::PackedVector2Array &rest_steps = godot::PackedVector2Array());
+                   const godot::PackedVector2Array &rest_steps = godot::PackedVector2Array(),
+                   const godot::PackedFloat32Array &strand_options = godot::PackedFloat32Array());
     bool set_anchors(const godot::PackedVector2Array &roots, double face_width,
                      const godot::Vector2 &down, const godot::Vector2 &mouth,
                      const godot::Vector2 &mouth_radii);
@@ -26,7 +27,7 @@ public:
 protected:
     static void _bind_methods();
 private:
-    struct Strand { float length, root_width, tip_width, curl; float root[4], tip[4]; };
+    struct Strand { float length, root_width, tip_width, curl; float root[4], tip[4]; int mode; float hold; bool collision; };
     int count = 0, segments = 0;
     double length = .45, gravity = 3, wind = 0, turbulence = 0, damping = .025, stiffness = .4;
     double scale = 300, accumulator = 0, clock = 0;

@@ -49,6 +49,10 @@ func _run() -> void:
 	check(saved.error.is_empty(), "Save beard: " + saved.error)
 	check(library.list_models().size() == 1, "List saved model")
 	var loaded := library.load_model("abcdef")
+	if not loaded.error.is_empty():
+		print("BEARD_PROBE load error: ",loaded.error)
+		quit(1)
+		return
 	check(loaded.error.is_empty() and loaded.data.strands["0"].root_width == 4, "Round-trip strand overrides")
 	data.name = "Renamed"
 	check(library.save_model(data, "abcdef").error.is_empty(), "Atomically overwrite existing model")
