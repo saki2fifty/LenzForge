@@ -57,6 +57,7 @@ func apply_document(data: Dictionary) -> String:
 	var error := Profile.validate(data)
 	if not error.is_empty(): return error
 	config = data.settings.duplicate(true)
+	config["preserve_shape"] = bool(config.get("preserve_shape", false))
 	for key in ["strands", "segments", "seed"]: config[key] = int(config[key])
 	overrides = data.get("strands", {}).duplicate(true)
 	model_name = data.name

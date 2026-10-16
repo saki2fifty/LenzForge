@@ -20,8 +20,8 @@ const SIDES := [[127, 234, 93, 1.0, .65], [356, 454, 323, 1.0, .65]]
 
 static func defaults(style := "Full beard") -> Dictionary:
 	var result := {"style": style, "strands": 256, "segments": 8, "length": .45,
-		"root_width": 2.4, "tip_width": .25, "gravity": 3.0, "wind": 0.0, "turbulence": .2,
-		"damping": .08, "stiffness": .4, "curl": .12, "variation": .25, "seed": 17,
+		"root_width": 2.4, "tip_width": .25, "gravity": 3.0, "wind": 0.0, "turbulence": 0.0,
+		"damping": .025, "stiffness": .4, "curl": .12, "variation": .25, "seed": 17, "preserve_shape": false,
 		"collisions": true, "root_color": "302019ff", "tip_color": "77513aff"}
 	match style:
 		"Goatee": result.strands = 144; result.length = .5
@@ -48,6 +48,9 @@ static func validate(data: Variant) -> String:
 			return "Use a whole number for " + key
 	if not config.get("collisions") is bool:
 		return "Invalid mouth collision setting."
+	# Older documents open in free-hanging mode without discarding their style.
+	if not config.get("preserve_shape", false) is bool:
+		return "Invalid shape preservation setting."
 	for key in ["root_color", "tip_color"]:
 		if not _color_valid(config.get(key)):
 			return "Invalid " + key

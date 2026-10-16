@@ -18,7 +18,7 @@ void BeardSimulator::_bind_methods() {
 bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps) {
     if (p_count < 1 || p_count > 1024 || p_segments < 2 || p_segments > 16 || data.size() != p_count * 12) return false;
     const char *keys[] = {"length", "gravity", "wind", "turbulence", "damping", "stiffness"};
-    const double defaults[] = {.45, 3, 0, .25, .08, .35};
+    const double defaults[] = {.45, 3, 0, 0, .025, .4};
     const double minimum[] = {.02, 0, -10, 0, 0, 0}, maximum[] = {1.5, 12, 10, 5, .95, 1};
     double values[6];
     for (int i = 0; i < 6; ++i) {
@@ -40,6 +40,7 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     count = p_count; segments = p_segments;
     length = values[0]; gravity = values[1]; wind = values[2]; turbulence = values[3]; damping = values[4]; stiffness = values[5];
     collisions = bool(settings.get("collisions", true));
+    preserve_shape = bool(settings.get("preserve_shape", false));
     attributes.resize(count);
     roots.resize(count); positions.resize(count * (segments + 1)); previous.resize(positions.size());
     directions.resize(count * segments); rest_lengths.resize(count * segments);
@@ -80,7 +81,10 @@ void BeardSimulator::reset() {
     for (int s = 0; s < count; ++s) {
         const int base = s * (segments + 1);
         positions[base] = roots[s];
-        for (int j = 1; j <= segments; ++j) positions[base+j] = positions[base+j-1] + rest_direction(s,j) * segment_length(s,j);
+        for (int j = 1; j <= segments; ++j) {
+            const Vector2 direction = preserve_shape ? rest_direction(s,j) : Vector2(0,1);
+            positions[base+j] = positions[base+j-1] + direction * segment_length(s,j);
+        }
     }
     previous = positions; initialized = count > 0; accumulator = 0;
 }
@@ -88,33 +92,41 @@ void BeardSimulator::advance(double delta) {
     if (!initialized || !std::isfinite(delta) || delta <= 0) return;
     constexpr double dt = 1.0 / 120.0;
     accumulator = std::min(accumulator + delta, dt * 4);
-    while (accumulator >= dt - 1e-9) { step(dt); accumulator -= dt; }
+    // Interpolate only the pinned roots across this frame's physics steps.
+    // The free points retain world-space momentum when the head moves or turns.
+    int remaining = std::min(4, int((accumulator + 1e-9) / dt));
+    while (remaining > 0) { step(dt, 1.0 / remaining); accumulator -= dt; --remaining; }
 }
-void BeardSimulator::step(double dt) {
+void BeardSimulator::step(double dt, double root_fraction) {
     clock += dt;
     const Vector2 right(down.y, -down.x);
     for (int s = 0; s < count; ++s) {
         const int base = s * (segments + 1);
         if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; continue; }
-        // Share some root translation to keep rapid head movement bounded while
-        // retaining inertia. A discontinuity is handled by set_anchors/reset.
-        const Vector2 movement = roots[s] - positions[base];
+        const Vector2 root = positions[base].lerp(roots[s], root_fraction);
         for (int j = 1; j <= segments; ++j) {
             const int k = base+j;
             const Vector2 velocity = (positions[k] - previous[k]) * (1.0 - damping);
-            previous[k] = positions[k] + movement * .65;
-            const double gust = turbulence * std::sin(clock * 2.1 + s * .17 + j * .3);
-            positions[k] += movement * .65 + velocity + Vector2((wind + gust) * scale, gravity * scale) * (dt * dt);
+            previous[k] = positions[k];
+            const double gust = wind != 0 && turbulence > 0 ? turbulence * std::sin(clock * 2.1 + s * .17 + j * .3) : 0;
+            positions[k] += velocity + Vector2((wind + gust) * scale, gravity * scale) * (dt * dt);
         }
-        positions[base] = previous[base] = roots[s];
+        positions[base] = previous[base] = root;
         for (int iteration=0; iteration<4; ++iteration) {
             for (int j=1; j<=segments; ++j) {
                 const int k=base+j;
                 const double rest=segment_length(s,j);
-                positions[k] = positions[k].lerp(positions[k-1] + rest_direction(s,j) * rest, stiffness * .12);
+                if (preserve_shape && stiffness > 0)
+                    positions[k] = positions[k].lerp(positions[k-1] + rest_direction(s,j) * rest, stiffness * .12);
                 Vector2 diff = positions[k] - positions[k-1];
                 double distance = diff.length();
-                if (distance > 1e-8) positions[k] = positions[k-1] + diff * (rest / distance);
+                if (distance > 1e-8) {
+                    // Distribute tension between neighboring free points. Moving
+                    // only the child injects energy down the chain during a turn.
+                    const Vector2 correction = diff * (1.0 - rest / distance);
+                    if (j == 1) positions[k] -= correction;
+                    else { positions[k-1] += correction * .5; positions[k] -= correction * .5; }
+                }
                 if (collisions) {
                     Vector2 offset = positions[k] - mouth;
                     Vector2 local(offset.dot(right) / mouth_radii.x, offset.dot(down) / mouth_radii.y);
@@ -123,6 +135,23 @@ void BeardSimulator::step(double dt) {
                         local = radius > 1e-8 ? local / radius : Vector2(0, 1);
                         positions[k] = mouth + right * (local.x * mouth_radii.x) + down * (local.y * mouth_radii.y);
                     }
+                }
+            }
+        }
+        // Remove the small remaining stretch after the bounded solver passes.
+        // Keep collision projection last so points remain outside the lips.
+        for (int j=1; j<=segments; ++j) {
+            const int k=base+j;
+            const Vector2 diff=positions[k]-positions[k-1];
+            const double distance=diff.length();
+            if (distance > 1e-8) positions[k]=positions[k-1]+diff*(segment_length(s,j)/distance);
+            if (collisions) {
+                const Vector2 offset=positions[k]-mouth;
+                Vector2 local(offset.dot(right)/mouth_radii.x, offset.dot(down)/mouth_radii.y);
+                const double radius=local.length();
+                if (radius < 1.0) {
+                    local=radius > 1e-8 ? local/radius : Vector2(0,1);
+                    positions[k]=mouth+right*(local.x*mouth_radii.x)+down*(local.y*mouth_radii.y);
                 }
             }
         }

@@ -22,7 +22,8 @@ def main():
     for name, extra in [('import', ['--import', '--frame-delay', '1000']),
                         ('viewer', ['--quit-after', '10']),
                         ('sources', ['--script', 'res://tests/studio_sources.gd']),
-                        ('beard', ['--script', 'res://tests/beard_probe.gd'])]:
+                        ('beard', ['--script', 'res://tests/beard_probe.gd']),
+                        ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)
         output = result.stdout + result.stderr

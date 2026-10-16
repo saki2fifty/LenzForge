@@ -25,6 +25,8 @@ func _run() -> void:
 	check(not Profile.validate(invalid).is_empty(), "Reject negative strand IDs")
 	invalid = data.duplicate(true); invalid.settings.root_color = "not a color"
 	check(not Profile.validate(invalid).is_empty(), "Validate colors")
+	invalid = data.duplicate(true); invalid.settings.preserve_shape = "yes"
+	check(not Profile.validate(invalid).is_empty(), "Validate shape preservation switch")
 	check(Profile.anchors(config) == Profile.anchors(config), "Seeded roots must be repeatable")
 	var custom := data.duplicate(true)
 	custom.strands["0"]["guide"] = [[0,0],[.2,.3],[0,.7]]
@@ -80,9 +82,11 @@ func _run() -> void:
 	check(windy[-1].x > rest[-1].x + 1, "Wind must move the strand")
 	check(windy[0].is_equal_approx(Vector2(100,100)), "Root must stay pinned")
 	check(solver.get_max_length_error() < .001, "Constrain segment lengths")
-	config.wind = 0; config.gravity = 8
+	config.wind = 0; config.gravity = 8; config.preserve_shape = true
 	solver.configure(1, 8, config, attributes)
 	solver.set_anchors(PackedVector2Array([Vector2(600,300)]), 200, Vector2.RIGHT, Vector2.ZERO, Vector2.ONE)
+	config.preserve_shape = false
+	solver.configure(1, 8, config, attributes)
 	for i in 120: solver.advance(1.0/60)
 	check(solver.get_strand_points(0)[-1].y > 305, "Gravity must sag a horizontal strand")
 	check(not solver.configure(1025, 8, config, attributes), "Bound native allocation")
@@ -109,11 +113,25 @@ func _run() -> void:
 	layer.set_mannequin(true)
 	layer._process(1.0/60)
 	check(layer.roots.size() == 256 and layer.drawing.visible, "Offline preview attaches all strands")
+	# Include the actual lip collider: a still face must not keep hair jittering.
+	for i in 1200: layer.simulator.advance(1.0/120)
+	var calm_tips := PackedVector2Array()
+	for i in 256: calm_tips.append(layer.simulator.get_strand_points(i)[-1])
+	var largest_drift := 0.0
+	for tick in 120:
+		layer.simulator.advance(1.0/120)
+		for i in 256:
+			largest_drift = maxf(largest_drift,calm_tips[i].distance_to(layer.simulator.get_strand_points(i)[-1]))
+	check(largest_drift < .5, "Stationary full beard must settle with mouth collision: %f px" % largest_drift)
 	layer.selected_strand = 3
 	layer.set_strand_setting("length", 2.0)
 	check(layer.overrides["3"].length == 2.0 and layer.config.length == .45, "Individual edit preserves global settings")
 	layer.apply_document(custom)
 	check(layer.last_error.is_empty(), "Custom curves reach the native solver")
+	var legacy := custom.duplicate(true)
+	legacy.settings.erase("preserve_shape")
+	layer.apply_document(legacy)
+	check(not layer.config.preserve_shape, "Existing documents default to free-hanging physics")
 	layer.apply_document(dense)
 	check(layer.last_error.is_empty(), "Maximum strand length includes regional length factors")
 	layer.apply_document(custom)

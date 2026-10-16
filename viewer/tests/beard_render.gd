@@ -13,6 +13,11 @@ func _run() -> void:
 	studio.beard_panel._create()
 	studio.beard.set_mannequin(true)
 	studio.beard.set_setting("wind", 1.5)
+	if studio.beard_panel.controls.stiffness.editable: failures.append("Free-hanging mode must not offer an active shape spring")
+	studio.beard_panel.controls.preserve_shape.button_pressed = true
+	if not studio.beard.config.preserve_shape or not studio.beard_panel.controls.stiffness.editable:
+		failures.append("Preserve styled shape switch did not enable the shape spring")
+	studio.beard_panel.controls.preserve_shape.button_pressed = false
 	studio.beard_panel.library.directory = ProjectSettings.globalize_path("res://../artifacts/beard-render-library-%d" % Time.get_ticks_usec())
 	studio.beard_panel._save()
 	await create_timer(1).timeout

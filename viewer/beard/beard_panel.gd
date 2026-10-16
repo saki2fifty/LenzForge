@@ -74,8 +74,14 @@ func setup(layer: Control, studio: Control) -> void:
 	_spin(self, "gravity", "Gravity", 0, 12, .1)
 	_spin(self, "wind", "Horizontal wind", -10, 10, .1)
 	_spin(self, "turbulence", "Wind variation", 0, 5, .05)
-	_spin(self, "damping", "Damping", 0, .95, .01)
+	controls.turbulence.tooltip_text = "Adds gusts only while horizontal wind is nonzero."
+	_spin(self, "damping", "Damping", 0, .95, .005)
+	controls.preserve_shape = _check("Preserve styled shape", func(value):
+		if not _syncing: beard.set_setting("preserve_shape", value))
+	controls.preserve_shape.tooltip_text = "Off: strands hang under gravity and swing with head motion or wind. On: stiffness holds the curled or imported style."
 	_spin(self, "stiffness", "Shape stiffness", 0, 1, .01)
+	controls.stiffness.tooltip_text = "Used only when Preserve styled shape is enabled."
+	controls.curl.tooltip_text = "Rest-shape curl; enable Preserve styled shape to hold it against gravity."
 	controls.collisions = _check("Keep strands out of mouth", func(value):
 		if not _syncing: beard.set_setting("collisions", value))
 	add_child(host._button("Reset motion", func():
@@ -161,8 +167,9 @@ func _sync() -> void:
 	style.select(Profile.STYLES.find(beard.config.style))
 	for key in controls:
 		if key.ends_with("color"): controls[key].color = Color.html(beard.config[key])
-		elif key == "collisions": controls[key].set_pressed_no_signal(beard.config[key])
+		elif key in ["collisions", "preserve_shape"]: controls[key].set_pressed_no_signal(beard.config[key])
 		else: controls[key].set_value_no_signal(beard.config[key])
+	controls.stiffness.editable = beard.config.preserve_shape
 	selected_group.visible = beard.selected_strand >= 0
 	selected_label.text = "Strand %d" % (beard.selected_strand + 1) if beard.selected_strand >= 0 else "Click a strand root to edit it."
 	var edit: Dictionary = beard.overrides.get(str(beard.selected_strand), {})

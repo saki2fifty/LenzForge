@@ -1,0 +1,107 @@
+{
+  "configuration": {
+    "utc": "2026-10-16T03:23:34.269043+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 256,
+    "beard_segments": 8
+  },
+  "viewer": {
+    "beard_frames": 1045,
+    "beard_update_ms": {
+      "max": 1.047,
+      "mean": 0.567692822966507,
+      "p50": 0.551,
+      "p95": 0.684,
+      "p99": 0.798
+    },
+    "displayed_fps": 52.2,
+    "frame_age_ms": {
+      "max": 22.1286000366211,
+      "mean": 8.40000239345422,
+      "p50": 8.48220001220703,
+      "p95": 15.5938999633789,
+      "p99": 17.6011000366211
+    },
+    "frame_cap": 0,
+    "frames": 1044,
+    "gaps_over_50_ms": 1,
+    "interval_ms": {
+      "max": 50.623,
+      "mean": 19.1391072796935,
+      "p50": 17.375,
+      "p95": 33.815,
+      "p99": 35.643
+    },
+    "render_fps": 60.0,
+    "upload_ms": {
+      "max": 0.8502,
+      "mean": 0.369037320574163,
+      "p50": 0.3516,
+      "p95": 0.4943,
+      "p99": 0.605
+    }
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": 1,
+    "capture_format": "NV12",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 0.075,
+        "mean": 0.027,
+        "p95": 0.038
+      },
+      "fps": 59.93,
+      "interval_ms": {
+        "max": 36.099,
+        "mean": 16.685,
+        "p95": 22.498
+      },
+      "late_frames": 10,
+      "publish_ms": {
+        "max": 0.284,
+        "mean": 0.164,
+        "p95": 0.211
+      },
+      "read_ms": {
+        "max": 35.897,
+        "mean": 16.458,
+        "p95": 22.276
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.4,
+    "frames": 1378,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "NexiGo N960E FHD Webcam",
+    "tracking": {
+      "avg_inference_ms": 10.631691965402409,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 59.615783287822374,
+      "frames_dropped": 8,
+      "frames_processed": 1369,
+      "landmark_count": 478,
+      "last_inference_ms": 10.810800013132393,
+      "processing_time": 10.810800013132393,
+      "queue_size": 0,
+      "running": true
+    }
+  }
+}

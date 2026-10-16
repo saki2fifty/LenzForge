@@ -34,7 +34,7 @@ DirectShow/MJPEG, global timer-period changes, and reduced OpenCV thread counts 
 
 ## Beard physics
 
-Two additional 20-second runs used the same webcam, 720p/60 FPS setting, face tracking, and landmark overlay, with the native beard enabled. Both used the debug viewer extension built by Setup; no browser or recording was active.
+Two initial beard runs (commit `84daf2b`) used the same webcam, 720p/60 FPS setting, face tracking, and landmark overlay, with the native beard enabled. Both used the debug viewer extension built by Setup; no browser or recording was active.
 
 | Measurement | Default: 256 strands × 8 segments | Maximum: 1,024 strands × 16 segments |
 | --- | ---: | ---: |
@@ -53,6 +53,8 @@ Raw reports: [default beard](performance/beard-256.json), [maximum beard](perfor
 The runs are separate observations, not a controlled claim that adding a beard improves preview FPS. Delivery and VSync phase vary as described above. Defaults remain 256 strands and 8 segments to preserve headroom. Disabling the beard stops simulation; loss of a tracked face hides it and pauses work. Counts and physics catch-up are bounded.
 
 To profile a beard, append `--beard --beard-strands 256 --beard-segments 8` to the benchmark below. The maximum supported values are 1,024 and 16. The command changes only its temporary viewer session; it does not overwrite the user's saved design.
+
+After the free-hanging physics correction, another 20-second run at 256 × 8 measured **0.57 ms mean / 0.68 ms p95** for physics and upload preparation, **60 renderer FPS**, **59.93 capture FPS**, and **52.2 distinct preview frames/sec**. All 1,045 delivered frames had a live beard sample (the interval counter is one smaller). The [raw report](performance/beard-free.json) uses the same timing boundaries. This is another short observation, not a controlled performance comparison with the earlier solver.
 
 ## Reproduce
 

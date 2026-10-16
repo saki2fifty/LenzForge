@@ -28,9 +28,9 @@ protected:
 private:
     struct Strand { float length, root_width, tip_width, curl; float root[4], tip[4]; };
     int count = 0, segments = 0;
-    double length = .45, gravity = 3, wind = 0, turbulence = .25, damping = .08, stiffness = .35;
+    double length = .45, gravity = 3, wind = 0, turbulence = 0, damping = .025, stiffness = .4;
     double scale = 300, accumulator = 0, clock = 0;
-    bool initialized = false, collisions = true;
+    bool initialized = false, collisions = true, preserve_shape = false;
     godot::Vector2 down = godot::Vector2(0, 1), mouth, mouth_radii;
     std::vector<Strand> attributes;
     std::vector<godot::Vector2> roots, positions, previous;
@@ -38,7 +38,7 @@ private:
     std::vector<float> rest_lengths;
     godot::Vector2 rest_direction(int strand, int segment) const;
     double segment_length(int strand, int segment) const;
-    void step(double dt);
+    void step(double dt, double root_fraction);
 };
 }
 #endif

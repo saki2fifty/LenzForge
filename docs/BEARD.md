@@ -11,6 +11,8 @@ The desktop **Beard** tab creates and edits a beard attached to face landmarks. 
 3. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show beard** controls visibility. Tracking loss hides the beard and pauses physics; reacquiring a face resumes it.
 4. Scroll the right panel to reach shape, physics, and individual strand controls. Turn off landmark dots with **L** for a clearer preview.
 
+Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. Mouth collision can divert strands around the lips.
+
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
 ## Controls
@@ -24,12 +26,13 @@ The C++ extension must be rebuilt after updating an older checkout: close viewer
 | Curl / length variation | Rest-shape curl and seeded variation between strands. |
 | Root / tip color | RGBA endpoint colors interpolated along the strand. |
 | Regrow strands | Generate new roots and length variation with a new seed. Individual overrides remain associated with strand indices. **Create beard** starts a fresh preset. |
-| Gravity | Downward acceleration in face widths per second squared. |
-| Horizontal wind / wind variation | Horizontal acceleration and time-varying gusts. Positive wind follows camera coordinates, which the mirror option can reflect. |
-| Damping | Removes a fraction of velocity each physics step. Higher values settle motion faster. |
-| Shape stiffness | Pulls toward the original curled or imported rest shape. Lower values let gravity and wind reshape the beard more. |
+| Gravity | Downward acceleration in face widths per second squared, independent of head tilt. Higher gravity speeds the fall and resists wind more strongly. Zero disables gravitational acceleration. |
+| Horizontal wind / wind variation | Horizontal acceleration and time-varying gusts. Gusts apply only when wind is nonzero, so zero wind is calm. Positive wind follows camera coordinates, which the mirror option can reflect. |
+| Damping | Removes a fraction of velocity each physics step; default 0.025. It controls how long motion persists. Very high damping can make falling sluggish. |
+| Preserve styled shape | Off by default, including for files saved before this option existed. Enable it to hold curls or an imported rest shape against gravity. |
+| Shape stiffness | Used only with **Preserve styled shape**. Pulls toward the original curled or imported shape. |
 | Keep strands out of mouth | Pushes simulated points outside an ellipse following the lips. |
-| Reset motion | Returns the strands to their rest shape and clears accumulated velocity. |
+| Reset motion | Clears velocity and hangs the strands downward, or restores their rest shape when **Preserve styled shape** is enabled. |
 
 Enable **Select strands in preview**, then click a root. The selected strand is highlighted. Its length multiplier, starting/ending widths, curl, and colors can override the global settings. **Hide this strand** sets its length to zero; **Restore strand defaults** removes its overrides. Turn selection off to drag the mannequin again.
 
@@ -51,7 +54,7 @@ The optional add-on is [`tools/blender_beard.py`](../tools/blender_beard.py). It
 4. Edit curve points in the local XY plane. Point radii control thickness; the first and last radii become the viewer's starting and ending widths. Keep the strand count/order, keep splines as Poly, and use 2–65 points per strand. Blender can subdivide existing splines for more control.
 5. With that object selected, choose **File → Export → LenzForge beard (.json)**, then import the result in LenzForge.
 
-The viewer resamples imported guides to its selected segment count, scales them to the strand's length, and uses them as physics rest shapes. Relative curve bends, length, endpoint widths, existing colors, and hidden strands survive the exchange. Editing an individual strand's **Curl** in LenzForge replaces its imported guide with a procedural curl; **Restore strand defaults** also removes the guide.
+The viewer resamples imported guides to its selected segment count, scales them to the strand's length, and stores them as physics rest shapes. Enable **Preserve styled shape** to retain these bends against gravity; leave it off for free-hanging strands. Relative curve bends, length, endpoint widths, existing colors, and hidden strands survive the exchange. Editing an individual strand's **Curl** in LenzForge replaces its imported guide with a procedural curl; **Restore strand defaults** also removes the guide.
 
 Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions are rebound to the same face regions in LenzForge. Blender object transforms, Z depth, intermediate radius changes, materials, and particle hair systems are not imported. Apply desired bends in local XY coordinates; this bridge handles editable poly curves.
 
@@ -59,15 +62,15 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 This is 2D physics over the camera preview. Roots follow face position, scale, roll, and local landmark deformation. There is no 3D head occlusion, hair-to-hair collision, or full skin collision; mouth collision is an ellipse approximation. Extreme profile views may need a future 3D attachment/rendering system.
 
-Physics runs in the C++ GDExtension at a fixed 120 Hz, with at most four catch-up steps. Strand points use contiguous arrays; rest directions are prepared only when a design changes. One instanced GPU batch draws all segments with taper and edge antialiasing. There is no scene node or rigid body per strand. Disabled or untracked beards stop simulation. The camera, shared-memory readers, and inference worker stay independent.
+Physics runs in the C++ GDExtension at a fixed 120 Hz, with at most four catch-up steps. Roots interpolate between tracking updates; free points retain world-space momentum. Neighboring free points share tension corrections, followed by a length correction pass. Strand points use contiguous arrays; rest directions are prepared only when a design changes. One instanced GPU batch draws all segments with taper and edge antialiasing. There is no scene node or rigid body per strand. Disabled or untracked beards stop simulation. The camera, shared-memory readers, and inference worker stay independent.
 
-On the development Ryzen 5 5500 / RX 7900 XTX machine, the default 256 × 8 beard averaged **0.67 ms** for physics plus packed upload preparation; 1,024 × 16 averaged **5.42 ms**. Both 20-second webcam runs reported 60 FPS rendering and about 60 FPS capture. These costs exclude landmark attachment, GPU completion, and presentation; see [measurements and limits](PERFORMANCE.md#beard-physics).
+On the development Ryzen 5 5500 / RX 7900 XTX machine, the corrected free-hanging solver at the default 256 × 8 size averaged **0.57 ms** for physics plus packed upload preparation. The 20-second webcam run reported 60 FPS rendering and about 60 FPS capture. These costs exclude landmark attachment, GPU completion, and presentation; see [measurements and limits](PERFORMANCE.md#beard-physics), including the earlier solver's maximum-density run.
 
 Desktop snapshots include the beard and studio controls. Source recordings and browser previews do not include the desktop beard. A composed-video/virtual-camera output remains separate work.
 
 ## Validation
 
-`tools/check.py` runs profile/library/native physics checks alongside the existing capture tests. It covers deterministic roots, gravity/wind, pinned roots, segment lengths, mouth collision, bounded catch-up, invalid input, hidden strands, face loss, individual overrides, maximum-size files, imported guides, mirroring, and resizing. Python tests validate the Blender interchange math.
+`tools/check.py` runs profile/library/native physics checks alongside the existing capture tests. It covers deterministic roots, gravity/wind, pinned roots, segment lengths, mouth collision, bounded catch-up, invalid input, hidden strands, face loss, individual overrides, maximum-size files, imported guides, mirroring, and resizing. Dynamics regressions compare gravity/wind strengths, slow/fast head turns, calm settling at a tilted head angle, and equivalent motion delivered at 30/60/120 Hz. Python tests validate the Blender interchange math.
 
 Additional checks requiring a graphics context or Blender:
 
