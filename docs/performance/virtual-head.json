@@ -1,0 +1,133 @@
+{
+	"cases": [
+		{
+			"attachment_and_markers_ms": {
+				"max": 2.012,
+				"mean": 1.24817916666667,
+				"p50": 1.198,
+				"p95": 1.663
+			},
+			"case": "combined",
+			"frame_interval_ms": {
+				"max": 25.263,
+				"mean": 16.6631041666667,
+				"p50": 16.375,
+				"p95": 22.752
+			},
+			"physics_and_upload_ms": {
+				"max": 1.95,
+				"mean": 1.5660875,
+				"p50": 1.538,
+				"p95": 1.734
+			},
+			"rebuild_ms": 27.211,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 3.758,
+				"mean": 2.81862083333333,
+				"p50": 2.763,
+				"p95": 3.307
+			},
+			"virtual_landmarks": 0
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 3.087,
+				"mean": 1.7822875,
+				"p50": 1.72,
+				"p95": 2.238
+			},
+			"case": "virtual",
+			"frame_interval_ms": {
+				"max": 24.813,
+				"mean": 16.6664916666667,
+				"p50": 16.772,
+				"p95": 22.841
+			},
+			"physics_and_upload_ms": {
+				"max": 2.06,
+				"mean": 1.54378333333333,
+				"p50": 1.513,
+				"p95": 1.691
+			},
+			"rebuild_ms": 32.143,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 4.774,
+				"mean": 3.32994166666667,
+				"p50": 3.251,
+				"p95": 3.861
+			},
+			"virtual_landmarks": 380
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 3.247,
+				"mean": 1.86577916666667,
+				"p50": 1.776,
+				"p95": 2.32
+			},
+			"case": "virtual_markers",
+			"frame_interval_ms": {
+				"max": 24.588,
+				"mean": 16.6681291666667,
+				"p50": 16.467,
+				"p95": 22.842
+			},
+			"physics_and_upload_ms": {
+				"max": 2.858,
+				"mean": 1.55216666666667,
+				"p50": 1.508,
+				"p95": 1.783
+			},
+			"rebuild_ms": 33.135,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 4.85,
+				"mean": 3.42195,
+				"p50": 3.312,
+				"p95": 4.085
+			},
+			"virtual_landmarks": 380
+		},
+		{
+			"attachment_and_markers_ms": {
+				"max": 5.57,
+				"mean": 3.1495625,
+				"p50": 2.945,
+				"p95": 4.273
+			},
+			"case": "virtual_dense",
+			"frame_interval_ms": {
+				"max": 28.438,
+				"mean": 16.7566958333333,
+				"p50": 16.684,
+				"p95": 22.926
+			},
+			"physics_and_upload_ms": {
+				"max": 2.736,
+				"mean": 1.60183333333333,
+				"p50": 1.539,
+				"p95": 1.838
+			},
+			"rebuild_ms": 36.997,
+			"samples": 240,
+			"segments": 8,
+			"strands": 864,
+			"total_cpu_ms": {
+				"max": 7.895,
+				"mean": 4.75667083333333,
+				"p50": 4.525,
+				"p95": 5.93
+			},
+			"virtual_landmarks": 1628
+		}
+	],
+	"fixture": "Synthetic animated face; no camera or inference. 60 Hz display, 120 Hz physics. CPU times exclude GPU completion/presentation."
+}

@@ -6,15 +6,40 @@ The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays at
 
 ## Try it
 
-1. Open **Hair**. Use the page dropdown to switch between **Beard**, **Roots**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**.
+1. Open **Hair**. Use the page dropdown to switch between **Beard**, **Roots**, **Virtual landmarks**, **Mustache**, **Eyebrows**, **Scalp hair**, **Physics**, **Strands**, and **Library**.
 2. Check **Try on mannequin** to design without camera capture or a backend. Drag the mannequin to see the strands respond to movement.
-3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Roots**, click **Fuller coverage**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Enable eyebrows on their own page.
+3. On **Beard**, choose Full beard, Goatee, Mustache, or Sideburns and click **Apply beard preset**. On **Scalp hair**, choose Regular, Mohawk, or Afro. Open **Virtual landmarks** and click **Extend head coverage** to fit a larger reference head. Enable eyebrows on their own page.
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
-5. Turn off measured landmark dots with **L**, and generated dots with **Roots → Show generated roots**, for a clearer preview.
+5. Turn off measured landmark dots with **L**, root dots with **Roots → Show generated roots**, and the fitted grid with **Virtual landmarks → Show virtual landmarks**, for a clearer preview.
 
 Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. Mouth collision can divert strands around the lips.
 
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
+
+## Virtual landmarks over the head
+
+![Virtual crown, chin, and side landmarks fitted on the mannequin](images/virtual-head.png)
+
+**Hair → Virtual landmarks → Extend head coverage** creates a fitted grid referenced to the tracked forehead, cheek sides, and chin. It keeps the current hairstyle, colors, and strand budget. Orange grid points are virtual references; magenta dots are individual generated roots; green dots are measured face landmarks. Each has independent visibility/color controls.
+
+The grid includes a curved scalp patch, a lower-chin patch, and left/right side patches. Scalp roots interpolate across the crown patch; a Mohawk uses a narrow strip running from forehead toward crown rather than a small rectangular cluster on the forehead. The **Expanded root share** on the Roots page controls how much beard coverage attaches to the chin/side patches. The remaining beard roots keep their face-triangle attachments.
+
+| Virtual-head control | Effect |
+| --- | --- |
+| Crown height / width | Raise the top grid above the forehead and widen it to fit the head. Height is in face widths; width 1.0 matches tracked cheek width. |
+| Crown back reach | Estimated depth of the scalp patch behind the forehead; its projection changes with pitch/yaw. |
+| Below chin / jaw expansion | Extend the lower reference rows down and outward. Shared with the Roots page. |
+| Under-chin depth | Places lower rows behind the chin plane. |
+| Toward ears / height around ears | Extend and raise the side regions. Shared with the Roots page. |
+| Side / back reach | Extend side rows behind the tracked cheek plane. This becomes apparent as the head turns. |
+| Columns / rows per region | Grid resolution, independent of strand density. Defaults to 24 × 4 subdivisions: 380 points across all four patches. Maximum 48 × 10: 1,628 points. Side patches use half as many columns. |
+| Use virtual head for roots | Switch between fitted-grid attachment and the earlier root placement. Existing files keep the earlier placement until enabled. |
+
+Start with **Extend head coverage**, face the camera, and adjust Crown height/width until the top row follows your crown. Adjust the chin and ear regions, then turn/tilt your head to fit the back-reach controls. **Show virtual landmarks** hides the guide dots without detaching the roots. Increasing grid density refines interpolation; increase facial/scalp strand counts separately for more hairs. The Hair footer reports the virtual-point count; the capture metrics continue to report measured landmarks.
+
+The viewer now retains the relative Z values already present in its landmark stream. A frame derived from the cheek-to-cheek and forehead-to-chin axes projects the virtual offsets during yaw, pitch, and roll. This is an approximate face-based reference frame, not a calibrated head scan. It uses [MediaPipe's normalized coordinates and relative-depth convention](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/face_mesh.md#face-geometry-module); no additional model or inference worker is needed. Missing/invalid depth falls back to the planar reference frame. Face loss clears the virtual overlay.
+
+The mannequin's forehead reference has also been moved below the skull crown so fitting it exercises the same extrapolation needed on a real face.
 
 ## Expanded roots and regional controls
 
@@ -22,9 +47,9 @@ The C++ extension must be rebuilt after updating an older checkout: close viewer
 
 | Root control | Effect |
 | --- | --- |
-| Below chin | Extends roots beneath the chin by up to 0.35 face widths. |
-| Jaw expansion | Spreads the lower beard outward by up to 0.30 face widths. |
-| Toward ears | Extends side roots outward by up to 0.30 face widths. |
+| Below chin | Extends roots beneath the chin by up to 0.80 face widths. |
+| Jaw expansion | Spreads the lower beard outward by up to 0.50 face widths. |
+| Toward ears | Extends side roots outward by up to 0.60 face widths. |
 | Height around ears | Moves the sideburn coverage from lower cheek toward the upper side of the tracked face. |
 | Root layers | 1–6 bands of generated roots across the extension, with small seeded variation. |
 | Expanded root share | Fraction of beard roots assigned to the extended regions. Remaining roots retain cheek/chin coverage. |
@@ -101,7 +126,7 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 ## Runtime scope and performance
 
-This is a stylized 2D overlay over the camera preview. Roots follow face position, scale, roll, and local landmark deformation. Scalp and ear extensions estimate regions that the face tracker does not measure. Existing real hair is not removed. There is no 3D head occlusion, hair-to-hair collision, or full skin collision; mouth collision is an ellipse approximation. Extreme profile views and convincing back-of-head hair need a future 3D attachment/rendering system.
+Hair physics and rendering remain a stylized 2D overlay over the camera preview. Virtual attachment can use relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. There is no full head occlusion, hair-to-hair collision, or full skin collision; mouth collision is an ellipse approximation. Far-side roots can remain visible through the face. Extreme profile views and convincing back-of-head hair need a calibrated 3D head and depth-aware hair rendering.
 
 Physics runs in the C++ GDExtension at a fixed 120 Hz, with at most four catch-up steps. Roots interpolate between tracking updates; free points retain world-space momentum. Neighboring free points share tension corrections, followed by a length correction pass. Strand points use contiguous arrays; rest directions are prepared only when a design changes. One instanced GPU batch draws all segments with taper and edge antialiasing. There is no scene node or rigid body per strand. Disabled or untracked beards stop simulation. The camera, shared-memory readers, and inference worker stay independent.
 
@@ -123,11 +148,14 @@ Desktop snapshots include the beard and studio controls. Source recordings and b
 
 Combined-groom regressions cover extended root positions, rotation/scale behavior, mustache coverage, Static/Free region motion, old-file loading, stable region edits, all three scalp presets, maximum combined allocation/export, and native option validation.
 
+Virtual-head tests verify crown/chin/side extents, actual root interpolation, deterministic grids, independent point/hair budgets, yaw/pitch/roll/scale projection, invalid-depth fallback, save/load/export, and clearing on face loss. Rendered tests exercise the actual fitting button, marker color, shared controls, and studio depth forwarding at 1440×900 and 1024×720. The Blender check preserves virtual-head fitting with its returned curves.
+
 Additional checks requiring a graphics context or Blender:
 
 ```powershell
 .\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --script res://tests/beard_render.gd --quit-after 600
 .\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --resolution 1440x900 --script res://tests/groom_render.gd
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --resolution 1440x900 --script res://tests/virtual_head_render.gd
 .\buildtools\python-3.15.0\python.exe -B tools\check_blender.py --blender 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe'
 ```
 

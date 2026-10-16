@@ -1,11 +1,14 @@
 extends RefCounted
+const Head = preload("res://beard/virtual_head.gd")
 ## Procedural root regions and rest guides, all expressed in tracked face widths.
 const MOTIONS := ["Free", "Styled", "Static"]
 const HAIR_STYLES := ["None", "Regular", "Mohawk", "Afro"]
 const MUSTACHE_STYLES := ["Natural", "Chevron", "Handlebar", "Walrus"]
 const BROW_STYLES := ["Natural", "Straight", "Arched", "Bushy"]
 const NUMBERS := {
-	"chin_extension":[0,.35], "jaw_expansion":[0,.3], "ear_reach":[0,.3], "sideburn_height":[0,1],
+	"chin_extension":[0,.8], "jaw_expansion":[0,.5], "ear_reach":[0,.6], "sideburn_height":[0,1],
+	"virtual_columns":[8,48], "virtual_rows":[2,10], "crown_height":[0,.8], "crown_width":[.6,1.8],
+	"crown_back":[0,1], "side_back":[0,.8], "chin_back":[0,.5],
 	"root_layers":[1,6], "coverage_fill":[0,1],
 	"mustache_width":[.4,2], "mustache_thickness":[.2,3], "mustache_density":[0,3],
 	"mustache_length":[.005,.6], "mustache_lift":[-.08,.15], "mustache_curl":[0,1], "mustache_hold":[0,1],
@@ -18,14 +21,16 @@ const NUMBERS := {
 	"mustache_root_width":[.1,12], "mustache_tip_width":[0,12],
 	"brow_root_width":[.1,12], "brow_tip_width":[0,12], "hair_root_width":[.1,12], "hair_tip_width":[0,12]
 }
-const INTEGERS := ["root_layers", "brow_count", "hair_count"]
-const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots"]
+const INTEGERS := ["root_layers", "brow_count", "hair_count", "virtual_columns", "virtual_rows"]
+const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots", "virtual_enabled", "show_virtual_landmarks"]
 const ENUMS := {"mustache_style":MUSTACHE_STYLES, "brow_style":BROW_STYLES, "hair_style":HAIR_STYLES,
 	"mustache_motion":MOTIONS, "brow_motion":MOTIONS, "hair_motion":MOTIONS}
-const COLORS := ["generated_root_color", "mustache_color", "mustache_tip_color", "brow_color", "hair_color", "hair_tip_color"]
+const COLORS := ["generated_root_color", "mustache_color", "mustache_tip_color", "brow_color", "hair_color", "hair_tip_color", "virtual_color"]
 
 static func defaults(style: String) -> Dictionary:
-	return {"beard_visible":true, "chin_extension":0.0, "jaw_expansion":0.0, "ear_reach":0.0,
+	return {"virtual_enabled":false,"show_virtual_landmarks":true,"virtual_color":"ffbf69ff",
+		"virtual_columns":24,"virtual_rows":4,"crown_height":.42,"crown_width":1.08,"crown_back":.35,"side_back":.3,"chin_back":.05,
+		"beard_visible":true, "chin_extension":0.0, "jaw_expansion":0.0, "ear_reach":0.0,
 		"sideburn_height":0.0, "root_layers":3, "coverage_fill":.45, "show_generated_roots":true,
 		"generated_root_color":"ed8bffff", "mustache_enabled":style in ["Full beard","Mustache"],
 		"mustache_style":"Natural", "mustache_width":1.0, "mustache_thickness":1.0, "mustache_density":1.0,
@@ -81,6 +86,11 @@ static func hair_preset(style: String) -> Dictionary:
 		"Regular": return {"hair_style":style,"hair_length":.32,"hair_volume":.35,"hair_sweep":.65,"hair_curl":.08,"hair_frizz":.08,"hair_clump":.35,"hair_sides":.4,"hair_hold":.65,"hair_motion":"Styled"}
 	return {"hair_style":"None"}
 
+static func virtual_preset() -> Dictionary:
+	return {"virtual_enabled":true,"show_virtual_landmarks":true,"show_generated_roots":false,
+		"crown_height":.42,"crown_width":1.08,"crown_back":.35,"side_back":.3,"chin_back":.05,
+		"chin_extension":.18,"jaw_expansion":.08,"ear_reach":.15,"sideburn_height":1.0,"coverage_fill":.6}
+
 static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNumberGenerator) -> void:
 	if binding.region == "mustache": return
 	if rng.randf() >= float(config.coverage_fill): return
@@ -88,11 +98,13 @@ static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNum
 	var height := float(config.sideburn_height)
 	var chin := float(config.chin_extension)
 	var jaw := float(config.jaw_expansion)
-	if maxf(maxf(reach,height),maxf(chin,jaw)) <= 0: return
+	var back := float(config.side_back) if config.virtual_enabled else 0.0
+	var under := float(config.chin_back) if config.virtual_enabled else 0.0
+	if maxf(maxf(reach,height),maxf(chin,jaw)) <= 0 and maxf(back,under) <= 0: return
 	var layer := (rng.randi_range(0,int(config.root_layers)-1)+.5+rng.randf_range(-.18,.18))/float(config.root_layers)
 	var side := -1.0 if rng.randf() < .5 else 1.0
 	var t := rng.randf()
-	if (reach > 0 or height > 0) and rng.randf() < .45:
+	if (reach > 0 or height > 0 or back > 0) and rng.randf() < .45:
 		var path := [93,234,127] if side < 0 else [323,454,356]
 		var along := t*(.15+height*1.85)
 		var segment := mini(1,int(along))
@@ -100,6 +112,8 @@ static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNum
 		binding.weights = Vector3(1-fmod(along,1.0),fmod(along,1.0),0)
 		binding.offset = Vector2(side*(reach*layer+jaw*.25),0)
 		binding.zone = "Ear / sideburn"
+		if config.virtual_enabled:
+			Head.bind_root(binding,"left_side" if side < 0 else "right_side",Vector2(t,layer),config)
 	else:
 		var path := [172,136,150,152,379,365,397]
 		var along := t*(path.size()-1)
@@ -108,6 +122,7 @@ static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNum
 		binding.weights = Vector3(1-fmod(along,1.0),fmod(along,1.0),0)
 		binding.offset = Vector2((t*2-1)*jaw*layer,chin*layer*(1-absf(t*2-1)*.5))
 		binding.zone = "Chin / jaw"
+		if config.virtual_enabled: Head.bind_root(binding,"chin",Vector2(t,layer),config)
 	binding.synthetic = true
 
 static func append_regions(config: Dictionary, bindings: Array) -> void:
@@ -141,20 +156,35 @@ static func append_regions(config: Dictionary, bindings: Array) -> void:
 				direction = Vector2(float(config.hair_sweep)*.8+signf(u-float(config.hair_part))*.25,-.7).normalized()
 			offset.x *= float(config.hair_width)
 			offset.y += float(config.hairline)
-			bindings.append({"id":"hair:%d"%i,"region":"hair","zone":"Scalp (estimated)","synthetic":true,
+			var binding := {"id":"hair:%d"%i,"region":"hair","zone":"Scalp (estimated)","synthetic":true,
 				"indices":Vector3i(10,10,10),"weights":Vector3(1,0,0),"offset":offset,"direction":direction,
-				"u":u,"v":v,"side":signf(u),"length":1.0,"noise":rng.randf()})
+				"u":u,"v":v,"side":signf(u),"length":1.0,"noise":rng.randf()}
+			if config.virtual_enabled:
+				var across := u
+				if config.hair_style == "Mohawk": across = u*float(config.hawk_width)/float(config.crown_width)
+				elif config.hair_style == "Afro": across = cos(-.12+(u+1)*(PI+.24)*.5)
+				binding.virtual_across = across
+				Head.bind_root(binding,"scalp",Vector2((across+1)*.5,v),config)
+			bindings.append(binding)
 
-static func root_positions(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2) -> PackedVector2Array:
+static func root_positions(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2, virtual_points: PackedVector2Array = PackedVector2Array()) -> PackedVector2Array:
 	var horizontal := (face[454]-face[234])*dimensions
 	var width := horizontal.length()
 	var right := horizontal.normalized()
 	var down := Vector2(-right.y,right.x)
 	var lip := face[0]*dimensions
+	if config.get("virtual_enabled",false) and virtual_points.is_empty():
+		virtual_points = Head.project(Head.build(config),face,dimensions,Head.frame(face,dimensions))
 	var result := PackedVector2Array()
 	result.resize(bindings.size())
 	for i in bindings.size():
 		var b: Dictionary = bindings[i]
+		if b.has("virtual_cell") and not virtual_points.is_empty():
+			result[i] = Head.interpolate(b,virtual_points)
+			if b.region == "hair":
+				result[i] += down*float(config.hairline)*width
+				result[i] += right*width*float(b.virtual_across)*.5*float(config.crown_width)*(float(config.hair_width)-1)
+			continue
 		var ids: Vector3i = b.indices
 		var w: Vector3 = b.weights
 		var root := (face[ids.x]*w.x+face[ids.y]*w.y+face[ids.z]*w.z)*dimensions

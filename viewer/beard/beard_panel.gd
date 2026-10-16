@@ -8,6 +8,7 @@ var library := Library.new()
 var current_id := ""
 var host: Control
 var controls: Dictionary = {}
+var control_copies: Dictionary = {}
 var strand_controls: Dictionary = {}
 var name_field: LineEdit
 var models: OptionButton
@@ -33,7 +34,7 @@ func setup(layer: Control, studio: Control) -> void:
 	mannequin_check = _check("Try on mannequin", func(value): beard.set_mannequin(value))
 	mannequin_check.tooltip_text = "Drag the mannequin to test motion. Camera capture can stay off."
 	page_picker = OptionButton.new()
-	for title in ["Beard","Roots","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
+	for title in ["Beard","Roots","Virtual landmarks","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
 	add_child(page_picker)
 	page_picker.item_selected.connect(func(index): show_page(page_picker.get_item_text(index)))
 	var shape := _page("Beard")
@@ -57,14 +58,34 @@ func setup(layer: Control, studio: Control) -> void:
 	host._section(roots_page,"Expanded coverage","Magenta marks generated roots; green marks measured landmarks. Offsets follow face size and rotation.")
 	_config_check(roots_page,"show_generated_roots","Show generated roots")
 	_color(roots_page,"generated_root_color","Generated point color")
-	for row in [["chin_extension","Below chin",0,.35,.01],["jaw_expansion","Jaw expansion",0,.3,.01],
-		["ear_reach","Toward ears",0,.3,.01],["sideburn_height","Height around ears",0,1,.05],
+	for row in [["chin_extension","Below chin",0,.8,.01],["jaw_expansion","Jaw expansion",0,.5,.01],
+		["ear_reach","Toward ears",0,.6,.01],["sideburn_height","Height around ears",0,1,.05],
 		["root_layers","Root layers",1,6,1],["coverage_fill","Expanded root share",0,1,.05]]:
 		_spin(roots_page,row[0],row[1],row[2],row[3],row[4])
 	roots_page.add_child(host._button("Fuller coverage",func():
 		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
 		beard.set_enabled(true)))
 	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
+	roots_page.add_child(host._button("Fit virtual head…",func(): show_page("Virtual landmarks")))
+
+	var virtual_page := _page("Virtual landmarks")
+	host._section(virtual_page,"Extended head","Orange points extend the tracked face over the crown, below the chin, and around the sides. Hair roots attach between these points.")
+	_config_check(virtual_page,"virtual_enabled","Use virtual head for roots")
+	_config_check(virtual_page,"show_virtual_landmarks","Show virtual landmarks")
+	_color(virtual_page,"virtual_color","Virtual point color")
+	virtual_page.add_child(host._button("Extend head coverage",func():
+		beard.set_settings(Groom.virtual_preset())
+		beard.set_enabled(true),true))
+	for row in [["crown_height","Crown height",0,.8,.01],["crown_width","Crown width",.6,1.8,.02],
+		["crown_back","Crown back reach",0,1,.01],["chin_extension","Below chin",0,.8,.01],
+		["jaw_expansion","Jaw expansion",0,.5,.01],["chin_back","Under-chin depth",0,.5,.01],
+		["ear_reach","Toward ears",0,.6,.01],["side_back","Side / back reach",0,.8,.02],
+		["sideburn_height","Height around ears",0,1,.05],["virtual_columns","Columns per region",8,48,1],
+		["virtual_rows","Rows per region",2,10,1]]:
+		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
+	controls.crown_height.tooltip_text = "Distance above the tracked forehead, in face widths. Fit the orange top row to your crown."
+	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
+	host._section(virtual_page,"Fitting","Adjust Crown height and width to your head. Back reach uses the existing landmark depth during turns. Point density is independent of hair density; increase strand counts separately for more hair.")
 
 	var mustache := _page("Mustache")
 	_config_check(mustache,"mustache_enabled","Include mustache")
@@ -200,7 +221,7 @@ func _config_check(parent: Node, key: String, title: String) -> void:
 	check.toggled.connect(func(value):
 		if _syncing: return
 		beard.set_setting(key,value)
-		if value and key in ["beard_visible","mustache_enabled","brow_enabled"]: beard.set_enabled(true))
+		if value and key in ["beard_visible","mustache_enabled","brow_enabled","virtual_enabled"]: beard.set_enabled(true))
 
 func _enum(parent: Node, key: String, title: String, values: Array) -> void:
 	parent.add_child(host._label(title,12,host.MUTED))
@@ -235,7 +256,11 @@ func _spin(parent: Node, key: String, title: String, minimum: float, maximum: fl
 	spin.min_value = minimum; spin.max_value = maximum; spin.step = step
 	spin.custom_minimum_size.x = 86
 	row.add_child(spin)
-	(strand_controls if individual else controls)[key] = spin
+	if individual: strand_controls[key] = spin
+	elif controls.has(key):
+		if not control_copies.has(key): control_copies[key] = []
+		control_copies[key].append(spin)
+	else: controls[key] = spin
 	spin.value_changed.connect(func(value):
 		if _syncing: return
 		if individual: beard.set_strand_setting(key, value)
@@ -268,6 +293,8 @@ func _sync() -> void:
 		elif controls[key] is OptionButton: controls[key].select(Groom.ENUMS[key].find(beard.config[key]))
 		else: controls[key].set_value_no_signal(beard.config[key])
 	controls.stiffness.editable = beard.config.preserve_shape
+	for key in control_copies:
+		for control in control_copies[key]: control.set_value_no_signal(beard.config[key])
 	selected_group.visible = beard.selected_strand >= 0
 	selected_label.text = "%s · %s" % [beard.attachment[beard.selected_strand].zone,beard.selected_key()] if beard.selected_strand >= 0 else "Click a strand root to edit it."
 	var edit: Dictionary = beard.overrides.get(beard.selected_key(), {})
@@ -282,7 +309,7 @@ func _create() -> void:
 	var chosen: String = Profile.STYLES[style.selected]
 	var updated := Profile.defaults(chosen)
 	for key in beard.config:
-		if key.begins_with("hair_") or key.begins_with("brow_") or key == "hawk_width": updated[key] = beard.config[key]
+		if key.begins_with("hair_") or key.begins_with("brow_") or key.begins_with("virtual_") or key.begins_with("crown_") or key in ["hawk_width","side_back","chin_back","show_virtual_landmarks"]: updated[key] = beard.config[key]
 	var edits: Dictionary = beard.overrides.duplicate(true)
 	for id in edits.keys():
 		if id.is_valid_int(): edits.erase(id)
@@ -394,4 +421,4 @@ func _update_stats() -> void:
 	if not beard.last_error.is_empty(): stats.text = beard.last_error
 	elif not beard.enabled: stats.text = "Hair is hidden; physics is idle."
 	elif not beard._face_live: stats.text = "Waiting for a face. Try the mannequin to design offline."
-	else: stats.text = "%d / 2048 strands · %d segments\n%.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.update_ms]
+	else: stats.text = "%d / 2048 strands · %d segments\n%d virtual landmarks · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.virtual_points.size(),beard.update_ms]

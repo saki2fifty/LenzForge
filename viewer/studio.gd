@@ -527,11 +527,13 @@ func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 	if absi(frame_timestamp - timestamp) > 150000:
 		return
 	var normalized := PackedVector2Array()
+	var depth := PackedFloat32Array()
 	for point in points:
 		normalized.append(Vector2(point.x, point.y))
+		depth.append(point.z)
 	overlay.points = normalized
 	overlay.queue_redraw()
-	beard.set_face(normalized, overlay.video_size)
+	beard.set_face(normalized, overlay.video_size, depth)
 
 func _set_look(index: int) -> void:
 	var looks := [[1.0, 1.0, 0.0], [0.0, 1.15, 0.0], [0.8, 1.05, 0.045], [1.15, 1.18, 0.0]]

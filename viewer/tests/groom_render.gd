@@ -17,6 +17,8 @@ func _run() -> void:
 	studio.beard.apply_document(Profile.document("Complete look",Profile.defaults(),{}))
 	studio.beard.set_enabled(true)
 	studio.beard.set_mannequin(true)
+	studio.beard.set_settings(Groom.virtual_preset())
+	studio.beard.set_setting("show_virtual_landmarks",false)
 	studio.beard.set_settings({"chin_extension":.08,"jaw_expansion":.06,"ear_reach":.06,"sideburn_height":.8,
 		"coverage_fill":.55,"brow_enabled":true,"brow_style":"Arched","mustache_style":"Handlebar",
 		"mustache_motion":"Static","mustache_curl":.8,"show_generated_roots":false})

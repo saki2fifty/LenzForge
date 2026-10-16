@@ -20,7 +20,10 @@ func _run() -> void:
 	var face := Profile.mannequin()
 	var dims := Vector2(1280,720)
 	var rows: Array = []
-	for test in ["beard","combined","combined_markers","maximum","maximum_markers"]:
+	var args := OS.get_cmdline_user_args()
+	var virtual_test := not args.is_empty() and args[0] == "virtual"
+	var cases := ["combined","virtual","virtual_markers","virtual_dense"] if virtual_test else ["beard","combined","combined_markers","maximum","maximum_markers"]
+	for test in cases:
 		var config := Profile.defaults()
 		if test != "beard":
 			config.merge(Groom.hair_preset("Afro"),true)
@@ -29,6 +32,10 @@ func _run() -> void:
 		if test.begins_with("maximum"):
 			config.strands = 1024; config.brow_count = 256; config.hair_count = 768; config.segments = 16
 		config.show_generated_roots = test.ends_with("markers")
+		if test.begins_with("virtual"):
+			config.merge(Groom.virtual_preset(),true)
+			config.show_virtual_landmarks = test != "virtual"
+			if test == "virtual_dense": config.virtual_columns = 48; config.virtual_rows = 10
 		var rebuild_start := Time.get_ticks_usec()
 		layer.apply_document(Profile.document(test,config,{}))
 		var rebuild_ms := (Time.get_ticks_usec()-rebuild_start)/1000.0
@@ -43,10 +50,18 @@ func _run() -> void:
 			var now := Time.get_ticks_usec()
 			var t := frame/60.0
 			var moved := PackedVector2Array()
+			var depths := PackedFloat32Array()
+			var rotation := Basis(Vector3.BACK,sin(t*2)*.22)*Basis(Vector3.UP,sin(t*1.4)*.45)*Basis(Vector3.RIGHT,cos(t)*.15)
 			for point in face:
-				moved.append(((point*dims-dims*.5).rotated(sin(t*2)*.22)+dims*.5+Vector2(sin(t*3)*24,cos(t*2)*12))/dims)
+				if virtual_test:
+					var local := point*dims-dims*.5
+					var turned := rotation*Vector3(local.x,local.y,0)
+					moved.append((Vector2(turned.x,turned.y)+dims*.5+Vector2(sin(t*3)*24,cos(t*2)*12))/dims)
+					depths.append(turned.z/dims.x)
+				else:
+					moved.append(((point*dims-dims*.5).rotated(sin(t*2)*.22)+dims*.5+Vector2(sin(t*3)*24,cos(t*2)*12))/dims)
 			var started := Time.get_ticks_usec()
-			layer.set_face(moved,dims)
+			layer.set_face(moved,dims,depths)
 			layer.set_process(false)
 			var attached := Time.get_ticks_usec()
 			layer._process(1.0/60)
@@ -58,11 +73,12 @@ func _run() -> void:
 				intervals.append((now-last_frame)/1000.0)
 			last_frame = now
 		var row := {"case":test,"strands":layer.attachment.size(),"segments":config.segments,"samples":total.size(),
+			"virtual_landmarks":layer.virtual_points.size(),
 			"rebuild_ms":rebuild_ms,"attachment_and_markers_ms":distribution(attach),
 			"physics_and_upload_ms":distribution(physics),"total_cpu_ms":distribution(total),"frame_interval_ms":distribution(intervals)}
 		rows.append(row)
 		print("GROOM_PERFORMANCE ",JSON.stringify(row))
-	var file := FileAccess.open("res://../artifacts/groom-performance.json",FileAccess.WRITE)
+	var file := FileAccess.open("res://../artifacts/virtual-head-performance.json" if virtual_test else "res://../artifacts/groom-performance.json",FileAccess.WRITE)
 	file.store_string(JSON.stringify({"fixture":"Synthetic animated face; no camera or inference. 60 Hz display, 120 Hz physics. CPU times exclude GPU completion/presentation.","cases":rows},"\t"))
 	layer.free()
 	quit()

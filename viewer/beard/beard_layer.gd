@@ -1,6 +1,7 @@
 extends Control
 const Profile = preload("res://beard/beard_profile.gd")
 const Groom = preload("res://beard/groom_regions.gd")
+const Head = preload("res://beard/virtual_head.gd")
 signal changed
 signal strand_selected(index: int)
 var config := Profile.defaults()
@@ -16,6 +17,10 @@ var simulator: RefCounted
 var instances := MultiMesh.new()
 var drawing := MultiMeshInstance2D.new()
 var root_markers := MultiMeshInstance2D.new()
+var virtual_markers := MultiMeshInstance2D.new()
+var virtual_anchors: Array = []
+var virtual_points := PackedVector2Array()
+var face_depth := PackedFloat32Array()
 var selection := Control.new()
 var attachment: Array = []
 var generated_indices := PackedInt32Array()
@@ -31,6 +36,7 @@ func _init() -> void:
 	# Own child nodes even when controls are built outside the tree in tests.
 	add_child(drawing)
 	add_child(root_markers)
+	add_child(virtual_markers)
 	selection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	selection.draw.connect(_draw_selection)
 	add_child(selection)
@@ -60,6 +66,12 @@ func _ready() -> void:
 	marker_material.shader = preload("res://landmarks.gdshader")
 	root_markers.material = marker_material
 	root_markers.hide()
+	var virtual_mesh := MultiMesh.new()
+	virtual_mesh.transform_format = MultiMesh.TRANSFORM_2D
+	virtual_mesh.mesh = quad
+	virtual_markers.multimesh = virtual_mesh
+	virtual_markers.material = marker_material.duplicate()
+	virtual_markers.hide()
 	resized.connect(_update_transform)
 	_rebuild()
 	_update_transform()
@@ -124,7 +136,7 @@ func selected_defaults() -> Dictionary:
 func set_enabled(value: bool) -> void:
 	enabled = value
 	set_process(enabled and simulator != null)
-	if not enabled: drawing.hide(); root_markers.hide()
+	if not enabled: drawing.hide(); root_markers.hide(); virtual_markers.hide()
 	elif mannequin: _set_demo_face()
 	elif _face_live: _attach()
 	queue_redraw()
@@ -154,11 +166,12 @@ func set_mirror(value: bool) -> void:
 	mirror = value
 	_update_transform()
 
-func set_face(points: PackedVector2Array, dimensions: Vector2) -> void:
+func set_face(points: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array = PackedFloat32Array()) -> void:
 	if mannequin: return
 	if points.size() < 455: clear_face(); return
 	var dimensions_changed := dimensions != video_size
 	face = points
+	face_depth = depth
 	video_size = dimensions
 	face_seen_at = Time.get_ticks_msec()
 	_face_live = true
@@ -171,6 +184,9 @@ func clear_face() -> void:
 	face_seen_at = 0
 	drawing.hide()
 	root_markers.hide()
+	virtual_markers.hide()
+	virtual_points.clear()
+	face_depth.clear()
 	set_process(false)
 	queue_redraw()
 	selection.queue_redraw()
@@ -178,6 +194,7 @@ func clear_face() -> void:
 func _set_demo_face() -> void:
 	video_size = Vector2(1280, 720)
 	face = Profile.mannequin()
+	face_depth.clear()
 	for i in face.size(): face[i] += _demo_offset
 	_face_live = true
 	set_process(enabled and simulator != null)
@@ -187,6 +204,8 @@ func _set_demo_face() -> void:
 func _rebuild() -> void:
 	var selected_id := selected_key()
 	attachment = Profile.all_anchors(config)
+	virtual_anchors = Head.build(config) if config.virtual_enabled else []
+	virtual_points.clear()
 	generated_indices.clear()
 	for i in attachment.size():
 		if attachment[i].synthetic: generated_indices.append(i)
@@ -220,6 +239,7 @@ func _rebuild() -> void:
 		return
 	last_error = ""
 	root_markers.material.set_shader_parameter("point_color",Color.html(config.generated_root_color))
+	virtual_markers.material.set_shader_parameter("point_color",Color.html(config.virtual_color))
 	var count := attachment.size() * int(config.segments)
 	if instances.instance_count != count: instances.instance_count = count
 	if _face_live: _attach()
@@ -230,7 +250,11 @@ func _attach() -> void:
 	var horizontal := (face[454] - face[234]) * video_size
 	var width := horizontal.length()
 	if width < 10: clear_face(); return
-	roots = Groom.root_positions(config,attachment,face,video_size)
+	if config.virtual_enabled:
+		var basis := Head.frame(face,video_size,face_depth)
+		if basis.is_empty(): clear_face(); return
+		virtual_points = Head.project(virtual_anchors,face,video_size,basis)
+	roots = Groom.root_positions(config,attachment,face,video_size,virtual_points)
 	var down := Vector2(-horizontal.y, horizontal.x).normalized()
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
@@ -238,6 +262,20 @@ func _attach() -> void:
 	if not simulator.set_anchors(roots, width, down, mouth, radii): clear_face(); return
 	drawing.visible = enabled
 	_update_root_markers()
+	_update_virtual_markers()
+
+func _update_virtual_markers() -> void:
+	virtual_markers.visible = enabled and _face_live and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks)
+	if not virtual_markers.visible or virtual_markers.multimesh == null: return
+	var mesh := virtual_markers.multimesh
+	if mesh.instance_count != virtual_points.size(): mesh.instance_count = virtual_points.size()
+	var diameter := 4.5/maxf(.01,minf(size.x/video_size.x,size.y/video_size.y))
+	var buffer := PackedFloat32Array()
+	buffer.resize(virtual_points.size()*8)
+	for i in virtual_points.size():
+		buffer[i*8] = diameter; buffer[i*8+3] = virtual_points[i].x
+		buffer[i*8+5] = diameter; buffer[i*8+7] = virtual_points[i].y
+	mesh.buffer = buffer
 
 func _update_root_markers() -> void:
 	root_markers.visible = enabled and _face_live and bool(config.show_generated_roots)
@@ -270,7 +308,9 @@ func _update_transform() -> void:
 	drawing.transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
 		origin + Vector2(video_size.x*fit if mirror else 0.0, 0))
 	root_markers.transform = drawing.transform
+	virtual_markers.transform = drawing.transform
 	_update_root_markers()
+	_update_virtual_markers()
 	queue_redraw()
 	selection.queue_redraw()
 
@@ -303,7 +343,7 @@ func _draw() -> void:
 			outline.append(_screen((Vector2(.5 + sin(angle)*.135, .43 + cos(angle)*.31) + _demo_offset)*video_size))
 		draw_colored_polygon(outline, Color("ae8470"))
 		for x in [.447, .553]:
-			var center := _screen((Vector2(x,.37)+_demo_offset)*video_size)
+			var center := _screen((Vector2(x,.43)+_demo_offset)*video_size)
 			draw_circle(center, maxf(2, size.y*.012), Color("322c30"))
 		var mouth := _screen((Vector2(.5,.568)+_demo_offset)*video_size)
 		draw_line(mouth-Vector2(size.x*.035,0), mouth+Vector2(size.x*.035,0), Color("70463e"), 3, true)

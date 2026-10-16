@@ -80,6 +80,27 @@ To reproduce without touching camera capture or saved designs:
 
 The report is written to `artifacts/groom-performance.json`.
 
+## Virtual head landmarks
+
+The virtual-head path was measured with the same hardware and 864 hairs × 8 segments, using synthetic yaw, pitch, roll, translation, and relative landmark depth. Each case warmed up for 30 frames and sampled 240 frames. No camera or inference was started.
+
+| Reference geometry | Root fitting + markers, mean | Physics + upload, mean | Total CPU, mean / p95 |
+| --- | ---: | ---: | ---: |
+| Original attachment | 1.25 ms | 1.57 ms | 2.82 / 3.31 ms |
+| 380 virtual points, guide dots hidden | 1.78 ms | 1.54 ms | 3.33 / 3.86 ms |
+| 380 virtual points, guide dots shown | 1.87 ms | 1.55 ms | 3.42 / 4.09 ms |
+| 1,628 virtual points, guide dots shown | 3.15 ms | 1.60 ms | 4.76 / 5.93 ms |
+
+The default visible grid added about **0.60 ms mean CPU per frame** in this short synthetic comparison. Hair count is unchanged across cases. Grid topology and root interpolation weights are cached; only projection, attachment, and the optional marker buffer update during tracking. A denser grid costs more fitting work without adding simulated hairs. These timings exclude fixture generation, camera/inference, GPU completion, and presentation. They are not a live-camera frame-rate guarantee. [Raw report](performance/virtual-head.json).
+
+Reproduce with:
+
+```powershell
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --resolution 1000x700 --script res://tests/groom_performance.gd -- virtual
+```
+
+The report is written to `artifacts/virtual-head-performance.json`.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:
