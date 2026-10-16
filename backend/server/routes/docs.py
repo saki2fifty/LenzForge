@@ -8,6 +8,7 @@ DOCS = {
     'quick_start': ('Getting started', 'README.md'),
     'architecture': ('Architecture and modernization', 'docs/ARCHITECTURE.md'),
     'api_reference': ('Studio API', 'docs/API.md'),
+    'gpu_tracking': ('GPU tracking and performance', 'docs/GPU_TRACKING.md'),
 }
 
 

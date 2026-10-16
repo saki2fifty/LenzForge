@@ -2,6 +2,8 @@
 
 Reviewed October 16, 2026 against LenzForge commit `022a8eb`.
 
+**Implementation update:** the [browser GPU backend and live settings](GPU_TRACKING.md) are now implemented. The review below records the pre-implementation state and explains the evidence behind that work.
+
 **MediaPipe Face Landmarker can run its landmark models on the GPU.** The official browser demo successfully initialized its GPU delegate and processed its bundled example image on this Windows machine. LenzForge currently runs inference on the CPU; its installed Windows Python package cannot enable GPU processing simply by changing the delegate option.
 
 ## Review scope and evidence

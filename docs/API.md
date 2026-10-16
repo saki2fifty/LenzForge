@@ -15,6 +15,8 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 | POST | `/api/tracking/enable` | Boolean `face_mesh`, `iris`, `hands`, and/or `pose` toggles |
 | GET | `/api/tracking/landmarks` | Latest worker snapshot: `frame_id`, QPC `timestamp`, and `landmarks` |
 | GET | `/api/tracking/statistics` | Actual worker timing, counts, queue depth, dropped work, and errors |
+| GET / POST | `/api/tracking/configure` | Read/update live tracking settings; returns validated `config` and `revision` |
+| POST | `/api/tracking/reset` | Restore Auto/640px/single-face/0.5 confidence defaults, optional outputs enabled |
 | GET | `/video_feed` | Shared MJPEG preview with browser effects and overlays |
 | GET | `/api/effects/list` | Retained effect registry, including experimental categories |
 | POST | `/api/effects/apply` | Append an effect with `effect_name` and optional `parameters` |
@@ -40,8 +42,12 @@ Capture dimensions must be even, at least 64×64, and no larger than 3840×2160.
 
 Camera indices must be whole numbers >= -1. JSON numbers such as `1.0` are accepted as `1`; fractional numbers, booleans, strings, and non-finite values are rejected.
 
-Performance keys are `mediapipe_max_width` (0, 480, 640, or 960), `preview_max_fps` (1–120), `preview_quality` (1–100), and `preview_scale` (0.1–1). Only inference-width changes require a capture restart. Removed queue/triple-buffer settings did not describe the new latest-frame mailbox and are rejected.
+Performance keys are `mediapipe_max_width` (0, 320, 480, 640, or 960), `preview_max_fps` (1–120), `preview_quality` (1–100), and `preview_scale` (0.1–1). Inference width updates the shared tracking configuration immediately; no capture restart is needed. Removed queue/triple-buffer settings did not describe the new latest-frame mailbox and are rejected.
 
 The desktop reads face/iris points from LMK1. HTTP landmark snapshots can additionally contain `hands`, `pose`, `blendshapes`, and `face_transform`. A face is not guaranteed in every frame. Consumers should clear old overlays and use timestamps, rather than assuming results belong to the newest video frame.
 
-Legacy `/api/tracking/configure` and `/api/tracking/reset` now return HTTP 501 with guidance instead of pretending to apply model changes. The unused `/api/config` store was archived; camera and tracking controls are the authoritative runtime configuration.
+Tracking configuration keys are `backend` (`auto`, `gpu`, `cpu`), `max_width` (0/native, 320, 480, 640, 960), `num_faces` (integer 1–4), `detection_confidence`, `presence_confidence`, `tracking_confidence` (finite numbers 0–1), and boolean `blendshapes` / `face_transform`. Unknown keys and invalid values return HTTP 400 without changing configuration. Confidence zero is preserved. Reapplying settings increments the revision and retries GPU startup after a fallback. Settings survive capture restarts within the backend session.
+
+Worker status includes `requested_backend`, `active_backend`, `phase`, `fallback_reason`, `renderer`, `settings`, `settings_revision`, and `applied_revision`. Settings are accepted immediately and adopted by the worker on its next input frame. During GPU startup/calibration, the active backend remains CPU. Auto's `comparison` contains CPU/GPU median timings, sample count, and selection. It establishes a CPU baseline before starting GPU work and waits for a detected face when face tracking is enabled. Explicit GPU mode can warm up without a face.
+
+`model_ms` reports the active inference call; GPU excludes bridge overhead. `last_inference_ms` and rolling `round_trip_p50_ms` / `round_trip_p95_ms` cover tracking preprocessing and the complete request/result path. `capture_to_landmarks_p95_ms` additionally includes waiting since the source timestamp. Rolling summaries use up to 240 results; tracking `fps` uses a recent two-second window. Optional multi-face JSON adds `faces` when more than one face is found; the existing `face` field and LMK1 follow the first face. Browser matrices are converted to the CPU API's row-array layout.

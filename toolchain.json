@@ -1,6 +1,8 @@
 {
-  "checked_on": "2026-10-15",
+  "checked_on": "2026-10-16",
   "python": "3.15.0",
+  "mediapipe_web": "1.1.1",
+  "mediapipe_web_integrity": "sha512-jwntgT5tzDrKOkqg6xNDNpRcTUnGvmylZE5DFnzPXossiWOIDdZX+C81LI75hlXhsG58YZW+lGzcmjH1qrQE/Q==",
   "godot": "4.7.2",
   "godot_sha256": "731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953",
   "godot_cpp": "10.0.0-stable",

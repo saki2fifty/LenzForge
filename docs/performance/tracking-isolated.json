@@ -1,0 +1,65 @@
+{
+  "input": "Matplotlib public-domain portrait with small deterministic translations",
+  "width": 640,
+  "height": 360,
+  "warmup": 30,
+  "settings": {
+    "backend": "auto",
+    "max_width": 640,
+    "num_faces": 1,
+    "detection_confidence": 0.5,
+    "presence_confidence": 0.5,
+    "tracking_confidence": 0.5,
+    "blendshapes": true,
+    "face_transform": true
+  },
+  "cpu": {
+    "round_trip": {
+      "mean_ms": 7.822,
+      "p50_ms": 7.582,
+      "p95_ms": 9.095
+    },
+    "model": {
+      "mean_ms": 7.822,
+      "p50_ms": 7.582,
+      "p95_ms": 9.095
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 8.247,
+    "startup_and_run_s": 1.701
+  },
+  "gpu": {
+    "round_trip": {
+      "mean_ms": 14.17,
+      "p50_ms": 13.058,
+      "p95_ms": 24.359
+    },
+    "model": {
+      "mean_ms": 10.698,
+      "p50_ms": 10.5,
+      "p95_ms": 12.705
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 17.361,
+    "startup_and_run_s": 7.107,
+    "renderer": "ANGLE (AMD, AMD Radeon RX 7900 XTX (0x0000744C) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+  },
+  "cpu_repeat": {
+    "round_trip": {
+      "mean_ms": 8.464,
+      "p50_ms": 8.304,
+      "p95_ms": 9.918
+    },
+    "model": {
+      "mean_ms": 8.464,
+      "p50_ms": 8.304,
+      "p95_ms": 9.918
+    },
+    "face_frames": 180,
+    "frames": 180,
+    "process_cpu_ms_per_frame": 9.288,
+    "startup_and_run_s": 1.792
+  }
+}

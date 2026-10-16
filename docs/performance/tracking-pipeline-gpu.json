@@ -1,0 +1,145 @@
+{
+  "configuration": {
+    "utc": "2026-10-16T15:01:35.486930+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "tracking_backend": "gpu",
+    "warmup_s": 8.0,
+    "offscreen": true,
+    "source": "public-domain portrait, synthetic 60 fps",
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 512,
+    "beard_segments": 8
+  },
+  "viewer": {
+    "beard_frames": 555,
+    "beard_update_ms": {
+      "max": 3.775,
+      "mean": 2.08672072072072,
+      "p50": 2.039,
+      "p95": 2.521,
+      "p99": 3.181
+    },
+    "displayed_fps": 27.9,
+    "frame_age_ms": {
+      "max": 34.4296999511719,
+      "mean": 9.71866654692566,
+      "p50": 9.02920001220703,
+      "p95": 17.589700012207,
+      "p99": 22.967
+    },
+    "frame_cap": 0,
+    "frames": 558,
+    "gaps_over_50_ms": 2,
+    "interval_ms": {
+      "max": 73.13,
+      "mean": 35.7886792114695,
+      "p50": 35.541,
+      "p95": 37.506,
+      "p99": 38.967
+    },
+    "landmark_age_ms": {
+      "max": 126.181400024414,
+      "mean": 41.1164794778397,
+      "p50": 35.5763999633789,
+      "p95": 84.763700012207,
+      "p99": 101.761400024414
+    },
+    "landmark_frames": 536,
+    "render_fps": 28.0,
+    "upload_ms": {
+      "max": 0.9567,
+      "mean": 0.385427906976744,
+      "p50": 0.366,
+      "p95": 0.5527,
+      "p99": 0.724
+    }
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": -1,
+    "capture_format": "BGR",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 2.192,
+        "mean": 0.613,
+        "p95": 1.321
+      },
+      "fps": 60.0,
+      "interval_ms": {
+        "max": 17.931,
+        "mean": 16.667,
+        "p95": 17.189
+      },
+      "late_frames": 0,
+      "publish_ms": {
+        "max": 0.379,
+        "mean": 0.171,
+        "p95": 0.244
+      },
+      "read_ms": {
+        "max": 0.184,
+        "mean": 0.027,
+        "p95": 0.041
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.0,
+    "frames": 1792,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "Demo pattern",
+    "tracking": {
+      "active_backend": "gpu",
+      "applied_revision": 1,
+      "avg_inference_ms": 18.495162466490058,
+      "capture_to_landmarks_p95_ms": 40.54878499999999,
+      "comparison": null,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "fallback_reason": null,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 55.43502916338573,
+      "frames_dropped": 299,
+      "frames_processed": 1492,
+      "inference_size": [
+        640,
+        360
+      ],
+      "landmark_count": 478,
+      "last_inference_ms": 16.960799985099584,
+      "model_ms": 14.0,
+      "phase": "ready",
+      "processing_time": 16.960799985099584,
+      "queue_size": 0,
+      "renderer": "ANGLE (AMD, AMD Radeon RX 7900 XTX (0x0000744C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "requested_backend": "gpu",
+      "round_trip_p50_ms": 14.955100021325052,
+      "round_trip_p95_ms": 31.34031497756949,
+      "running": true,
+      "settings": {
+        "backend": "gpu",
+        "blendshapes": true,
+        "detection_confidence": 0.5,
+        "face_transform": true,
+        "max_width": 640,
+        "num_faces": 1,
+        "presence_confidence": 0.5,
+        "tracking_confidence": 0.5
+      },
+      "settings_revision": 1
+    }
+  }
+}

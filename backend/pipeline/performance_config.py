@@ -34,8 +34,8 @@ def update_performance_config(data):
         if key != 'preview_scale' and type(value) is not int:
             raise ValueError(f'{key} must be an integer')
     candidate = replace(_config, **data)
-    if candidate.mediapipe_max_width not in (0, 480, 640, 960):
-        raise ValueError('mediapipe_max_width must be 0, 480, 640, or 960')
+    if candidate.mediapipe_max_width not in (0, 320, 480, 640, 960):
+        raise ValueError('mediapipe_max_width must be 0, 320, 480, 640, or 960')
     if not 1 <= candidate.preview_max_fps <= 120 or not 1 <= candidate.preview_quality <= 100 or not .1 <= candidate.preview_scale <= 1:
         raise ValueError('Use preview_max_fps 1–120, preview_quality 1–100, and preview_scale 0.1–1')
     _config = candidate  # Publish a complete validated configuration atomically.

@@ -6,6 +6,7 @@ Processes camera frames and returns landmark data for overlay.
 """
 import cv2
 from graphs.tasks_compat import solutions
+from pipeline.tracking_config import TrackingConfig
 import numpy as np
 from typing import Optional, Dict, List, Any
 import logging
@@ -21,11 +22,12 @@ class WebProcessor:
     with simplified configuration for web display.
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """Initialize processor"""
         self.mp_face_mesh = solutions.face_mesh
         self.mp_hands = solutions.hands
         self.mp_pose = solutions.pose
+        self.config = config or TrackingConfig()
 
         # MediaPipe solutions
         self.face_mesh: Optional[Any] = None
@@ -73,10 +75,13 @@ class WebProcessor:
                 if self.face_mesh is None:
                     self.face_mesh = self.mp_face_mesh.FaceMesh(
                         static_image_mode=False,
-                        max_num_faces=1,
+                        max_num_faces=self.config.num_faces,
                         refine_landmarks=True,  # Includes iris
-                        min_detection_confidence=0.5,
-                        min_tracking_confidence=0.5
+                        min_detection_confidence=self.config.detection_confidence,
+                        min_presence_confidence=self.config.presence_confidence,
+                        min_tracking_confidence=self.config.tracking_confidence,
+                        output_blendshapes=self.config.blendshapes,
+                        output_transform=self.config.face_transform,
                     )
                     logger.info("Face Mesh initialized")
 
@@ -85,8 +90,9 @@ class WebProcessor:
                     self.hands = self.mp_hands.Hands(
                         static_image_mode=False,
                         max_num_hands=2,
-                        min_detection_confidence=0.5,
-                        min_tracking_confidence=0.5
+                        min_detection_confidence=self.config.detection_confidence,
+                        min_presence_confidence=self.config.presence_confidence,
+                        min_tracking_confidence=self.config.tracking_confidence,
                     )
                     logger.info("Hands initialized")
 
@@ -94,8 +100,9 @@ class WebProcessor:
                 if self.pose is None:
                     self.pose = self.mp_pose.Pose(
                         static_image_mode=False,
-                        min_detection_confidence=0.5,
-                        min_tracking_confidence=0.5
+                        min_detection_confidence=self.config.detection_confidence,
+                        min_presence_confidence=self.config.presence_confidence,
+                        min_tracking_confidence=self.config.tracking_confidence,
                     )
                     logger.info("Pose initialized")
 
@@ -183,8 +190,13 @@ class WebProcessor:
 
                     if self.tracking_enabled['face']:
                         landmarks['face'] = face_landmarks
-                    landmarks['blendshapes'] = {c.category_name: float(c.score) for c in results.face_blendshapes[0]} if results.face_blendshapes else {}
-                    landmarks['face_transform'] = results.facial_transformation_matrixes[0].tolist() if results.facial_transformation_matrixes else []
+                        if len(results.multi_face_landmarks) > 1:
+                            landmarks['faces'] = [[dict(x=p.x, y=p.y, z=p.z) for p in group.landmark]
+                                                  for group in results.multi_face_landmarks]
+                    if self.config.blendshapes:
+                        landmarks['blendshapes'] = {c.category_name: float(c.score) for c in results.face_blendshapes[0]} if results.face_blendshapes else {}
+                    if self.config.face_transform:
+                        landmarks['face_transform'] = results.facial_transformation_matrixes[0].tolist() if results.facial_transformation_matrixes else []
 
                     # Extract iris landmarks (indices 468-477 for left, 473-477 for right)
                     if self.tracking_enabled['iris']:

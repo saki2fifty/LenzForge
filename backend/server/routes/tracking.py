@@ -1,5 +1,6 @@
 """Tracking controls and measurements from the shared inference worker."""
 from flask import Blueprint, jsonify, request
+from pipeline.tracking_config import get_tracking_config, update_tracking_config
 
 bp = Blueprint('tracking', __name__)
 FEATURES = {'face_mesh': 'face', 'iris': 'iris', 'hands': 'hands', 'pose': 'pose'}
@@ -45,7 +46,22 @@ def get_statistics():
     return jsonify(processor.get_stats() if processor else {'running': False, 'frames_processed': 0})
 
 
+@bp.get('/configure')
+def get_configuration():
+    config, revision = get_tracking_config()
+    return jsonify(success=True, config=config.to_dict(), revision=revision)
+
+
 @bp.post('/configure')
+def configure_tracking():
+    try:
+        config, revision = update_tracking_config(request.get_json(silent=True))
+        return jsonify(success=True, config=config.to_dict(), revision=revision)
+    except (TypeError, ValueError) as exc:
+        return jsonify(success=False, error={'message': str(exc)}), 400
+
+
 @bp.post('/reset')
-def unsupported_legacy_control():
-    return jsonify(success=False, error={'message': 'Use /enable for feature toggles; restart capture to recreate the tracking models. Runtime model configuration is not implemented.'}), 501
+def reset_tracking():
+    config, revision = update_tracking_config(reset=True)
+    return jsonify(success=True, config=config.to_dict(), revision=revision)

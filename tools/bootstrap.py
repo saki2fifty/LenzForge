@@ -1,5 +1,6 @@
 """Reproducible, project-local Windows toolchain. Never removes existing installs."""
 import argparse
+import base64
 import concurrent.futures
 import hashlib
 import json
@@ -7,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import urllib.request
 import zipfile
 
@@ -50,6 +52,33 @@ def deploy():
     (ROOT / 'viewer/gdextension/bin').mkdir(parents=True, exist_ok=True)
 
 
+def install_browser_runtime():
+    """Pin the official JS/WASM bundle locally; inference never uses a CDN."""
+    version = VERSIONS['mediapipe_web']
+    destination = TOOLS / f'mediapipe-web-{version}'
+    if (destination / '.installed').is_file():
+        return destination
+    archive = download(f'https://registry.npmjs.org/@mediapipe/tasks-vision/-/tasks-vision-{version}.tgz',
+                       CACHE / f'tasks-vision-{version}.tgz')
+    actual = base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode()
+    if 'sha512-' + actual != VERSIONS['mediapipe_web_integrity']:
+        raise RuntimeError('MediaPipe browser runtime checksum mismatch')
+    destination.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive) as bundle:
+        for entry in bundle.getmembers():
+            relative = Path(entry.name).relative_to('package')
+            if not entry.isfile() or not (str(relative).startswith('wasm') or relative.name in ('vision_bundle.mjs', 'LICENSE', 'README.md')):
+                continue
+            target = (destination / relative).resolve()
+            if not target.is_relative_to(destination.resolve()):
+                raise RuntimeError('Invalid browser runtime archive path')
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with bundle.extractfile(entry) as source, target.open('wb') as output:
+                shutil.copyfileobj(source, output)
+    (destination / '.installed').write_text(version)
+    return destination
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--skip-build', action='store_true')
@@ -83,6 +112,7 @@ def main():
         requirements = lock if lock.exists() else ROOT / 'requirements-dev.txt'
         subprocess.run([str(python), '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(requirements)], check=True)
         subprocess.run([str(python), '-m', 'pip', 'check'], check=True)
+        install_browser_runtime()
     deploy()
     (godot_dir / '_sc_').touch()  # Keep editor caches alongside the portable engine.
     if not args.skip_build:

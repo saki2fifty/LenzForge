@@ -1,5 +1,7 @@
 # Performance measurements
 
+The October 16 [CPU/GPU tracking comparison](GPU_TRACKING.md#measurements) covers the browser worker, CPU fallback/Auto selection, and the complete viewer with a 512-strand beard. The older camera measurements below describe the October 15 capture optimization and use a different input/test setup.
+
 Measured October 15, 2026 on Windows, Ryzen 5 5500, Radeon RX 7900 XTX, a 60 Hz display, and a NexiGo N960E FHD Webcam at 1280×720. Face/iris tracking and the desktop landmark overlay were enabled. No browser client or recording was active. The measurements use the actual Godot studio, its Start capture button, HTTP controls, and compiled shared-memory readers.
 
 | Measurement | Before, requested 30 fps | Optimized, requested 30 fps | Optimized, requested 60 fps |

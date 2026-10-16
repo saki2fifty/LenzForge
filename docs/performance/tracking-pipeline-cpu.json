@@ -1,0 +1,145 @@
+{
+  "configuration": {
+    "utc": "2026-10-16T15:06:37.917628+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "tracking_backend": "cpu",
+    "warmup_s": 8.0,
+    "offscreen": true,
+    "source": "public-domain portrait, synthetic 60 fps",
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 512,
+    "beard_segments": 8
+  },
+  "viewer": {
+    "beard_frames": 570,
+    "beard_update_ms": {
+      "max": 3.187,
+      "mean": 1.95780877192983,
+      "p50": 1.892,
+      "p95": 2.311,
+      "p99": 2.769
+    },
+    "displayed_fps": 28.45,
+    "frame_age_ms": {
+      "max": 20.836299987793,
+      "mean": 9.5802535073799,
+      "p50": 9.93529998779297,
+      "p95": 16.805799987793,
+      "p99": 17.8135999755859
+    },
+    "frame_cap": 0,
+    "frames": 569,
+    "gaps_over_50_ms": 0,
+    "interval_ms": {
+      "max": 37.987,
+      "mean": 35.0829666080844,
+      "p50": 34.971,
+      "p95": 36.303,
+      "p99": 37.251
+    },
+    "landmark_age_ms": {
+      "max": 39.1679000244141,
+      "mean": 19.3506692997447,
+      "p50": 19.4416999511719,
+      "p95": 27.2571000366211,
+      "p99": 29.1495
+    },
+    "landmark_frames": 570,
+    "render_fps": 28.0,
+    "upload_ms": {
+      "max": 0.7785,
+      "mean": 0.339731929824561,
+      "p50": 0.3215,
+      "p95": 0.467,
+      "p99": 0.6143
+    }
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": -1,
+    "capture_format": "BGR",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 6.919,
+        "mean": 0.667,
+        "p95": 1.385
+      },
+      "fps": 60.0,
+      "interval_ms": {
+        "max": 18.551,
+        "mean": 16.668,
+        "p95": 17.131
+      },
+      "late_frames": 0,
+      "publish_ms": {
+        "max": 0.648,
+        "mean": 0.192,
+        "p95": 0.327
+      },
+      "read_ms": {
+        "max": 1.209,
+        "mean": 0.033,
+        "p95": 0.043
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.0,
+    "frames": 1823,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "Demo pattern",
+    "tracking": {
+      "active_backend": "cpu",
+      "applied_revision": 1,
+      "avg_inference_ms": 9.535869048802626,
+      "capture_to_landmarks_p95_ms": 18.67383999999999,
+      "comparison": null,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "fallback_reason": null,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 59.96030325515056,
+      "frames_dropped": 4,
+      "frames_processed": 1819,
+      "inference_size": [
+        640,
+        360
+      ],
+      "landmark_count": 478,
+      "last_inference_ms": 9.835699980612844,
+      "model_ms": 9.164799994323403,
+      "phase": "ready",
+      "processing_time": 9.835699980612844,
+      "queue_size": 0,
+      "renderer": null,
+      "requested_backend": "cpu",
+      "round_trip_p50_ms": 9.590700006810948,
+      "round_trip_p95_ms": 14.016184990759937,
+      "running": true,
+      "settings": {
+        "backend": "cpu",
+        "blendshapes": true,
+        "detection_confidence": 0.5,
+        "face_transform": true,
+        "max_width": 640,
+        "num_faces": 1,
+        "presence_confidence": 0.5,
+        "tracking_confidence": 0.5
+      },
+      "settings_revision": 1
+    }
+  }
+}

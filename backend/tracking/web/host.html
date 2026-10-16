@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>LenzForge GPU tracking</title>
+<body><p>Local tracking worker. Managed by LenzForge.</p>
+<script type="module">
+const worker = new Worker('/worker.mjs', {type: 'module'});
+worker.postMessage({origin: location.origin, token: location.hash.slice(1)});
+</script></body></html>

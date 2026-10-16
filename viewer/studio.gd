@@ -3,6 +3,7 @@ extends Control
 const Overlay = preload("res://landmarks.gd")
 const ExtensionLayer = preload("res://tracking/extension_layer.gd")
 const LandmarksPanel = preload("res://tracking/landmarks_panel.gd")
+const TrackingPanel = preload("res://tracking/tracking_panel.gd")
 const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
 const INK := Color("e4ebf3")
@@ -20,6 +21,7 @@ var video: TextureRect
 var overlay: Control
 var extensions: Control
 var landmarks_panel: VBoxContainer
+var tracking_panel: VBoxContainer
 var beard: Control
 var beard_panel: VBoxContainer
 var sidebar_tabs: TabContainer
@@ -34,6 +36,7 @@ var fps_picker: OptionButton
 var record_button: Button
 var connect_button: Button
 var right_panel: PanelContainer
+var left_panel: PanelContainer
 var mirror_check: CheckBox
 var points_check: CheckBox
 var preset_picker: OptionButton
@@ -96,7 +99,8 @@ func _label(text: String, font_size := 14, color := INK) -> Label:
 func _button(text: String, callback: Callable, primary := false) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 40
+	button.custom_minimum_size.y = 34
+	button.add_theme_font_size_override("font_size", 13)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "hover", "pressed"]:
 		var fill := Color("24483f") if primary else Color("1a2738")
@@ -105,6 +109,8 @@ func _button(text: String, callback: Callable, primary := false) -> Button:
 		var button_style := _style(fill, 8)
 		button_style.content_margin_top = 8
 		button_style.content_margin_bottom = 8
+		button_style.content_margin_left = 10
+		button_style.content_margin_right = 10
 		button.add_theme_stylebox_override(state, button_style)
 	button.pressed.connect(callback)
 	return button
@@ -168,7 +174,11 @@ func _build_ui() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 16)
 	root.add_child(body)
-	var left := _card(body, 226)
+	var left := _card(body, 206)
+	left_panel = left.get_parent().get_parent()
+	var compact_theme := Theme.new()
+	compact_theme.default_font_size = 12
+	left_panel.theme = compact_theme
 	_section(left, "01 / Capture", "Choose your webcam by name, then start capture.")
 	source_picker = OptionButton.new()
 	source_picker.add_item("Waiting for cameras…")
@@ -262,20 +272,26 @@ func _build_ui() -> void:
 	metrics = _label("— fps    ·    — landmarks    ·    Waiting for a source", 12, MUTED)
 	metrics.clip_text = true
 	center.add_child(metrics)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 10)
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation", 8)
+	actions.add_theme_constant_override("v_separation", 6)
 	center.add_child(actions)
 	actions.add_child(_button("Save snapshot", _snapshot))
 	record_button = _button("●  Record source", _toggle_recording)
 	actions.add_child(record_button)
-	_spacer(actions)
 	shortcut_hint = _label("L  landmarks    M  mirror    F11  fullscreen", 10, MUTED)
 	actions.add_child(shortcut_hint)
 	right_panel = PanelContainer.new()
-	right_panel.custom_minimum_size.x = 310
-	right_panel.add_theme_stylebox_override("panel", _style(PANEL))
+	right_panel.custom_minimum_size.x = 320
+	right_panel.theme = compact_theme
+	var right_style := _style(PANEL)
+	right_style.content_margin_left = 12
+	right_style.content_margin_right = 12
+	right_panel.add_theme_stylebox_override("panel", right_style)
 	body.add_child(right_panel)
 	sidebar_tabs = TabContainer.new()
+	sidebar_tabs.clip_tabs = true
+	sidebar_tabs.add_theme_font_size_override("font_size", 12)
 	right_panel.add_child(sidebar_tabs)
 	var right := _tab_column("Look")
 	_section(right, "03 / Appearance", "Adjust the desktop preview. Recordings keep the original source.")
@@ -333,7 +349,12 @@ func _build_ui() -> void:
 	if saved_beard is Dictionary and not saved_beard.is_empty():
 		beard.apply_document(saved_beard)
 	beard.set_enabled(bool(settings.get_value("beard", "enabled", false)))
-	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,2)
+	var tracking_column := _tab_column("Tracking")
+	tracking_panel = TrackingPanel.new()
+	tracking_column.add_child(tracking_panel)
+	tracking_panel.setup(self)
+	_compact_panel(right_panel)
+	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,3)
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
@@ -343,17 +364,34 @@ func _build_ui() -> void:
 func _tab_column(title: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = title
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	sidebar_tabs.add_child(scroll)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override("separation", 8)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(column)
 	return column
 
 func _adapt_layout() -> void:
 	right_panel.visible = true
+	right_panel.custom_minimum_size.x = 320 if size.x >= 1100 else 296
+	left_panel.custom_minimum_size.x = 206 if size.x >= 1100 else 188
 	shortcut_hint.visible = size.x >= 1280
+
+func _compact_panel(node: Node) -> void:
+	# Wrap row labels instead of letting their minimum width push the sidebar
+	# beyond the window. Menus use available width, not their longest option.
+	if node is Label and node.get_parent() is HBoxContainer:
+		node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if node is OptionButton:
+		node.fit_to_longest_item = false
+		node.clip_text = true
+	if node is Button:
+		node.add_theme_font_size_override("font_size", 12)
+	if node is SpinBox:
+		node.custom_minimum_size.x = 80
+	for child in node.get_children(): _compact_panel(child)
 
 func _slider(parent: Node, title: String, minimum: float, maximum: float, step: float, value: float, callback: Callable) -> void:
 	parent.add_child(_label(title, 12, MUTED))
@@ -452,6 +490,7 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 					connect_button.disabled = false
 		status.text = "DEMO ACTIVE" if source_id == -1 else "CAMERA LIVE"
 	var tracking: Dictionary = data.get("tracking", {})
+	tracking_panel.update_status(tracking)
 	var features: Dictionary = tracking.get("features", {})
 	for feature in tracking_checks:
 		if features.has(feature):
@@ -493,6 +532,9 @@ func _on_action(result: int, code: int, _headers: PackedStringArray, body: Packe
 		_set_camera_choices(data.get("cameras", []))
 	elif pending_action == "/api/camera/select":
 		message.text = "Capturing " + str(data.get("camera", {}).get("name", "camera")) + "."
+	elif pending_action in ["/api/tracking/configure", "/api/tracking/reset"]:
+		tracking_panel.accept_config(data.get("config", {}), int(data.get("revision", 0)))
+		message.text = "Tracking settings applied. " + {"cpu":"CPU tracking selected.", "gpu":"CPU stays live while GPU starts.", "auto":"Auto will compare CPU and GPU."}.get(data.get("config", {}).get("backend", "auto"), "")
 	if data.has("files"):
 		message.text = "Recording: " + ", ".join(PackedStringArray(data.files))
 	_poll()

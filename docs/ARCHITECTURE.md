@@ -13,7 +13,7 @@ flowchart LR
     Source[Camera or demo] --> Capture[Capture owner thread]
     Capture --> Video[VID1 NV12 ring]
     Capture --> Mailbox[Latest-frame mailbox]
-    Mailbox --> Tasks[MediaPipe Tasks worker]
+    Mailbox --> Tasks[Tracking engine: CPU or browser GPU]
     Tasks --> Points[LMK1 face landmark ring]
     Video --> Native[C++ Godot readers]
     Points --> Native
@@ -27,7 +27,9 @@ flowchart LR
 
 Capture owns camera open/read/release on one thread. Frames are immutable after publication. A single-slot inference mailbox replaces queued work with the latest frame when inference falls behind. Browser connections do not trigger more model instances or more capture reads. JPEG encoding occurs only when browser viewers are connected; source exports and recording continue without them.
 
-The current MediaPipe Tasks worker uses the CPU delegate. MediaPipe's official browser demo can run face inference on this Windows PC's GPU, but an explicit GPU initialization probe against the installed Python wheel fails because its GPU graph support was disabled at build time. The [Face Landmarker review](MEDIAPIPE_FACE_LANDMARKER.md) documents the verified distinction, available model outputs, and a proposed browser-worker integration. Godot GPU rendering is independent of the inference delegate.
+The tracking engine supports native Python CPU inference and an isolated browser GPU worker. The installed Windows Python wheel still lacks GPU graph support; the GPU path instead uses the official JS/WASM runtime. Auto mode keeps CPU tracking live during browser initialization and a bounded calibration, then selects GPU only when its measured round trip is at least 5% faster. Explicit GPU and CPU modes are also available. GPU failure returns to CPU; the API exposes the actual backend and fallback reason. See [GPU tracking](GPU_TRACKING.md).
+
+The GPU bridge serves pinned local assets and exchanges uncompressed RGBA frames and binary float32 landmarks over an authenticated loopback WebSocket, with compression disabled. There is one request in flight; capture continues replacing the latest-frame mailbox while inference runs. GPU calibration temporarily runs alongside CPU tracking but only the selected production result publishes to LMK1. CPU remains initialized for fast fallback. Model changes replace the engine on the tracking thread and retire the previous engine in the background; they do not reopen the camera or stop video display.
 
 MSMF devices that supply tightly packed NV12 publish their original planes directly into VID1. Tracking downsizes the Y/UV planes before converting the smaller image to RGB. Full-resolution BGR conversion is lazy and shared by exports, browser preview, and recording only when needed. Unsupported native formats/layouts fall back to BGR and reusable NV12 conversion buffers. Physical reads provide capture pacing; an additional software delay is unnecessary. Only the synthetic source uses deadline pacing.
 
@@ -46,7 +48,7 @@ Both rings use the same capture timestamp in Windows QPC ticks. Readers convert 
 | Mismatched packed protocol layouts | Explicit 64-byte headers, native static assertions, sequence publication, memory barriers, and copied/rechecked reader snapshots. Native tests verify actual interoperability. |
 | Per-frame mapping flush | A tiny Windows atomic publication helper commits aligned sequence fields after payload writes. Disk-style flushes are unnecessary for anonymous shared memory. |
 | Two editable source trees | One canonical backend and viewer; versioned project-local tools and incremental builds. |
-| Recording/configuration success stubs | Real source recording, measured statistics, validated controls, and explicit unsupported responses for legacy model configuration/reset. |
+| Recording/configuration success stubs | Real source recording, measured statistics, and validated runtime model configuration/reset with revision reporting. |
 
 This is a copy-bounded shared-memory pipeline, not a fully zero-copy GPU pipeline: conversion, protected reader snapshots, and texture upload still copy data. The copies make ownership and consistency explicit. Profile real camera workloads before replacing them with a more complex D3D shared-texture implementation.
 
@@ -58,7 +60,7 @@ The video reader copies directly into packed upload planes, reuses image/texture
 - Face/iris points cross LMK1. Hands, pose, blendshapes, and transform data are available through the HTTP snapshot and JSON exports; desktop hand/body rendering is future work.
 - Desktop looks are GPU preview settings. Browser effects run before JPEG encoding. Neither changes source recordings.
 - Recordings are MJPEG AVI plus one timestamped JSONL record per accepted source frame. Constant-rate output can repeat frames to preserve timing when capture skips frames. Audio is not recorded.
-- `user://studio.cfg` stores desktop look/mirror/visibility and the working beard document. `user://beards` contains named library documents and mannequin thumbnails. Browser performance settings are session-local; inference size changes require restarting capture.
+- `user://studio.cfg` stores desktop look/mirror/visibility and the working beard document. `user://beards` contains named library documents and mannequin thumbnails. Tracking and browser performance settings last for the backend session and survive capture restarts; inference size changes apply during capture.
 - The HTTP service binds to `127.0.0.1`, validates hosts, and rejects cross-origin mutations. It is intended as a local application service.
 
 ## Hair and beard simulation and editing

@@ -22,6 +22,7 @@ def main():
     for name, extra in [('import', ['--import', '--frame-delay', '1000']),
                         ('viewer', ['--quit-after', '10']),
                         ('sources', ['--script', 'res://tests/studio_sources.gd']),
+                        ('layout', ['--script', 'res://tests/studio_layout.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),
                         ('groom', ['--script', 'res://tests/groom_probe.gd']),

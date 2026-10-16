@@ -50,6 +50,9 @@ def main():
                 status = client.get('/api/status').json
                 if not status['camera_active'] or status['camera_index'] != -1 or status['frames'] < 30:
                     raise RuntimeError('Viewer did not start the expected capture source')
+                config = status['tracking']['settings']
+                if config['backend'] != 'cpu' or config['max_width'] != 320 or config['detection_confidence'] != 0:
+                    raise RuntimeError('Viewer Tracking panel did not apply live configuration')
         finally:
             server.shutdown()
             thread.join(timeout=5)

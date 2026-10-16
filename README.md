@@ -1,6 +1,6 @@
 # LenzForge Studio
 
-A local Windows camera and AR workspace with a Godot desktop viewer, browser controls, and MediaPipe face, iris, hand, and body tracking. Python owns capture and inference; a C++ GDExtension brings video and face landmarks into Godot through shared memory.
+A local Windows camera and AR workspace with a Godot desktop viewer, browser controls, and MediaPipe face, iris, hand, and body tracking. Python owns capture and routes inference to native CPU models or a local browser GPU worker; a C++ GDExtension brings video and face landmarks into Godot through shared memory.
 
 ![Godot desktop studio displaying the synthetic demo source](docs/images/studio.png)
 
@@ -38,7 +38,8 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 
 ## What works
 
-- One background capture owner and one inference worker, shared by both interfaces. Capture runs without an open browser.
+- One background capture owner and one tracking publisher, shared by both interfaces. GPU tracking starts its own hidden local browser; no browser window needs to be opened manually.
+- [CPU/GPU tracking](docs/GPU_TRACKING.md) with automatic timing-based selection and CPU fallback. The compact **Tracking** tab exposes live resolution, face count, confidence, and output settings. CPU keeps tracking during GPU startup and calibration.
 - Face tracking with 478 landmarks, 52 blendshape scores, and a face transform; optional hand and body tracking. Hand/body results appear in the browser and JSON exports. The desktop overlay currently displays face/iris points.
 - GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.
 - Independent [virtual landmarks](docs/LANDMARKS.md) around the entire face outline: extend above the head, below the chin, to either side, and forward/backward. A dedicated **Landmarks** tab controls orange reference points with hair on or off.
@@ -57,20 +58,21 @@ Open **Hair** to edit beard, roots, mustache, eyebrows, scalp hair, physics, ind
 
 ## Toolchain
 
-Stable versions checked on October 15, 2026:
+Stable versions checked on October 15–16, 2026:
 
 | Component | Version |
 | --- | --- |
 | Godot | 4.7.2 stable |
 | godot-cpp | 10.0.0 stable, targeting the 4.7 API |
 | Python | 3.15.0 |
-| MediaPipe | 1.1.1, Tasks API |
+| MediaPipe Python / browser | 1.1.1 / 1.1.1, Tasks API |
+| WebSocket transport | 17.2 |
 | OpenCV contrib | 5.0.0.93 |
 | NumPy | 2.5.4 |
 | Flask / Waitress | 3.1.3 / 3.0.2 |
 | GCC / SCons | 16.2.0 / 4.11.1 |
 
-[`toolchain.json`](toolchain.json) pins native tooling. [`requirements.txt`](requirements.txt) pins direct runtime dependencies; [`requirements.lock.txt`](requirements.lock.txt) includes all resolved runtime and development packages for Windows x64/Python 3.15. Only one OpenCV wheel is installed. Setup verifies the Godot archive SHA-256 and runs `pip check`.
+[`toolchain.json`](toolchain.json) pins native tooling and the browser runtime. [`requirements.txt`](requirements.txt) pins direct runtime dependencies; [`requirements.lock.txt`](requirements.lock.txt) includes all resolved runtime and development packages for Windows x64/Python 3.15. Only one OpenCV wheel is installed. Setup verifies the Godot archive SHA-256 and browser runtime SHA-512 and runs `pip check`. GPU tracking uses an installed Microsoft Edge or Chrome; if unavailable, CPU tracking continues. Existing installations can run `Setup.ps1 -SkipBuild` to add the new GPU dependencies without rebuilding native code.
 
 Release references: [Godot](https://godotengine.org/download/windows/), [godot-cpp](https://github.com/godotengine/godot-cpp/releases), [Python](https://www.python.org/downloads/windows/), [MediaPipe](https://pypi.org/project/mediapipe/), [OpenCV contrib](https://pypi.org/project/opencv-contrib-python/).
 
@@ -101,7 +103,7 @@ This runs Python regression tests, a Godot headless import/startup, native video
 
 Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. On the development PC, a NexiGo N960E at 1280×720 now delivered 60 fps capture, about 60 fps face tracking, and 50.8 distinct preview frames/sec on a 60 Hz display. The previous pipeline displayed 21.7 fps at its 30 fps setting. These short-run observations are not guarantees for other devices or lighting conditions. See the [performance measurements and reproducible benchmark](docs/PERFORMANCE.md), including the comparison at the same 30 fps setting. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
-See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported API](docs/API.md), and the [MediaPipe Face Landmarker capability and GPU review](docs/MEDIAPIPE_FACE_LANDMARKER.md). The review verifies the official browser GPU path on this PC and explains the current Windows Python backend's CPU limitation. Historical documents describe earlier plans and are not current feature guarantees.
+See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported API](docs/API.md), [GPU tracking and measurements](docs/GPU_TRACKING.md), and the earlier [MediaPipe capability review](docs/MEDIAPIPE_FACE_LANDMARKER.md). Historical documents describe earlier plans and are not current feature guarantees.
 
 ## Troubleshooting
 
@@ -110,7 +112,8 @@ See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported
 - **Camera unavailable:** close other applications using it, verify Windows camera permissions, and try Demo pattern to separate capture issues from viewer issues. Hardware may negotiate a different resolution or frame rate.
 - **Only a pattern or virtual-camera screen appears:** choose your physical webcam by its device name and click **Start capture**. The demo and virtual devices are separate sources. If discovery reports a missing helper after an update, run `Setup.ps1 -SkipInstall` once.
 - **Backend offline:** keep its terminal open and verify port 5000 is available. The service binds to loopback by default.
-- **Slow tracking:** use a lower capture resolution or the performance API; inference resolution changes apply on the next capture start. The mailbox replaces old work rather than accumulating latency.
+- **Slow tracking:** use **Tracking → Auto** and compare its reported CPU/GPU times. Lower tracking image width without restarting capture. The mailbox replaces old work rather than accumulating latency.
+- **GPU fallback:** the Tracking tab reports the active backend and reason. Run `Setup.ps1 -SkipBuild` if assets are missing; install Edge/Chrome if no browser is available. Apply settings again to retry GPU initialization.
 
 ## License
 

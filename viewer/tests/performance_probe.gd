@@ -3,6 +3,7 @@ var intervals: Array[float] = []
 var ages: Array[float] = []
 var uploads: Array[float] = []
 var beard_updates: Array[float] = []
+var landmark_ages: Array[float] = []
 var last_frame_at := 0
 var measuring := false
 
@@ -19,6 +20,8 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.gui_disable_input = true
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
 	var args := OS.get_cmdline_user_args()
 	var studio = load("res://studio.tscn").instantiate()
 	studio.persist_settings = false
@@ -28,6 +31,7 @@ func _run() -> void:
 	if args.size() > 3:
 		Engine.max_fps = int(args[3])
 	root.add_child(studio)
+	studio.set_process_unhandled_key_input(false)
 	studio.beard.set_enabled(args.size() > 6 and args[6] == "1")
 	if studio.beard.enabled:
 		var profile = load("res://beard/beard_profile.gd")
@@ -72,7 +76,13 @@ func _run() -> void:
 		if studio.beard.enabled and studio.beard._face_live:
 			beard_updates.append(studio.beard.update_ms)
 	)
-	await create_timer(2).timeout
+	studio.landmark_reader.landmarks_ready.connect(func(_points, _frame, timestamp):
+		if measuring:
+			# Both readers use QPC microseconds. Cancel the video timestamp to
+			# measure age at the landmark callback without another native API.
+			landmark_ages.append(studio.video_reader.get_frame_age_ms() + (studio.video_reader.get_timestamp() - timestamp) / 1000.0)
+	)
+	await create_timer(float(args[9]) if args.size() > 9 else 2.0).timeout
 	measuring = true
 	await create_timer(duration).timeout
 	measuring = false
@@ -84,6 +94,7 @@ func _run() -> void:
 		"render_fps": Engine.get_frames_per_second(), "frame_cap": Engine.max_fps,
 		"interval_ms": distribution(intervals), "gaps_over_50_ms": gaps,
 		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads),
+		"landmark_age_ms": distribution(landmark_ages), "landmark_frames": landmark_ages.size(),
 		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size()}
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
 	studio.video_reader.stop_reading()

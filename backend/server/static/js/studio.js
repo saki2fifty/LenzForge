@@ -3,6 +3,36 @@ const $ = id => document.getElementById(id);
 let recording = false;
 let lastSource = null;
 let discoveryAttempted = false;
+let trackingDirty = false;
+let trackingRevision = -1;
+const trackingForm = $('tracking-settings');
+trackingForm.addEventListener('input', () => { trackingDirty = true; });
+function acceptTracking(config, revision) {
+  for (const [key, value] of Object.entries(config || {})) {
+    const field = trackingForm.elements.namedItem(key);
+    if (!field) continue;
+    if (field.type === 'checkbox') field.checked = value;
+    else field.value = value;
+  }
+  trackingDirty = false; trackingRevision = revision;
+}
+trackingForm.onsubmit = event => {
+  event.preventDefault();
+  const values = {};
+  for (const field of trackingForm.elements) {
+    if (!field.name) continue;
+    values[field.name] = field.type === 'checkbox' ? field.checked : field.name === 'backend' ? field.value : Number(field.value);
+  }
+  action(async () => {
+    const result = await api('/api/tracking/configure', values);
+    acceptTracking(result.config, result.revision);
+    $('message').textContent = 'Tracking settings applied.';
+  });
+};
+$('tracking-reset').onclick = () => action(async () => {
+  const result = await api('/api/tracking/reset', {});
+  acceptTracking(result.config, result.revision);
+});
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
@@ -81,6 +111,14 @@ async function poll() {
     $('points').textContent = data.tracking.landmark_count || '0';
     $('inference').textContent = (data.tracking.last_inference_ms || 0).toFixed(1);
     $('dropped').textContent = data.tracking.frames_dropped || '0';
+    const tracking = data.tracking;
+    if (!trackingDirty && trackingRevision !== tracking.settings_revision) acceptTracking(tracking.settings, tracking.settings_revision);
+    let runtime = (tracking.active_backend || 'Waiting for capture').toUpperCase();
+    if (tracking.phase && tracking.phase !== 'ready') runtime += ' · ' + tracking.phase.replaceAll('_', ' ');
+    if (tracking.fallback_reason) runtime += ' · fallback: ' + tracking.fallback_reason;
+    runtime += `\n${(tracking.round_trip_p50_ms || 0).toFixed(1)} ms median / ${(tracking.round_trip_p95_ms || 0).toFixed(1)} ms p95`;
+    if (tracking.comparison) runtime += `\nAuto: CPU ${tracking.comparison.cpu_p50_ms.toFixed(1)} / GPU ${tracking.comparison.gpu_p50_ms.toFixed(1)} ms`;
+    $('tracking-runtime').textContent = runtime;
     document.querySelectorAll('[data-tracking]').forEach(input => {
       const feature = input.dataset.tracking === 'face_mesh' ? 'face' : input.dataset.tracking;
       if (feature in (data.tracking.features || {})) input.checked = data.tracking.features[feature];

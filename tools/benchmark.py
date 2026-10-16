@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'backend'))
 import capture
 from server.app import create_app
 from server.routes.camera import close_camera
+from pipeline.tracking_config import update_tracking_config
 from werkzeug.serving import make_server
 
 
@@ -26,13 +27,33 @@ def main():
     parser.add_argument('--beard-strands', type=int, default=256)
     parser.add_argument('--beard-segments', type=int, default=8)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--tracking-backend', choices=['auto', 'gpu', 'cpu'], default='auto')
+    parser.add_argument('--warmup', type=float, default=8)
+    parser.add_argument('--offscreen', action='store_true', help='Keep the rendered test window off-screen')
+    parser.add_argument('--portrait', action='store_true', help='Use a deterministic public-domain portrait as the demo source')
     args = parser.parse_args()
     if not 1 <= args.seconds <= 300:
         parser.error('--seconds must be 1 to 300')
+    if not 0 <= args.warmup <= 60:
+        parser.error('--warmup must be 0 to 60')
     if not 16 <= args.beard_strands <= 1024:
         parser.error('--beard-strands must be 16 to 1024')
     if not 2 <= args.beard_segments <= 16:
         parser.error('--beard-segments must be 2 to 16')
+    if args.portrait:
+        if args.camera != -1:
+            parser.error('--portrait uses the demo source; omit --camera')
+        import cv2
+        import matplotlib
+        import numpy as np
+        from capture.camera import Camera
+        source = cv2.imread(str(Path(matplotlib.get_data_path()) / 'sample_data/grace_hopper.jpg'))
+        source = cv2.resize(source, (614, 720))
+        portrait = np.zeros((720, 1280, 3), dtype=np.uint8)
+        portrait[:, 333:947] = source
+        frames = [cv2.warpAffine(portrait, np.float32([[1, 0, i - 3], [0, 1, 0]]), (1280, 720)) for i in range(7)]
+        Camera._demo_frame = lambda camera: frames[camera.frame_count % len(frames)]
+    update_tracking_config({'backend': args.tracking_backend})
     app = create_app()
     server = make_server('127.0.0.1', 0, app, threaded=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -47,8 +68,12 @@ def main():
     command += [str(args.frame_cap if args.frame_cap is not None else 0), str(args.fps)]
     command.append('0' if args.no_overlay else '1')
     command += ['1' if args.beard else '0', str(args.beard_strands), str(args.beard_segments)]
+    command.append(str(args.warmup))
+    if args.offscreen:
+        command[1:1] = ['--position', '-3000,0']
     try:
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=args.seconds + 50)
+        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=args.seconds + args.warmup + 50,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         output = result.stdout + result.stderr
         (artifacts / 'benchmark-console.log').write_text(output, encoding='utf-8')
         lines = [line for line in output.splitlines() if line.startswith('LENZFORGE_PERFORMANCE ')]
@@ -58,6 +83,8 @@ def main():
             status = client.get('/api/status').json
         report = {'configuration': {'utc': datetime.now(timezone.utc).isoformat(),
                   'seconds': args.seconds, 'requested_fps': args.fps,
+                  'tracking_backend': args.tracking_backend, 'warmup_s': args.warmup, 'offscreen': args.offscreen,
+                  'source': f'public-domain portrait, synthetic {args.fps} fps' if args.portrait else 'camera' if args.camera >= 0 else 'demo',
                   'overlay': not args.no_overlay, 'beard': args.beard, 'beard_strands': args.beard_strands,
                   'beard_segments': args.beard_segments},
                   'viewer': json.loads(lines[-1].split(' ', 1)[1]), 'backend': status}

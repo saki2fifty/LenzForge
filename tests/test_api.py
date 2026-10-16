@@ -52,7 +52,7 @@ def test_invalid_tracking_and_partial_performance_updates_do_not_change_state(cl
     before = client.get('/api/performance/config').json
     assert client.post('/api/performance/config', json={'preview_quality': 50, 'preview_scale': 5}).status_code == 400
     assert client.get('/api/performance/config').json == before
-    assert client.post('/api/tracking/configure', json={'pose': {}}).status_code == 501
+    assert client.post('/api/tracking/configure', json={'pose': {}}).status_code == 400
 
 
 def test_discovery_keeps_all_devices_while_capture_is_running(client, monkeypatch):
