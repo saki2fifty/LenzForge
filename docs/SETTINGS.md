@@ -8,7 +8,7 @@ The desktop saves after 350 ms without another edit and flushes remaining change
 
 - Camera selection by stable device ID, resolution, and frame rate. An unplugged camera remains the saved choice; another camera is not selected automatically.
 - MediaPipe processing mode, input width, face count, all confidence thresholds, optional outputs, face/hand/pose model IDs, and tracking feature toggles.
-- Appearance preset, exposure, mirror, measured landmark visibility/color/size, head occlusion, depth, and crown height.
+- Appearance preset, exposure, mirror, master landmark-guide visibility, measured landmark visibility/color/size, head occlusion, depth, and crown height.
 - All virtual landmark settings and colors, all hair/beard/mustache/eyebrow/scalp controls, gravity/wind/damping, per-strand edits, and the working look name.
 - Hair visibility, mannequin mode/rotation/zoom, strand edit mode, active panels, library selection, model controls, window size, and fullscreen/maximized mode.
 - Browser preview effect chains (including enabled state and parameter values), JPEG quality, preview frame rate, and preview scale.

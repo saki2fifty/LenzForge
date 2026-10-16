@@ -5,6 +5,7 @@ var mirror := true
 var point_size := 2.0
 var tint := Color("68dfc3")
 var show_points := true
+var guides_visible := true
 var video_size := Vector2(1280, 720)
 var instances := MultiMesh.new()
 var preview_surface: Control
@@ -24,9 +25,9 @@ func _ready() -> void:
 
 func _draw() -> void:
 	if is_instance_valid(preview_surface) and preview_surface.active:
-		preview_surface.set_dots("reference",preview_surface.reference,tint,point_size,show_points)
+		preview_surface.set_dots("reference",preview_surface.reference,tint,point_size,show_points and guides_visible)
 		return
-	if not show_points or points.is_empty():
+	if not guides_visible or not show_points or points.is_empty():
 		return
 	if instances.instance_count < points.size():
 		instances.instance_count = points.size()

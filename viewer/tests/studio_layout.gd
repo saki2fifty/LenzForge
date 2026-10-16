@@ -27,6 +27,11 @@ func _run() -> void:
 			var box: Rect2 = studio.right_panel.get_global_rect()
 			check(box.end.x <= dimensions.x, "Right panel fits %s tab %d: %s" % [dimensions,tab,box])
 			check(box.end.y <= dimensions.y, "Right panel height fits %s" % dimensions)
+			var toolbar: Rect2 = studio.quick_toolbar.get_global_rect()
+			check(toolbar.position.x >= studio.left_panel.get_global_rect().end.x and toolbar.end.x <= box.position.x,
+				"Quick controls stay above the center preview at %s" % dimensions)
+			for button in studio.quick_toolbar.row.get_children():
+				check(toolbar.encloses(button.get_global_rect()), "Quick control %s fits at %s" % [button.name,dimensions])
 			var scroll: ScrollContainer = studio.sidebar_tabs.get_tab_control(tab)
 			check(not scroll.get_h_scroll_bar().visible, "No horizontal clipping at %s tab %d" % [dimensions,tab])
 			if tab == 2:

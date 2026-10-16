@@ -1,5 +1,6 @@
 extends VBoxContainer
-## Live model configuration; edits stay local until Apply succeeds.
+## Live model configuration with debounced automatic application and saving.
+signal settings_changed
 var host: Control
 var controls: Dictionary = {}
 var runtime: Label
@@ -107,6 +108,15 @@ func _edited() -> void:
 	if not _syncing:
 		dirty = true
 		host._queue_backend_setting("/api/tracking/configure", values())
+		settings_changed.emit()
+
+func choose(key: String, value: Variant) -> void:
+	var picker: OptionButton = controls[key]
+	for i in picker.item_count:
+		if picker.get_item_metadata(i) == value:
+			picker.select(i)
+			_edited()
+			return
 
 func values() -> Dictionary:
 	var result := {}
@@ -142,6 +152,7 @@ func accept_config(config: Dictionary, revision: int) -> void:
 	synced_revision = revision
 	_syncing = false
 	host.queue_settings_save()
+	settings_changed.emit()
 
 func update_status(data: Dictionary) -> void:
 	if data.has("library"): _update_models(data.library)

@@ -16,6 +16,7 @@ var preview := false
 var preview_surface: Control
 var buffer := PackedFloat32Array()
 var occlusion: RefCounted
+var guides_visible := true
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -76,10 +77,10 @@ func _refresh() -> void:
 func _upload() -> void:
 	if is_instance_valid(preview_surface) and preview_surface.active:
 		preview_surface.set_dots("extensions",preview_surface.extension_points(model),Color.html(model.config.color),
-			float(model.config.point_size),bool(model.config.show_points))
+			float(model.config.point_size),guides_visible and bool(model.config.show_points))
 		drawing.hide()
 		return
-	drawing.visible = model.config.show_points and not model.points.is_empty()
+	drawing.visible = guides_visible and model.config.show_points and not model.points.is_empty()
 	if not drawing.visible: return
 	var fit := minf(size.x/video_size.x,size.y/video_size.y)
 	if fit <= 0: drawing.hide(); return

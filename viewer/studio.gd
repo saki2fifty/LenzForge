@@ -7,6 +7,7 @@ const TrackingPanel = preload("res://tracking/tracking_panel.gd")
 const HeadOcclusion = preload("res://tracking/head_occlusion.gd")
 const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
+const QuickToolbar = preload("res://ui/quick_toolbar.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -72,6 +73,9 @@ var pending_payload: Dictionary = {}
 var exposure_slider: HSlider
 var point_slider: HSlider
 var point_color: ColorPickerButton
+var quick_toolbar: PanelContainer
+var guides_check: CheckBox
+var occlusion_check: CheckBox
 
 func _ready() -> void:
 	DisplayServer.window_set_min_size(Vector2i(960, 640))
@@ -250,6 +254,8 @@ func _build_ui() -> void:
 	preview_header.add_child(_label("Preview", 18))
 	_spacer(preview_header)
 	preview_header.add_child(_label("LIVE WORKSPACE", 10, MUTED))
+	quick_toolbar = QuickToolbar.new()
+	center.add_child(quick_toolbar)
 	var preview := PanelContainer.new()
 	preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview.add_theme_stylebox_override("panel", _style(Color("080d15"), 14))
@@ -336,11 +342,19 @@ func _build_ui() -> void:
 	_set_mirror(mirror_check.button_pressed)
 	right.add_child(HSeparator.new())
 	var landmark_column := _tab_column("Landmarks")
+	guides_check = CheckBox.new()
+	guides_check.text = "Show landmark guides"
+	guides_check.tooltip_text = "Show / hide all guide dots while keeping tracking and individual visibility choices."
+	guides_check.button_pressed = bool(settings.get_value("view", "guides", true))
+	guides_check.toggled.connect(_set_guides)
+	landmark_column.add_child(guides_check)
+	_set_guides(guides_check.button_pressed)
 	landmarks_panel = LandmarksPanel.new()
 	landmark_column.add_child(landmarks_panel)
 	landmarks_panel.setup(self, extensions)
 	_section(landmark_column, "Visibility", "Hide landmarks and strands behind the fitted head. Uncheck to inspect hidden guides. Head shape is estimated; hands and room objects are not occluders.")
 	var hide_back := CheckBox.new()
+	occlusion_check = hide_back
 	hide_back.text = "Hide behind head"
 	occlusion.enabled = bool(settings.get_value("view", "occlusion", true))
 	hide_back.button_pressed = occlusion.enabled
@@ -399,6 +413,7 @@ func _build_ui() -> void:
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
+	quick_toolbar.setup(self)
 	resized.connect(_adapt_layout)
 	call_deferred("_adapt_layout")
 
@@ -534,6 +549,7 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 		status.text = "DEMO ACTIVE" if source_id == -1 else "CAMERA LIVE"
 	var tracking: Dictionary = data.get("tracking", {})
 	tracking_panel.update_status(tracking)
+	quick_toolbar.update_status(tracking)
 	if not backend_save_timer.time_left: _flush_backend_settings()
 	var features: Dictionary = tracking.get("features", {})
 	for feature in tracking_checks:
@@ -704,6 +720,17 @@ func _set_points(value: bool) -> void:
 	settings.set_value("view", "points", value)
 	queue_settings_save()
 
+func _set_guides(value: bool) -> void:
+	overlay.guides_visible = value
+	extensions.guides_visible = value
+	beard.guides_visible = value
+	overlay.queue_redraw()
+	extensions._upload()
+	beard._update_root_markers()
+	beard._update_virtual_markers()
+	settings.set_value("view", "guides", value)
+	queue_settings_save()
+
 func _snapshot() -> void:
 	if video.texture == null and not beard.mannequin:
 		message.text = "Start a source before taking a snapshot."
@@ -769,6 +796,7 @@ func _setup_autosave() -> void:
 	get_window().size_changed.connect(queue_settings_save)
 	_watch_settings_controls(self)
 	settings_ready = true
+	quick_toolbar.sync()
 	saved_text = settings.encode_to_text()
 
 func _watch_settings_controls(node: Node) -> void:

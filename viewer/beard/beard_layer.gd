@@ -4,6 +4,7 @@ const Groom = preload("res://beard/groom_regions.gd")
 const Head = preload("res://beard/virtual_head.gd")
 const MannequinView = preload("res://mannequin/mannequin_view.gd")
 signal changed
+var guides_visible := true
 signal preview_face_changed
 signal strand_selected(index: int)
 var config := Profile.defaults()
@@ -333,9 +334,9 @@ func _update_virtual_markers() -> void:
 	if mannequin:
 		virtual_markers.hide()
 		mannequin_view.set_dots("surface",mannequin_view.bound_points(virtual_anchors),Color.html(config.virtual_color),2.25,
-			enabled and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks))
+			guides_visible and enabled and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks))
 		return
-	virtual_markers.visible = enabled and _face_live and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks)
+	virtual_markers.visible = guides_visible and enabled and _face_live and bool(config.virtual_enabled) and bool(config.show_virtual_landmarks)
 	if not virtual_markers.visible or virtual_markers.multimesh == null: return
 	var mesh := virtual_markers.multimesh
 	if mesh.instance_count != virtual_points.size(): mesh.instance_count = virtual_points.size()
@@ -353,10 +354,10 @@ func _update_root_markers() -> void:
 		var generated := PackedVector3Array()
 		for index in generated_indices:
 			if index < mannequin_view.root_positions.size(): generated.append(mannequin_view.root_positions[index])
-		mannequin_view.set_dots("generated",generated,Color.html(config.generated_root_color),2,enabled and bool(config.show_generated_roots))
+		mannequin_view.set_dots("generated",generated,Color.html(config.generated_root_color),2,guides_visible and enabled and bool(config.show_generated_roots))
 		root_markers.hide()
 		return
-	root_markers.visible = enabled and _face_live and bool(config.show_generated_roots)
+	root_markers.visible = guides_visible and enabled and _face_live and bool(config.show_generated_roots)
 	if not root_markers.visible or root_markers.multimesh == null: return
 	var mesh := root_markers.multimesh
 	if mesh.instance_count != generated_indices.size(): mesh.instance_count = generated_indices.size()
