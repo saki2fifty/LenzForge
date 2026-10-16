@@ -101,7 +101,7 @@ This runs Python regression tests, a Godot headless import/startup, native video
 
 Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. On the development PC, a NexiGo N960E at 1280×720 now delivered 60 fps capture, about 60 fps face tracking, and 50.8 distinct preview frames/sec on a 60 Hz display. The previous pipeline displayed 21.7 fps at its 30 fps setting. These short-run observations are not guarantees for other devices or lighting conditions. See the [performance measurements and reproducible benchmark](docs/PERFORMANCE.md), including the comparison at the same 30 fps setting. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
-See [architecture and modernization decisions](docs/ARCHITECTURE.md) and [supported API](docs/API.md). Historical documents describe earlier plans and are not current feature guarantees.
+See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported API](docs/API.md), and the [MediaPipe Face Landmarker capability and GPU review](docs/MEDIAPIPE_FACE_LANDMARKER.md). The review verifies the official browser GPU path on this PC and explains the current Windows Python backend's CPU limitation. Historical documents describe earlier plans and are not current feature guarantees.
 
 ## Troubleshooting
 
