@@ -39,6 +39,23 @@ func _run() -> void:
 	var first_point: Vector2 = studio.extensions.model.points[0]
 	studio.landmarks_panel.controls.vertical_offset.value = -.15
 	check(studio.extensions.model.points[0].y < first_point.y and studio.extensions.model.points[0].x == first_point.x,"Move up / down control shifts the virtual set immediately")
+	for region in Extensions.REGIONS:
+		var picker = studio.landmarks_panel.region_picker
+		picker.select(Extensions.REGIONS.find(region))
+		picker.item_selected.emit(picker.selected)
+		check(studio.landmarks_panel.region_pages[region].visible,"Region picker exposes that region's contour controls")
+		for child in studio.landmarks_panel.region_pages[region].get_children():
+			if child is Button and child.text == "Round this region": child.pressed.emit()
+		studio.landmarks_panel.controls[region+"_vertical"].value = .1
+		if region.ends_with("side"):
+			studio.landmarks_panel.controls[region+"_inset"].value = -.08
+			check(is_equal_approx(studio.extensions.model.config[region+"_inset"],-.08),"Side region exposes an independent inward/outward starting position")
+		check(studio.extensions.model.config[region+"_wrap"] == 110 and studio.extensions.model.config[region+"_back"] > 0,"Rounded region button updates its own contour")
+	check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.15),"Regional fitting keeps the existing whole-set up/down offset")
+	studio.landmarks_panel.show_region("forehead")
+	await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../artifacts/landmark-contours%s.png"%suffix))
 	studio.landmarks_panel.controls.left.value = .4
 	studio.landmarks_panel.controls.columns.value = 96
 	studio.landmarks_panel.controls.rings.value = 6
@@ -72,7 +89,11 @@ func _run() -> void:
 	restored.persist_settings = false
 	check(restored.settings.parse(studio.settings.encode_to_text()) == OK,"Studio configuration round trip")
 	restored._build_ui()
-	check(restored.extensions.model.config == studio.extensions.model.config,"Independent extension settings restore without a hairstyle dependency")
+	for key in studio.extensions.model.config:
+		var value = studio.extensions.model.config[key]
+		var saved_value = restored.extensions.model.config[key]
+		check(is_equal_approx(float(saved_value),float(value)) if value is float or value is int else saved_value == value,
+			"Independent extension setting restores without a hairstyle dependency: "+key)
 	restored.free()
 	print("EXTENSIONS_RENDER orange_pixels=",orange," failures=",failures)
 	quit(0 if failures.is_empty() else 1)

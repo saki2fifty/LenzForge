@@ -5,6 +5,8 @@ var layer: Control
 var controls: Dictionary = {}
 var stats: Label
 var preview_check: CheckBox
+var region_picker: OptionButton
+var region_pages: Dictionary = {}
 
 func setup(studio: Control, extension_layer: Control) -> void:
 	host = studio
@@ -21,12 +23,36 @@ func setup(studio: Control, extension_layer: Control) -> void:
 	preview_check.toggled.connect(func(value): host.beard.set_mannequin(value))
 	add_child(preview_check)
 	host.beard.changed.connect(func(): preview_check.set_pressed_no_signal(host.beard.mannequin))
-	for row in [["vertical_offset","Move up / down",-1.5,1.5,.01],
-		["top","Above head",0,1.5,.01],["bottom","Below chin",0,1.5,.01],
-		["left","Left side",0,1.5,.01],["right","Right side",0,1.5,.01],["depth","Front / back",-1,1,.01],
-		["rings","Outward layers",1,12,1],["columns","Points around face",36,144,4],["point_size","Point size",1,6,.25]]:
-		_spin(row)
+	_spin(["vertical_offset","Move up / down",-1.5,1.5,.01])
 	controls.vertical_offset.tooltip_text = "Negative moves all virtual points up; positive moves them down. Zero centers the fit. The offset follows your head, in face widths."
+	host._section(self,"Regional contour","Choose a region. Shift its starting rows, then curve them backward around your head.")
+	region_picker = OptionButton.new()
+	for title in ["Forehead","Left side","Right side","Chin"]: region_picker.add_item(title)
+	region_picker.item_selected.connect(func(index): show_region(Extensions.REGIONS[index]))
+	add_child(region_picker)
+	for i in Extensions.REGIONS.size():
+		var region: String = Extensions.REGIONS[i]
+		var page := VBoxContainer.new()
+		page.add_theme_constant_override("separation",8)
+		region_pages[region] = page
+		add_child(page)
+		if region.ends_with("side"):
+			_spin([region+"_inset","Start in / out",-1.5,1.5,.01],page)
+			controls[region+"_inset"].tooltip_text = "Negative moves this side's starting rows toward the face; positive moves them outward. Back reach and wrap angle shape the curve from there."
+		for row in [[region+"_vertical","Start up / down",-1.5,1.5,.01],
+			[["top","left","right","bottom"][i],"Outward reach",0,1.5,.01],
+			[region+"_back","Back reach",0,1.5,.01],[region+"_wrap","Wrap angle",0,180,5]]:
+			_spin(row,page)
+		controls[region+"_vertical"].tooltip_text = "Shift only this region's starting rows: negative moves up, positive moves down. Blends into neighboring regions."
+		controls[region+"_back"].tooltip_text = "Extra reach behind this region, added to the overall Front / back setting. Turn or tilt your head to see the depth."
+		controls[region+"_wrap"].suffix = "°"
+		controls[region+"_wrap"].tooltip_text = "0° extends straight; 90° curves backward; above 90° wraps inward around the head. Outward reach sets the curve's height or width."
+		page.add_child(host._button("Round this region",func(): layer.set_settings(Extensions.rounded_region(region))))
+	show_region("forehead")
+	host._section(self,"Whole set")
+	for row in [["depth","Front / back",-1,1,.01],["rings","Outward layers",1,12,1],
+		["columns","Points around face",36,144,4],["point_size","Point size",1,6,.25]]:
+		_spin(row)
 	controls.depth.tooltip_text = "Negative reaches forward; positive reaches behind the face. Turn or tilt your head to see the depth offset."
 	controls.left.tooltip_text = "Left in the unmirrored camera image; follows the head when rotated."
 	controls.right.tooltip_text = controls.left.tooltip_text
@@ -47,6 +73,11 @@ func setup(studio: Control, extension_layer: Control) -> void:
 	if is_inside_tree(): timer.start()
 	_sync()
 
+func show_region(region: String) -> void:
+	if region not in region_pages: return
+	region_picker.select(Extensions.REGIONS.find(region))
+	for key in region_pages: region_pages[key].visible = key == region
+
 func _check(key: String, title: String) -> void:
 	var check := CheckBox.new()
 	check.text = title
@@ -54,9 +85,9 @@ func _check(key: String, title: String) -> void:
 	controls[key] = check
 	add_child(check)
 
-func _spin(row: Array) -> void:
+func _spin(row: Array, parent: Node = self) -> void:
 	var box := HBoxContainer.new()
-	add_child(box)
+	parent.add_child(box)
 	var label: Label = host._label(row[1],12,host.MUTED)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(label)

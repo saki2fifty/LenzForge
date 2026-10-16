@@ -122,6 +122,16 @@ Reproduce without a camera or backend:
 
 The report is written to `artifacts/landmark-extensions-performance.json`. `extensions_probe.gd` checks directional extents, depth/rotation, invalid input, bounded density, independent visibility, and stale tracking. `extensions_render.gd` exercises the actual tab, orange pixels with hair off, mirror alignment, live depth forwarding, and settings persistence at both 1440×900 and 1024×720.
 
+Regional contour shaping is also cached when settings change. A follow-up comparison used 110° wrap on the forehead, both sides, and chin, with a lowered forehead start and inset side starts. The per-tracking-result projection/upload path is unchanged:
+
+| Contour configuration | Mean CPU/update | p95 CPU/update |
+| --- | --- | --- |
+| 288 straight points | 0.226 ms | 0.282 ms |
+| 288 rounded points | 0.218 ms | 0.282 ms |
+| 1,728 rounded points | 0.926 ms | 1.107 ms |
+
+The small default-count difference is ordinary run variation, not a speedup claim. The same synthetic fixture, sample counts, hardware, and exclusions apply. [Raw contour report](performance/landmark-contours.json). Add `-- contours` to the command above to reproduce it; the output is `artifacts/landmark-contours-performance.json`. Regional tests also check independent starting positions, inward side offsets, backward progression, inward wrapping past 90°, pose projection, saved contours, and older settings.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:
