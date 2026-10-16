@@ -409,7 +409,7 @@ func _build_ui() -> void:
 	var saved_beard = settings.get_value("beard", "document", {})
 	if saved_beard is Dictionary and not saved_beard.is_empty():
 		beard.apply_document(saved_beard)
-	beard.set_enabled(bool(settings.get_value("beard", "enabled", false)))
+	beard.set_enabled(bool(settings.get_value("beard", "enabled", true)))
 	var tracking_column := _tab_column("Tracking")
 	tracking_panel = TrackingPanel.new()
 	tracking_column.add_child(tracking_panel)

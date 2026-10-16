@@ -4,7 +4,7 @@ The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays at
 
 The **Full beard** defaults are **1,024 facial strands**, **8 segments per strand**, **0.5 length**, **0.57 curl**, and **0.14 length variation**. Starting/ending widths are **7.4 / 3.05**, with root/tip colors **#0849f4 / #12aadf**. Physics defaults are **12.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.045 damping**.
 
-The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage width**, **0.85 thickness**, **3.0 density**, and root/tip colors **#0645fa / #10acdb**. Eyebrows default to **#14e2f2** and remain disabled; scalp hair remains **None**. Landmark guides and **Show generated roots** default to off. Existing saved looks and personal preferences still restore their own values.
+The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage width**, **0.85 thickness**, **3.0 density**, and root/tip colors **#0645fa / #10acdb**. **Show hair and beard** defaults to on. Eyebrows default to **#14e2f2** and remain disabled; scalp hair remains **None**. Landmark guides and **Show generated roots** default to off. Existing saved looks and personal preferences still restore their own values.
 
 ![Expanded root controls on the offline mannequin; generated anchors are magenta](images/groom-roots.png)
 
