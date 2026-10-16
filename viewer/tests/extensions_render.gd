@@ -37,7 +37,7 @@ func _run() -> void:
 	var suffix := args[0] if not args.is_empty() else ""
 	screenshot.save_png(ProjectSettings.globalize_path("res://../artifacts/landmark-extensions%s.png"%suffix))
 	var first_point: Vector2 = studio.extensions.model.points[0]
-	studio.landmarks_panel.controls.vertical_offset.value = -.15
+	studio.landmarks_panel.controls.vertical_offset.value = -.25
 	check(studio.extensions.model.points[0].y < first_point.y and studio.extensions.model.points[0].x == first_point.x,"Move up / down control shifts the virtual set immediately")
 	for region in Extensions.REGIONS:
 		var picker = studio.landmarks_panel.region_picker
@@ -51,7 +51,7 @@ func _run() -> void:
 			studio.landmarks_panel.controls[region+"_inset"].value = -.08
 			check(is_equal_approx(studio.extensions.model.config[region+"_inset"],-.08),"Side region exposes an independent inward/outward starting position")
 		check(studio.extensions.model.config[region+"_wrap"] == 110 and studio.extensions.model.config[region+"_back"] > 0,"Rounded region button updates its own contour")
-	check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.15),"Regional fitting keeps the existing whole-set up/down offset")
+	check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.25),"Regional fitting keeps the existing whole-set up/down offset")
 	studio.landmarks_panel.show_region("forehead")
 	await process_frame
 	await RenderingServer.frame_post_draw

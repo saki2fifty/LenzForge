@@ -21,6 +21,17 @@ var offsets := PackedVector3Array()
 var points := PackedVector2Array()
 
 static func defaults() -> Dictionary:
+	# The rounded mannequin-preview fit is the starting and reset configuration.
+	var result := straight_defaults()
+	result.vertical_offset = -.15
+	result.left_side_inset = -.08
+	result.right_side_inset = -.08
+	for region in REGIONS:
+		result.merge(rounded_region(region),true)
+		result[region+"_vertical"] = .1
+	return result
+
+static func straight_defaults() -> Dictionary:
 	var result := {"enabled":true,"show_points":true,"vertical_offset":0.0,"top":.42,"bottom":.2,"left":.18,"right":.18,
 		"depth":.15,"columns":72,"rings":4,"point_size":2.5,"color":"ffbf69ff"}
 	result.left_side_inset = 0.0
@@ -28,6 +39,12 @@ static func defaults() -> Dictionary:
 	# Zero contour controls preserve the fitting of existing saved settings.
 	for region in REGIONS:
 		for suffix in ["vertical","back","wrap"]: result[region+"_"+suffix] = 0.0
+	return result
+
+static func for_saved_settings(values: Dictionary) -> Dictionary:
+	# Missing fields in older saved fits retain their original straight geometry.
+	var result := straight_defaults()
+	result.merge(values,true)
 	return result
 
 static func rounded_region(region: String) -> Dictionary:

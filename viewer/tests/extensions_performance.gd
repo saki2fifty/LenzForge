@@ -17,7 +17,8 @@ func _run() -> void:
 	var contours := "contours" in OS.get_cmdline_user_args()
 	var case_names := ["default_visible","rounded_visible","rounded_maximum_visible"] if contours else ["disabled","default_hidden","default_visible","maximum_visible"]
 	for test in case_names:
-		var config := Extensions.defaults()
+		# Keep the historical straight/rounded benchmark fixtures comparable.
+		var config := Extensions.straight_defaults()
 		config.merge({"enabled":test != "disabled","show_points":test.ends_with("visible"),
 			"columns":144 if "maximum" in test else 72,"rings":12 if "maximum" in test else 4},true)
 		if test.begins_with("rounded"):

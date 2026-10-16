@@ -245,7 +245,8 @@ func _build_ui() -> void:
 	extensions.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	canvas.add_child(extensions)
 	var saved_extensions = settings.get_value("landmarks", "extensions", {})
-	if saved_extensions is Dictionary: extensions.set_settings(saved_extensions)
+	if saved_extensions is Dictionary and not saved_extensions.is_empty():
+		extensions.set_settings(extensions.model.for_saved_settings(saved_extensions))
 	beard.preview_face_changed.connect(_sync_preview_landmarks)
 	var empty_center := CenterContainer.new()
 	empty_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

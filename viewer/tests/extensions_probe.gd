@@ -13,6 +13,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var model := Extensions.new()
+	model.configure(Extensions.straight_defaults())
 	var face := Profile.mannequin()
 	var original := face.duplicate()
 	var dims := Vector2(1280,720)
@@ -69,14 +70,14 @@ func _run() -> void:
 	check(restored.configure(saved),"JSON settings reload")
 	restored.update(face,dims)
 	check(restored.points == model.points,"Saved fitting reproduces virtual references")
-	var older_settings := Extensions.defaults()
+	var older_settings := Extensions.straight_defaults()
 	older_settings.erase("vertical_offset")
 	older_settings.erase("left_side_inset")
 	older_settings.erase("right_side_inset")
 	for region in Extensions.REGIONS:
 		for suffix in ["vertical","back","wrap"]: older_settings.erase(region+"_"+suffix)
 	var older := Extensions.new()
-	check(older.configure(older_settings) and older.config.vertical_offset == 0,"Older settings keep the original vertical placement")
+	check(older.configure(Extensions.for_saved_settings(older_settings)) and older.config.vertical_offset == 0,"Older settings keep the original vertical placement")
 	older.update(face,dims)
 	check(older.points == points,"Settings saved before contour support retain the same fit")
 	face[338] = Vector2(INF,0)
@@ -104,7 +105,7 @@ func _check_contours(face: PackedVector2Array, dims: Vector2, moved: PackedVecto
 	var width: float = FaceFrame.frame(face,dims).width
 	var cardinal := {"forehead":0,"left_side":56,"right_side":16,"chin":36}
 	for region in Extensions.REGIONS:
-		model.configure(Extensions.defaults())
+		model.configure(Extensions.straight_defaults())
 		model.configure({"rings":8,"vertical_offset":.2})
 		model.update(face,dims)
 		var original := model.points.duplicate()

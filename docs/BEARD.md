@@ -2,6 +2,8 @@
 
 The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays attached to face landmarks. It includes a native strand solver, tapered colored rendering, an offline mannequin, a saved-look library, and a Blender curve bridge.
 
+The **Full beard** defaults are **512 facial strands**, **8 segments per strand**, **0.45 length**, **0.12 curl**, and **0.25 length variation**. Physics defaults are **3.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.025 damping**.
+
 ![Expanded root controls on the offline mannequin; generated anchors are magenta](images/groom-roots.png)
 
 ## Try it

@@ -26,7 +26,9 @@ Start the camera with **Face + iris** enabled, or select **Try on mannequin** in
 
 Reach and position values use face widths. For example, **Chin → Outward reach = 0.2** with zero wrap extends the outer lower row one fifth of the face width below the chin. The intermediate rows sample the contour from its starting position toward the back. Default density is **72 × 4 = 288** points; the maximum is **144 × 12 = 1,728**. Changing density does not add hair strands or tracking work in the backend.
 
-Use **Move up / down = -0.1** to lift every virtual point by one tenth of a face width, or **0.1** to lower them. This offset saves with the extension settings and follows head turns and tilts. **Reset extensions** returns it to zero.
+Use **Move up / down = -0.1** to lift every virtual point by one tenth of a face width, or **0.1** to lower them. This offset saves with the extension settings and follows head turns and tilts. **Reset extensions** restores the rounded preview defaults below.
+
+The starting and reset fit uses the tested rounded mannequin preview: **288 points**, whole-set up/down **−0.15**, each region's starting up/down **0.10**, and **110°** wrap in every region. Back reach is **0.5** for the forehead and sides, **0.3** for the chin. Both side insets are **−0.08**. Outward reach is **0.42** above the forehead, **0.18** on either side, and **0.20** below the chin; whole-set front/back is **0.15**. Existing saved fits continue to load their stored values.
 
 ## Fit a contour around your head
 

@@ -116,15 +116,15 @@ func _run() -> void:
 	layer.set_enabled(true)
 	layer.set_mannequin(true)
 	layer._process(1.0/60)
-	check(layer.roots.size() == 256 and layer.drawing.visible, "Offline preview attaches all strands")
+	check(layer.roots.size() == int(Profile.defaults().strands) and layer.drawing.visible, "Offline preview attaches all strands")
 	# Include the actual lip collider: a still face must not keep hair jittering.
 	for i in 1200: layer.simulator.advance(1.0/120)
 	var calm_tips := PackedVector2Array()
-	for i in 256: calm_tips.append(layer.simulator.get_strand_points(i)[-1])
+	for i in layer.roots.size(): calm_tips.append(layer.simulator.get_strand_points(i)[-1])
 	var largest_drift := 0.0
 	for tick in 120:
 		layer.simulator.advance(1.0/120)
-		for i in 256:
+		for i in layer.roots.size():
 			largest_drift = maxf(largest_drift,calm_tips[i].distance_to(layer.simulator.get_strand_points(i)[-1]))
 	check(largest_drift < .5, "Stationary full beard must settle with mouth collision: %f px" % largest_drift)
 	layer.selected_strand = 3

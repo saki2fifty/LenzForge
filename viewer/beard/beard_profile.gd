@@ -20,7 +20,7 @@ const MUSTACHE := [[2, 98, 61, 1.0, .38], [2, 61, 0, 1.0, .35], [2, 0, 291, 1.0,
 const SIDES := [[127, 234, 93, 1.0, .65], [356, 454, 323, 1.0, .65]]
 
 static func defaults(style := "Full beard") -> Dictionary:
-	var result := {"style": style, "strands": 256, "segments": 8, "length": .45,
+	var result := {"style": style, "strands": 512, "segments": 8, "length": .45,
 		"root_width": 2.4, "tip_width": .25, "gravity": 3.0, "wind": 0.0, "turbulence": 0.0,
 		"damping": .025, "stiffness": .4, "curl": .12, "variation": .25, "seed": 17, "preserve_shape": false,
 		"collisions": true, "root_color": "302019ff", "tip_color": "77513aff"}

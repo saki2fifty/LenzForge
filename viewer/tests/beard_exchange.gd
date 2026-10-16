@@ -11,6 +11,7 @@ func _run() -> void:
 	var library := Library.new()
 	if args[0] == "export":
 		var config := Profile.defaults()
+		config.strands = 256 # Fixed interchange fixture: 256 facial + 96 brow + 512 scalp.
 		config.merge(Groom.virtual_preset(),true)
 		config.hair_style = "Afro"; config.brow_enabled = true; config.chin_extension = .1
 		config.mustache_motion = "Static"

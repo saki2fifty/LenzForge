@@ -25,6 +25,7 @@ func _run() -> void:
 	var cases := ["combined","virtual","virtual_markers","virtual_dense"] if virtual_test else ["beard","combined","combined_markers","maximum","maximum_markers"]
 	for test in cases:
 		var config := Profile.defaults()
+		config.strands = 256 # Keep the recorded performance fixtures comparable.
 		if test != "beard":
 			config.merge(Groom.hair_preset("Afro"),true)
 			config.brow_enabled = true
