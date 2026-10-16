@@ -2,6 +2,7 @@
 #include "vid1_reader.h"
 #include "lmk1_reader.h"
 #include "god1_writer.h"
+#include "beard_simulator.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -18,6 +19,7 @@ void initialize_lenzforge_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<VID1Reader>();
 	ClassDB::register_class<LMK1Reader>();
 	ClassDB::register_class<GOD1Writer>();
+	ClassDB::register_class<BeardSimulator>();
 }
 
 void uninitialize_lenzforge_module(ModuleInitializationLevel p_level) {

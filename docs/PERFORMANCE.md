@@ -32,6 +32,28 @@ The latest-frame policy prioritizes responsiveness. A 60 Hz display can receive 
 
 DirectShow/MJPEG, global timer-period changes, and reduced OpenCV thread counts did not improve this machine's measured delivery and were not adopted. A native shared-D3D-texture capture/render path could reduce copying further, but current snapshot/upload CPU time is under half a millisecond on average. Driver delivery and display scheduling are the larger remaining limits observed here.
 
+## Beard physics
+
+Two additional 20-second runs used the same webcam, 720p/60 FPS setting, face tracking, and landmark overlay, with the native beard enabled. Both used the debug viewer extension built by Setup; no browser or recording was active.
+
+| Measurement | Default: 256 strands × 8 segments | Maximum: 1,024 strands × 16 segments |
+| --- | ---: | ---: |
+| Capture delivery/sec | 60.00 | 60.02 |
+| Tracking frames/sec | 59.60 | 59.56 |
+| Renderer FPS at end of run | 60 | 60 |
+| Distinct preview frames/sec | 53.05 | 51.55 |
+| Physics + packed upload preparation, mean | 0.67 ms | 5.42 ms |
+| Physics + packed upload preparation, p95 | 0.79 ms | 6.92 ms |
+| Physics + packed upload preparation, max | 1.42 ms | 10.33 ms |
+| Capture-read to texture submission, mean | 8.26 ms | 8.23 ms |
+| Beard-active timing samples | 1,040 | 1,014 |
+
+Raw reports: [default beard](performance/beard-256.json), [maximum beard](performance/beard-1024.json). Timing is sampled on newly delivered camera frames while a face is live; brief detection gaps pause physics and are excluded from the beard cost distribution. The beard timer includes native stepping, instance-buffer generation, and buffer assignment. It excludes landmark-to-root attachment, GPU completion, and display scanout. Renderer FPS is an end-of-run counter, not a guarantee that every frame met its deadline.
+
+The runs are separate observations, not a controlled claim that adding a beard improves preview FPS. Delivery and VSync phase vary as described above. Defaults remain 256 strands and 8 segments to preserve headroom. Disabling the beard stops simulation; loss of a tracked face hides it and pauses work. Counts and physics catch-up are bounded.
+
+To profile a beard, append `--beard --beard-strands 256 --beard-segments 8` to the benchmark below. The maximum supported values are 1,024 and 16. The command changes only its temporary viewer session; it does not overwrite the user's saved design.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:

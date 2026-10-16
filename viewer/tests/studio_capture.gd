@@ -6,6 +6,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var arguments := OS.get_cmdline_user_args()
 	var studio = load("res://studio.tscn").instantiate()
+	studio.persist_settings = false
 	studio.backend_url = arguments[0]
 	var source_id := int(arguments[1]) if arguments.size() > 1 else -1
 	root.add_child(studio)

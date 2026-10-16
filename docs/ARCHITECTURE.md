@@ -56,8 +56,18 @@ The video reader copies directly into packed upload planes, reuses image/texture
 - Face/iris points cross LMK1. Hands, pose, blendshapes, and transform data are available through the HTTP snapshot and JSON exports; desktop hand/body rendering is future work.
 - Desktop looks are GPU preview settings. Browser effects run before JPEG encoding. Neither changes source recordings.
 - Recordings are MJPEG AVI plus one timestamped JSONL record per accepted source frame. Constant-rate output can repeat frames to preserve timing when capture skips frames. Audio is not recorded.
-- `user://studio.cfg` stores desktop look/mirror/visibility. Browser performance settings are session-local; inference size changes require restarting capture.
+- `user://studio.cfg` stores desktop look/mirror/visibility and the working beard document. `user://beards` contains named library documents and mannequin thumbnails. Browser performance settings are session-local; inference size changes require restarting capture.
 - The HTTP service binds to `127.0.0.1`, validates hosts, and rejects cross-origin mutations. It is intended as a local application service.
+
+## Beard simulation and editing
+
+`viewer/beard/beard_profile.gd` owns bounded, versioned settings, deterministic barycentric root bindings, and guide resampling. `beard_layer.gd` converts current face landmarks into unmirrored video-space anchors; a final canvas transform handles the same mirror/letterboxing as video. Face loss pauses the solver, and large pose/scale discontinuities reset it. The editor, library, and Blender bridge share the same JSON model.
+
+`BeardSimulator` in the C++ extension stores roots, positions, previous positions, and rest directions in contiguous arrays. Fixed 120 Hz integration and four constraint iterations apply gravity, wind, damping, shape stiffness, pinned roots, segment lengths, and optional lip-ellipse collision. Catch-up is capped at four steps to prevent long stalls from creating a simulation backlog. Configurations are bounded at 1,024 strands and 16 segments.
+
+Rendering uses one `MultiMeshInstance2D` with one quad per segment. Each instance has an eight-float 2D transform, four color floats, and four custom floats carrying taper widths. The shader antialiases the tapered edges; the CPU prepares one packed buffer per display frame. Root bindings and rest guides are rebuilt only when settings change. Individual selection highlighting is a separate lightweight overlay used only in edit mode.
+
+This avoids per-hair Godot nodes, rigid bodies, or Python work in the camera path. The current design is 2D; full head occlusion, skin collision, and composed-video output are future work. The [beard guide](BEARD.md) documents controls, persistence, Blender curve exchange, and test commands. The [performance report](PERFORMANCE.md#beard-physics) includes actual webcam runs at default and maximum density.
 
 ## Verification and limits
 

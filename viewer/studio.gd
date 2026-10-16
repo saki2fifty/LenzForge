@@ -1,6 +1,8 @@
 extends Control
 ## Desktop studio: direct video display, bounded-age tracking, and real backend controls.
 const Overlay = preload("res://landmarks.gd")
+const BeardLayer = preload("res://beard/beard_layer.gd")
+const BeardPanel = preload("res://beard/beard_panel.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -14,6 +16,9 @@ var video_reader: Node
 var landmark_reader: Node
 var video: TextureRect
 var overlay: Control
+var beard: Control
+var beard_panel: VBoxContainer
+var sidebar_tabs: TabContainer
 var material_video: ShaderMaterial
 var empty_state: VBoxContainer
 var status: Label
@@ -45,6 +50,7 @@ var last_source_id := -999
 var shortcut_hint: Label
 var tracking_checks: Dictionary = {}
 var discovery_attempted := false
+var persist_settings := true
 
 func _ready() -> void:
 	DisplayServer.window_set_min_size(Vector2i(960, 640))
@@ -212,6 +218,7 @@ func _build_ui() -> void:
 	preview.add_theme_stylebox_override("panel", _style(Color("080d15"), 14))
 	center.add_child(preview)
 	var canvas := Control.new()
+	canvas.clip_contents = true
 	canvas.custom_minimum_size = Vector2(240, 240)
 	preview.add_child(canvas)
 	video = TextureRect.new()
@@ -223,6 +230,9 @@ func _build_ui() -> void:
 	material_video = ShaderMaterial.new()
 	material_video.shader = preload("res://video.gdshader")
 	video.material = material_video
+	beard = BeardLayer.new()
+	beard.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(beard)
 	overlay = Overlay.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -250,8 +260,13 @@ func _build_ui() -> void:
 	_spacer(actions)
 	shortcut_hint = _label("L  landmarks    M  mirror    F11  fullscreen", 10, MUTED)
 	actions.add_child(shortcut_hint)
-	var right := _card(body, 228)
-	right_panel = right.get_parent().get_parent()
+	right_panel = PanelContainer.new()
+	right_panel.custom_minimum_size.x = 310
+	right_panel.add_theme_stylebox_override("panel", _style(PANEL))
+	body.add_child(right_panel)
+	sidebar_tabs = TabContainer.new()
+	right_panel.add_child(sidebar_tabs)
+	var right := _tab_column("Look")
 	_section(right, "03 / Appearance", "Adjust the desktop preview. Recordings keep the original source.")
 	right.add_child(_label("LOOK", 10, MUTED))
 	preset_picker = OptionButton.new()
@@ -287,11 +302,34 @@ func _build_ui() -> void:
 	var note := _label("Video keeps moving when tracking pauses. Stale overlays clear automatically.", 12, MUTED)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(note)
+	var beard_column := _tab_column("Beard")
+	beard_panel = BeardPanel.new()
+	beard_column.add_child(beard_panel)
+	beard_panel.setup(beard, self)
+	beard_panel.message.connect(func(text): message.text = text)
+	beard.changed.connect(func():
+		if beard.mannequin: empty_state.hide()
+		elif video.texture == null: empty_state.show())
+	var saved_beard = settings.get_value("beard", "document", {})
+	if saved_beard is Dictionary and not saved_beard.is_empty():
+		beard.apply_document(saved_beard)
+	beard.set_enabled(bool(settings.get_value("beard", "enabled", false)))
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
 	resized.connect(_adapt_layout)
 	call_deferred("_adapt_layout")
+
+func _tab_column(title: String) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = title
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sidebar_tabs.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
+	return column
 
 func _adapt_layout() -> void:
 	right_panel.visible = true
@@ -327,16 +365,20 @@ func _setup_readers() -> void:
 	add_child(landmark_reader)
 	video_reader.frame_ready.connect(_on_video)
 	landmark_reader.landmarks_ready.connect(_on_landmarks)
-	landmark_reader.face_lost.connect(func(): overlay.points.clear(); overlay.queue_redraw())
+	landmark_reader.face_lost.connect(_clear_tracking)
+
+func _clear_tracking() -> void:
+	overlay.points.clear()
+	overlay.queue_redraw()
+	if not beard.mannequin: beard.clear_face()
 
 func _poll() -> void:
 	if api_poll.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
 		api_poll.request(backend_url + "/api/status")
 	if last_video_at and Time.get_ticks_msec() - last_video_at > 1500:
-		empty_state.show()
+		empty_state.visible = not beard.mannequin
 		video.hide()
-		overlay.points.clear()
-		overlay.queue_redraw()
+		_clear_tracking()
 		if video_reader:
 			video_reader.stop_reading()
 			landmark_reader.stop_reading()
@@ -358,6 +400,7 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 	if active and video_reader:
 		var buffers: Dictionary = data.get("buffers", {})
 		if buffers != current_buffers:
+			_clear_tracking()
 			video_reader.stop_reading()
 			landmark_reader.stop_reading()
 			current_buffers = buffers
@@ -458,6 +501,7 @@ func _start() -> void:
 	if video_reader:
 		video_reader.stop_reading()
 		landmark_reader.stop_reading()
+	_clear_tracking()
 	# JSON.parse_string turns the discovered index into a float. Camera IDs are
 	# discrete identifiers, so send an integer back to the capture API.
 	_action("/api/camera/select", {"camera_index": int(camera.index), "device_id": camera.get("device_id"), "resolution": [[1280, 720], [1920, 1080], [640, 360]][resolution_picker.selected], "fps": [30, 60, 24][fps_picker.selected]})
@@ -476,8 +520,7 @@ func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int
 	if received_frames == 1:
 		message.text = "Source connected. Adjust your look or start a recording."
 	if frame_timestamp - landmark_timestamp > 150000 and not overlay.points.is_empty():
-		overlay.points.clear()
-		overlay.queue_redraw()
+		_clear_tracking()
 
 func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 	landmark_timestamp = timestamp
@@ -488,6 +531,7 @@ func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
 		normalized.append(Vector2(point.x, point.y))
 	overlay.points = normalized
 	overlay.queue_redraw()
+	beard.set_face(normalized, overlay.video_size)
 
 func _set_look(index: int) -> void:
 	var looks := [[1.0, 1.0, 0.0], [0.0, 1.15, 0.0], [0.8, 1.05, 0.045], [1.15, 1.18, 0.0]]
@@ -501,6 +545,7 @@ func _set_mirror(value: bool) -> void:
 	material_video.set_shader_parameter("mirror", value)
 	overlay.mirror = value
 	overlay.queue_redraw()
+	beard.set_mirror(value)
 	settings.set_value("view", "mirror", value)
 
 func _set_points(value: bool) -> void:
@@ -530,6 +575,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			KEY_F11: DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _exit_tree() -> void:
+	if not persist_settings: return
+	if beard:
+		settings.set_value("beard", "document", beard.get_document())
+		settings.set_value("beard", "enabled", beard.enabled)
 	settings.save("user://studio.cfg")
 
 func _capture_and_quit() -> void:

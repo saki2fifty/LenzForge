@@ -2,6 +2,7 @@ extends SceneTree
 var intervals: Array[float] = []
 var ages: Array[float] = []
 var uploads: Array[float] = []
+var beard_updates: Array[float] = []
 var last_frame_at := 0
 var measuring := false
 
@@ -20,12 +21,19 @@ func _initialize() -> void:
 func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var studio = load("res://studio.tscn").instantiate()
+	studio.persist_settings = false
 	studio.backend_url = args[0]
 	var source_id := int(args[1])
 	var duration := float(args[2])
 	if args.size() > 3:
 		Engine.max_fps = int(args[3])
 	root.add_child(studio)
+	studio.beard.set_enabled(args.size() > 6 and args[6] == "1")
+	if studio.beard.enabled:
+		var profile = load("res://beard/beard_profile.gd")
+		studio.beard.apply_document(profile.document("Benchmark",profile.defaults(),{}))
+		studio.beard.set_setting("strands",int(args[7]))
+		studio.beard.set_setting("segments",int(args[8]))
 	if args.size() > 4:
 		studio.fps_picker.select({30: 0, 60: 1, 24: 2}[int(args[4])])
 	if args.size() > 5:
@@ -61,6 +69,8 @@ func _run() -> void:
 		if studio.video_reader.has_method("get_frame_age_ms"):
 			ages.append(studio.video_reader.get_frame_age_ms())
 			uploads.append(studio.video_reader.get_upload_ms())
+		if studio.beard.enabled and studio.beard._face_live:
+			beard_updates.append(studio.beard.update_ms)
 	)
 	await create_timer(2).timeout
 	measuring = true
@@ -73,7 +83,8 @@ func _run() -> void:
 	var result := {"frames": intervals.size(), "displayed_fps": intervals.size()/duration,
 		"render_fps": Engine.get_frames_per_second(), "frame_cap": Engine.max_fps,
 		"interval_ms": distribution(intervals), "gaps_over_50_ms": gaps,
-		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads)}
+		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads),
+		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size()}
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
 	studio.video_reader.stop_reading()
 	studio.landmark_reader.stop_reading()

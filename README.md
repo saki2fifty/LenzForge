@@ -41,13 +41,16 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 - One background capture owner and one inference worker, shared by both interfaces. Capture runs without an open browser.
 - Face tracking with 478 landmarks, 52 blendshape scores, and a face transform; optional hand and body tracking. Hand/body results appear in the browser and JSON exports. The desktop overlay currently displays face/iris points.
 - GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.
+- A [physics beard editor](docs/BEARD.md): full beard, goatee, mustache, and sideburn presets; strand count/length/taper/color; gravity, wind, damping, curl, and individual strand edits. Save a thumbnail library or exchange editable curves with Blender.
 - Responsive dark studio interfaces, measured frame/inference statistics, source controls, and a camera-free demo.
 - Browser preview effects and JPEG quality control. Preview effects are independent between the desktop and browser.
 - Source recording to playable MJPEG AVI with timestamped landmark JSONL in `recordings/`. Recording memory stays bounded; files grow with recording duration.
 - Browser source-image and landmark exports. Desktop snapshots capture the complete studio window in Godot's `user://captures` directory; the UI reports the full saved path.
-- Persistent desktop look, mirror, and landmark visibility. Shortcuts: **L** landmarks, **M** mirror, **F11** fullscreen.
+- Persistent desktop look, mirror, landmark visibility, and working beard. Shortcuts: **L** landmarks, **M** mirror, **F11** fullscreen.
 
 **Recordings keep the original camera source**, without preview looks, mirror, or overlays. Virtual-camera output is not connected end to end; the earlier GOD1 writer is retained as a foundation. Background segmentation and face-specific effects remain experimental and are withheld from the new browser effect picker.
+
+Open the desktop **Beard** tab, choose a style, and click **Create beard**. Enable **Try on mannequin** to design without a camera; drag the mannequin to test motion. For your live face, turn the mannequin off and start capture with **Face + iris** enabled. Scroll the Beard tab for shape, physics, and individual strand controls. After updating an existing checkout, close the viewer and run `Setup.ps1 -SkipInstall` once to build the native solver.
 
 ## Toolchain
 
@@ -91,7 +94,7 @@ After setup:
 .\buildtools\python-3.15.0\python.exe -B tools\check.py
 ```
 
-This runs Python regression tests, a Godot headless import/startup, native video/landmark probes, and an isolated integration test that discovers the demo source and presses the viewer's actual **Start capture** button through the HTTP API. The Windows GitHub Actions workflow runs the same checks.
+This runs Python regression tests, a Godot headless import/startup, native video/landmark probes, beard physics/library/interchange checks, and an isolated integration test that discovers the demo source and presses the viewer's actual **Start capture** button through the HTTP API. The Windows GitHub Actions workflow runs the same checks. Additional rendered beard and real Blender round-trip checks are documented in the [beard guide](docs/BEARD.md).
 
 Local validation also rendered both interfaces and exercised face inference on a public-domain portrait bundled with Matplotlib. On the development PC, a NexiGo N960E at 1280×720 now delivered 60 fps capture, about 60 fps face tracking, and 50.8 distinct preview frames/sec on a 60 Hz display. The previous pipeline displayed 21.7 fps at its 30 fps setting. These short-run observations are not guarantees for other devices or lighting conditions. See the [performance measurements and reproducible benchmark](docs/PERFORMANCE.md), including the comparison at the same 30 fps setting. Other camera models and the full range of retained effects still need hardware/manual coverage.
 
