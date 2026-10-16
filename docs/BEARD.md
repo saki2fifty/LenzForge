@@ -2,7 +2,9 @@
 
 The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays attached to face landmarks. It includes a native strand solver, tapered colored rendering, an offline mannequin, a saved-look library, and a Blender curve bridge.
 
-The **Full beard** defaults are **512 facial strands**, **8 segments per strand**, **0.45 length**, **0.12 curl**, and **0.25 length variation**. Physics defaults are **3.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.025 damping**.
+The **Full beard** defaults are **1,024 facial strands**, **8 segments per strand**, **0.5 length**, **0.57 curl**, and **0.14 length variation**. Starting/ending widths are **7.4 / 3.05**, with root/tip colors **#0849f4 / #12aadf**. Physics defaults are **12.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.045 damping**.
+
+The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage width**, **0.85 thickness**, **3.0 density**, and root/tip colors **#0645fa / #10acdb**. Eyebrows default to **#14e2f2** and remain disabled; scalp hair remains **None**. These are project defaults for new looks. Existing saved looks and personal preferences still restore their own values; camera, tracking, landmark, window, and other application defaults are unchanged.
 
 ![Expanded root controls on the offline mannequin; generated anchors are magenta](images/groom-roots.png)
 
@@ -79,7 +81,7 @@ The beard uses **Physics → Preserve styled beard shape** to switch between Fre
 | Regrow roots | Generate new roots and length variation with a new seed. Individual overrides remain associated with stable strand IDs. **Apply beard preset** resets facial edits and keeps the scalp/brow setup. |
 | Gravity | Downward acceleration in face widths per second squared, independent of head tilt. Higher gravity speeds the fall and resists wind more strongly. Zero disables gravitational acceleration. |
 | Horizontal wind / wind variation | Horizontal acceleration and time-varying gusts. Gusts apply only when wind is nonzero, so zero wind is calm. Positive wind follows camera coordinates, which the mirror option can reflect. |
-| Damping | Removes a fraction of velocity each physics step; default 0.025. It controls how long motion persists. Very high damping can make falling sluggish. |
+| Damping | Removes a fraction of velocity each physics step; default 0.045. It controls how long motion persists. Very high damping can make falling sluggish. |
 | Preserve styled beard shape | Off by default, including for files saved before this option existed. Enable it to hold beard curls or an imported rest shape against gravity. |
 | Beard shape stiffness | Used only with **Preserve styled beard shape**. Pulls toward the original curled or imported shape. |
 | Keep moving hair out of mouth | Pushes dynamic beard/mustache points outside an ellipse following the lips. |

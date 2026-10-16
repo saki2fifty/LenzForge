@@ -26,7 +26,7 @@ func _run() -> void:
 	for angle in [0,45,90,135,180,-90]:
 		view.set_pose(angle,20)
 		layer._process(1.0/60)
-		check(layer._face_live and layer.roots.size() == 512,"Hair remains attached at yaw %s"%angle)
+		check(layer._face_live and layer.roots.size() == int(layer.config.strands),"Hair remains attached at yaw %s"%angle)
 		for point in layer.face: check(point.is_finite(),"Finite projected reference")
 		for point in layer.roots: check(point.is_finite(),"Finite projected hair root")
 		check(view.extension_points(extensions) == stable,"Orbit leaves local virtual fitting unchanged")
@@ -61,7 +61,7 @@ func _run() -> void:
 	layer.set_enabled(true)
 	layer.set_face(Profile.mannequin(),Vector2(640,360))
 	layer._process(1.0/60)
-	check(layer.drawing.visible and layer.instances.buffer.size() == 512*8*16,"Live video restores the original 2D batch")
+	check(layer.drawing.visible and layer.instances.buffer.size() == int(layer.config.strands)*int(layer.config.segments)*16,"Live video restores the original 2D batch")
 	layer.set_enabled(false)
 	layer.set_mannequin(true)
 	check(not view.hair.visible,"Reopening a hairless preview cannot show stale strands")

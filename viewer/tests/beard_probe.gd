@@ -130,7 +130,7 @@ func _run() -> void:
 	check(largest_drift < .5, "Stationary full beard must settle with mouth collision: %f px" % largest_drift)
 	layer.selected_strand = 3
 	layer.set_strand_setting("length", 2.0)
-	check(layer.overrides["3"].length == 2.0 and layer.config.length == .45, "Individual edit preserves global settings")
+	check(layer.overrides["3"].length == 2.0 and layer.config.length == Profile.defaults().length, "Individual edit preserves global settings")
 	layer.apply_document(custom)
 	check(layer.last_error.is_empty(), "Custom curves reach the native solver")
 	var legacy := custom.duplicate(true)

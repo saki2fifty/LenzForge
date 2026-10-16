@@ -8,9 +8,15 @@ var failures: Array[String] = []
 func check(condition: bool, detail: String) -> void:
 	if not condition: failures.append(detail)
 
+func fixture_settings() -> Dictionary:
+	# These dynamics comparisons use fixed lengths and damping, not UI defaults.
+	var config := Profile.defaults()
+	config.merge({"length":.45,"gravity":3.0,"damping":.025},true)
+	return config
+
 func solver_with(gravity: float, wind := 0.0, horizontal := false) -> RefCounted:
 	var solver: RefCounted = ClassDB.instantiate("BeardSimulator")
-	var config := Profile.defaults()
+	var config := fixture_settings()
 	config.gravity = gravity; config.wind = wind; config.collisions = false
 	config.preserve_shape = horizontal
 	# A horizontal initial condition lets us measure falling speed, not initialization.
@@ -42,7 +48,7 @@ func turn(ticks: int, frame_ticks := 1) -> Dictionary:
 
 func _initialize() -> void:
 	var solver := solver_with(3)
-	var config := Profile.defaults()
+	var config := fixture_settings()
 	config.collisions = false; config.turbulence = 5; config.stiffness = 1
 	solver.configure(1,8,config,PackedFloat32Array(ATTRIBUTES))
 	solver.set_anchors(PackedVector2Array([ROOT]),200,Vector2.RIGHT,Vector2.ZERO,Vector2.ONE)
@@ -56,7 +62,7 @@ func _initialize() -> void:
 	check(simulate(solver_with(0,0,true),1200).is_equal_approx(ROOT+Vector2(90,0)),
 		"With gravity and wind disabled, no artificial spring may pull the strand down")
 	var styled := solver_with(3,0,true)
-	config = Profile.defaults(); config.collisions = false; config.preserve_shape = true
+	config = fixture_settings(); config.collisions = false; config.preserve_shape = true
 	styled.configure(1,8,config,PackedFloat32Array(ATTRIBUTES))
 	check(simulate(styled,600).x > ROOT.x+50, "Explicit shape preservation must still hold a styled beard")
 	var light_wind := simulate(solver_with(3,1),1200)
@@ -68,7 +74,7 @@ func _initialize() -> void:
 		"Steady wind and gravity must settle along their combined acceleration")
 	solver = solver_with(3,4)
 	simulate(solver,600)
-	config = Profile.defaults(); config.collisions = false
+	config = fixture_settings(); config.collisions = false
 	solver.configure(1,8,config,PackedFloat32Array(ATTRIBUTES))
 	var wind_stopped := simulate(solver,1200)
 	check(absf(wind_stopped.x-ROOT.x) < 1, "Stopping wind must return the beard to vertical")

@@ -13,6 +13,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var config := Profile.defaults()
+	# Unit-coverage baseline for the relative mustache scaling assertions below.
+	config.mustache_width = 1.0; config.mustache_thickness = 1.0
 	for key in Groom.NUMBERS:
 		var invalid := config.duplicate(true)
 		invalid[key] = INF

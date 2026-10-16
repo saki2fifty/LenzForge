@@ -114,7 +114,7 @@ func _run() -> void:
 			face.append(Vector2(rotated.x,rotated.y)/dims)
 			depth.append(rotated.z/dims.x)
 		layer.set_face(face,dims,depth)
-		check(layer._face_live and layer.roots.size() == 512,"Live hair survives exact profile when projected cheek width collapses")
+		check(layer._face_live and layer.roots.size() == int(layer.config.strands),"Live hair survives exact profile when projected cheek width collapses")
 	layer.free()
 	object.free()
 	print("HEAD_SURFACE_PROBE failures=",failures)

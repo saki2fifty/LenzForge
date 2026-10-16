@@ -9,6 +9,11 @@ func _run() -> void:
 	studio.persist_settings = false
 	studio.backend_url = "http://127.0.0.1:1"
 	root.add_child(studio)
+	# Keep the published before/after workload independent of personal defaults.
+	studio.beard.set_settings({"strands":512,"segments":8,"length":.45,"root_width":2.4,"tip_width":.25,
+		"gravity":3.0,"damping":.025,"curl":.12,"variation":.25,"root_color":"302019ff","tip_color":"77513aff",
+		"mustache_style":"Natural","mustache_width":1.0,"mustache_thickness":1.0,"mustache_density":1.0,
+		"mustache_motion":"Free","mustache_color":"302019ff","mustache_tip_color":"302019ff","brow_color":"302019ff"})
 	studio.beard.set_enabled(true)
 	var source := Reference.reference_points()
 	var result := []
