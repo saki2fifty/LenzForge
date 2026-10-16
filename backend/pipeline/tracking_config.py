@@ -2,6 +2,7 @@
 from dataclasses import asdict, dataclass, replace
 import math
 import threading
+from settings_store import save_sections
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class TrackingConfig:
 
 
 _lock = threading.Lock()
+_update_lock = threading.Lock()
 _config = TrackingConfig()
 _revision = 0
 
@@ -54,9 +56,14 @@ def get_tracking_config():
         return _config, _revision
 
 
-def update_tracking_config(changes=None, reset=False):
+def update_tracking_config(changes=None, reset=False, additional_settings=None):
     global _config, _revision
-    with _lock:
-        _config = TrackingConfig() if reset else _config.updated(changes)
-        _revision += 1  # Reapplying GPU also explicitly retries a failed browser.
-        return _config, _revision
+    with _update_lock:
+        current, _ = get_tracking_config()
+        candidate = TrackingConfig() if reset else current.updated(changes)
+        # Disk I/O must not hold the lock read on every inference frame.
+        save_sections({**(additional_settings or {}), 'tracking': candidate.to_dict()})
+        with _lock:
+            _config = candidate
+            _revision += 1  # Reapplying GPU also explicitly retries a failed browser.
+            return _config, _revision

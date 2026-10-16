@@ -54,7 +54,7 @@ def main():
         frames = [cv2.warpAffine(portrait, np.float32([[1, 0, i - 3], [0, 1, 0]]), (1280, 720)) for i in range(7)]
         Camera._demo_frame = lambda camera: frames[camera.frame_count % len(frames)]
     update_tracking_config({'backend': args.tracking_backend})
-    app = create_app()
+    app = create_app({'TESTING': True})
     server = make_server('127.0.0.1', 0, app, threaded=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

@@ -4,6 +4,8 @@ Handles effects operations: list, active, apply, configure, enable, remove, clea
 """
 
 from flask import Blueprint, jsonify, request
+from settings_store import save_section
+from copy import deepcopy
 
 bp = Blueprint('effects', __name__)
 
@@ -13,6 +15,56 @@ _effects_manager = None
 # Import streaming module to share _active_effects
 from . import streaming
 _active_effects = streaming._active_effects  # Share the same list
+
+
+def describe_chain(effects=None):
+    return [{'name': effect.__class__.__name__, 'enabled': effect.is_enabled(),
+             'parameters': {key: value['current'] for key, value in effect.get_parameters_info().items()}}
+            for effect in (_active_effects if effects is None else effects)]
+
+
+def restore_chain(entries):
+    from effects import get_effects_manager
+    manager = get_effects_manager()
+    candidate = []
+    if not isinstance(entries, list):
+        raise ValueError('Expected an effect chain')
+    for entry in entries:
+        effect = manager.create_effect(entry['name'])
+        if effect is None:
+            raise ValueError('Unknown effect: ' + str(entry['name']))
+        for key, value in entry.get('parameters', {}).items():
+            if not effect.set_parameter(key, value):
+                raise ValueError('Invalid effect parameter: ' + key)
+        effect.enable() if entry.get('enabled', True) else effect.disable()
+        candidate.append(effect)
+    _active_effects[:] = candidate
+
+
+@bp.before_request
+def preserve_effects():
+    if request.method == 'POST':
+        from flask import g
+        g.previous_effects = deepcopy(_active_effects)
+
+
+@bp.after_request
+def persist_effects(response):
+    if request.method != 'POST':
+        return response
+    from flask import g
+    if not hasattr(g, 'previous_effects'):
+        return response
+    if response.status_code >= 400:
+        _active_effects[:] = g.previous_effects
+        return response
+    try:
+        save_section('effects', describe_chain())
+    except OSError as exc:
+        _active_effects[:] = g.previous_effects
+        from flask import make_response
+        return make_response(jsonify(success=False, error={'message': 'Could not save effects: ' + str(exc)}), 500)
+    return response
 
 
 def set_effects_manager(manager):
@@ -165,6 +217,8 @@ def apply_effect():
         # Enable if requested
         if enabled:
             effect.enable()
+        else:
+            effect.disable()
 
         # Add to active effects
         _active_effects.append(effect)
@@ -491,6 +545,8 @@ def set_chain():
             # Enable if requested
             if enabled:
                 effect.enable()
+            else:
+                effect.disable()
 
             _active_effects.append(effect)
             created_effects.append(effect_name)

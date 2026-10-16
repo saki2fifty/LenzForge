@@ -7,6 +7,17 @@ let trackingDirty = false;
 let trackingRevision = -1;
 let modelSignature = '';
 const trackingForm = $('tracking-settings');
+const preferences = new PreferenceQueue({
+  getItem: key => localStorage.getItem(key),
+  setItem: (key, value) => localStorage.setItem(key, value)
+}, api, (path, result) => {
+  if ((path === '/api/tracking/configure' || path === '/api/tracking/reset') && !preferences.data.pending['/api/tracking/configure']) acceptTracking(result.config, result.revision);
+  $('message').textContent = 'Settings saved.';
+}, message => { $('message').textContent = message; });
+for (const id of ['resolution', 'fps', 'import-kind']) {
+  if (preferences.data[id] !== undefined) $(id).value = preferences.data[id];
+  $(id).addEventListener('change', () => { preferences.data[id] = $(id).value; preferences.save(); });
+}
 for (const kind of ['face', 'hand', 'pose']) {
   const label = document.createElement('label');
   label.textContent = `${kind[0].toUpperCase() + kind.slice(1)} model`;
@@ -25,19 +36,21 @@ function updateModels(library) {
   const signature = JSON.stringify(library.models);
   if (signature !== modelSignature) {
     modelSignature = signature;
+    preferences.blocked.delete('/api/tracking/configure');
     for (const kind of ['face', 'hand', 'pose']) {
       const picker = $(`model-${kind}`), selected = picker.value;
       picker.replaceChildren();
       for (const model of library.models.filter(item => item.kind === kind)) {
         picker.add(new Option(`${model.label} · ${model.installed ? 'installed' : 'download'}`, model.id));
       }
-      if ([...picker.options].some(item => item.value === selected)) picker.value = selected;
+      if (![...picker.options].some(item => item.value === selected)) picker.add(new Option(selected + ' · unavailable', selected));
+      picker.value = selected;
     }
   }
   const job = library.job;
   if (job.state !== 'idle') $('model-job').textContent = `${job.label} · ${job.state}` +
     (job.state === 'downloading' ? ` · ${(job.received / 1048576).toFixed(1)} / ${(job.total / 1048576).toFixed(1)} MB` :
-      job.error ? `: ${job.error}` : job.state === 'ready' ? '. Select it, then Apply tracking settings.' : '');
+      job.error ? `: ${job.error}` : job.state === 'ready' ? '. Selected models apply automatically.' : '');
 }
 $('import-model').onclick = () => action(async () => {
   const file = $('model-file').files[0];
@@ -48,39 +61,54 @@ $('import-model').onclick = () => action(async () => {
   if (!response.ok) throw new Error(result.error?.message || 'Import failed');
   $('message').textContent = 'Validating model…';
 });
-trackingForm.addEventListener('input', () => { trackingDirty = true; });
+trackingForm.addEventListener('input', () => {
+  trackingDirty = true;
+  if (trackingForm.checkValidity()) preferences.set('/api/tracking/configure', trackingValues());
+});
 function acceptTracking(config, revision) {
   for (const [key, value] of Object.entries(config || {})) {
     const field = trackingForm.elements.namedItem(key);
     if (!field) continue;
     if (field.type === 'checkbox') field.checked = value;
-    else field.value = value;
+    else {
+      if (key.endsWith('_model') && ![...field.options].some(option => option.value === value)) field.add(new Option(value + ' · unavailable', value));
+      field.value = value;
+    }
   }
   trackingDirty = false; trackingRevision = revision;
+  preferences.data.tracking = config;
+  preferences.save();
 }
-trackingForm.onsubmit = event => {
-  event.preventDefault();
+function trackingValues() {
   const values = {};
   for (const field of trackingForm.elements) {
     if (!field.name) continue;
     values[field.name] = field.type === 'checkbox' ? field.checked : field.name === 'backend' || field.name.endsWith('_model') ? field.value : Number(field.value);
   }
-  action(async () => {
-    const result = await api('/api/tracking/configure', values);
-    acceptTracking(result.config, result.revision);
-    $('message').textContent = 'Tracking settings applied.';
-  });
+  return values;
+}
+trackingForm.onsubmit = event => {
+  event.preventDefault(); trackingDirty = true;
+  preferences.set('/api/tracking/configure', trackingValues());
 };
-$('tracking-reset').onclick = () => action(async () => {
-  const result = await api('/api/tracking/reset', {});
-  acceptTracking(result.config, result.revision);
-});
+$('tracking-reset').onclick = () => {
+  delete preferences.data.pending['/api/tracking/configure'];
+  preferences.set('/api/tracking/reset', {});
+};
+if (preferences.data.tracking) acceptTracking(preferences.data.tracking, -1);
+if (preferences.data.pending['/api/tracking/configure']) {
+  acceptTracking(preferences.data.pending['/api/tracking/configure'], -1);
+  trackingDirty = true;
+}
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
   });
   const result = await response.json();
-  if (!response.ok || result.success === false) throw new Error(result.error?.message || result.error || 'Request failed');
+  if (!response.ok || result.success === false) {
+    const error = new Error(result.error?.message || result.error || 'Request failed');
+    error.status = response.status; throw error;
+  }
   return result;
 }
 async function action(callback) {
@@ -104,9 +132,11 @@ async function findCameras() {
     return option;
   });
   $('source').replaceChildren(placeholder, ...options);
-  const selected = options.find(option => previous?.dataset.deviceId
-    ? option.dataset.deviceId === previous.dataset.deviceId
-    : option.value === (previous?.value || String(lastSource)));
+  const saved = preferences.data.camera;
+  const deviceId = previous?.dataset.deviceId || saved?.deviceId;
+  const selected = options.find(option => deviceId
+    ? option.dataset.deviceId === deviceId
+    : option.value === (previous?.value || saved?.index || String(lastSource)));
   $('source').value = selected?.value ?? '';
   $('start').disabled = !$('source').value;
   $('message').textContent = result.cameras.some(camera => camera.index >= 0)
@@ -115,30 +145,29 @@ async function findCameras() {
 }
 $('scan').onclick = () => action(findCameras);
 $('source').onchange = () => {
+  preferences.data.camera = {index: $('source').value, deviceId: $('source').selectedOptions[0]?.dataset.deviceId};
+  preferences.save();
   $('start').disabled = !$('source').value;
   $('message').textContent = 'Click Start capture to use ' + $('source').selectedOptions[0].text + '.';
 };
-document.querySelectorAll('[data-tracking]').forEach(input => input.onchange = () => action(async () => {
+document.querySelectorAll('[data-tracking]').forEach(input => input.onchange = () => {
   const changes = {[input.dataset.tracking]:input.checked};
   if (input.dataset.tracking === 'face_mesh') changes.iris = input.checked;
-  await api('/api/tracking/enable', changes); $('message').textContent = 'Tracking updated.';
-}));
+  preferences.set('/api/tracking/enable', changes);
+});
 $('record').onclick = () => action(async () => {
   const result = await api('/api/export/recording/' + (recording ? 'stop' : 'start'), {});
   recording = result.recording;
   $('message').textContent = (recording ? 'Recording source to ' : 'Saved ') + result.files.join(', ');
 });
-$('apply').onclick = () => action(async () => {
-  await api('/api/effects/clear', {});
-  if ($('effect').value) await api('/api/effects/apply', {effect_name:$('effect').value});
-  $('message').textContent = 'Browser preview effect updated.';
-});
-$('clear').onclick = () => action(async () => { await api('/api/effects/clear', {}); $('effect').value = ''; $('message').textContent = 'Effects reset.'; });
-$('quality').oninput = () => { $('quality-value').textContent = $('quality').value; };
-$('quality').onchange = () => action(async () => {
-  await api('/api/performance/config', {preview_quality:Number($('quality').value)});
-  $('message').textContent = 'Preview quality updated.';
-});
+$('apply').onclick = $('effect').onchange = () => {
+  preferences.set('/api/effects/chain', {effects: $('effect').value ? [{name: $('effect').value}] : []});
+};
+$('clear').onclick = () => { $('effect').value = ''; $('apply').onclick(); };
+$('quality').oninput = () => {
+  $('quality-value').textContent = $('quality').value;
+  preferences.set('/api/performance/config', {preview_quality:Number($('quality').value)});
+};
 async function poll() {
   try {
     const data = await api('/api/status');
@@ -155,7 +184,7 @@ async function poll() {
     $('dropped').textContent = data.tracking.frames_dropped || '0';
     const tracking = data.tracking;
     updateModels(tracking.library);
-    if (!trackingDirty && trackingRevision !== tracking.settings_revision) acceptTracking(tracking.settings, tracking.settings_revision);
+    if (!trackingDirty && !preferences.data.pending['/api/tracking/reset'] && trackingRevision !== tracking.settings_revision) acceptTracking(tracking.settings, tracking.settings_revision);
     let runtime = (tracking.active_backend || 'Waiting for capture').toUpperCase();
     if (tracking.phase && tracking.phase !== 'ready') runtime += ' · ' + tracking.phase.replaceAll('_', ' ');
     if (tracking.fallback_reason) runtime += ' · fallback: ' + tracking.fallback_reason;
@@ -164,7 +193,9 @@ async function poll() {
     $('tracking-runtime').textContent = runtime;
     document.querySelectorAll('[data-tracking]').forEach(input => {
       const feature = input.dataset.tracking === 'face_mesh' ? 'face' : input.dataset.tracking;
-      if (feature in (data.tracking.features || {})) input.checked = data.tracking.features[feature];
+      const pending = preferences.data.pending['/api/tracking/enable'];
+      if (pending && input.dataset.tracking in pending) input.checked = pending[input.dataset.tracking];
+      else if (feature in (data.tracking.features || {})) input.checked = data.tracking.features[feature];
     });
     recording = data.recording;
     $('record').textContent = recording ? '■ Stop recording' : '● Record source';
@@ -174,10 +205,11 @@ async function poll() {
       discoveryAttempted = true;
       try { await findCameras(); } catch (error) { $('message').textContent = error.message; }
     }
+    await preferences.flush();
   } catch (_) { $('connection').textContent = 'Backend offline'; discoveryAttempted = false; }
 }
 async function updateLoop() { await poll(); setTimeout(updateLoop, document.hidden ? 4000 : 1000); }
-api('/api/effects/list').then(result => {
+api('/api/effects/list').then(async result => {
   // Segmentation-dependent effects are withheld until the pipeline supplies a mask.
   for (const [category, effects] of Object.entries(result.categories)) {
     if (category === 'Background' || category === 'Face') continue;
@@ -185,5 +217,11 @@ api('/api/effects/list').then(result => {
     for (const effect of effects) group.append(new Option(effect.name.replace(/Effect$/, '').replace(/([a-z])([A-Z])/g, '$1 $2'), effect.name));
     $('effect').append(group);
   }
+  const active = await api('/api/effects/active');
+  $('effect').value = (preferences.data.pending['/api/effects/chain']?.effects || active.active_effects)[0]?.name || '';
+}).catch(error => { $('message').textContent = error.message; });
+api('/api/performance/config').then(result => {
+  $('quality').value = preferences.data.pending['/api/performance/config']?.preview_quality ?? result.config.preview_quality;
+  $('quality-value').textContent = $('quality').value;
 }).catch(error => { $('message').textContent = error.message; });
 updateLoop();

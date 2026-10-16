@@ -181,7 +181,7 @@ func set_mannequin(value: bool) -> void:
 	clear_face()
 	mannequin_view.set_active(value)
 	mannequin_toolbar.visible = value and size.x >= 320
-	if mannequin: mannequin_view.reset_view()
+	if mannequin: mannequin_view.set_pose(mannequin_view.yaw,mannequin_view.pitch,mannequin_view.zoom)
 	_update_mouse()
 	queue_redraw()
 	changed.emit()

@@ -4,6 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LenzForge Studio</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/studio.css') }}">
+  <script defer src="{{ url_for('static', filename='js/preferences.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/studio.js') }}"></script>
 </head>
 <body>
@@ -45,7 +46,7 @@
       <label for="import-kind">Import model type</label><select id="import-kind"><option value="face">Face</option><option value="hand">Hands</option><option value="pose">Pose</option></select>
       <label for="model-file">Compatible Landmarker .task bundle</label><input id="model-file" type="file" accept=".task">
       <button id="import-model">Import model</button>
-      <p class="muted">Settings apply during capture. Auto compares CPU and GPU while keeping tracking live. One face enables smoothing; the desktop follows the first detected face.</p>
+      <p class="muted">Changes save and apply automatically, including model selections. Download missing models to activate them. Auto compares CPU and GPU while keeping tracking live. One face enables smoothing; the desktop follows the first detected face.</p>
       <hr><h3>Desktop studio</h3><p class="muted">Use the Godot viewer for GPU color grading, mirrored video, adjustable landmarks, and fullscreen previews.</p>
     </aside>
   </main><footer>LenzForge Studio 3 · Local capture, expressive possibilities.</footer>

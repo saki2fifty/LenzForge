@@ -22,7 +22,7 @@ Open **Tracking → Models · select / download…**. The group expands without 
 
 1. Choose a model for Face, Hand, or Pose.
 2. If it is not installed, press **Download selected … model** and wait for Ready.
-3. Press **Apply tracking settings**. Enable **Body pose** or **Hands** under Capture/Tracking to run those tasks. Changing their model does not enable a disabled task automatically.
+3. Model selections save and apply automatically once installed. Enable **Body pose** or **Hands** under Capture/Tracking to run those tasks. Changing their model does not enable a disabled task automatically.
 
 | Task | Official bundles | Download size |
 | --- | --- | ---: |
@@ -36,7 +36,7 @@ Google currently lists **one standard Face Landmarker bundle** and **one Hand La
 
 For a compatible custom model, choose its task type and **Import compatible .task…**. The browser provides a file picker and Import button. Imports must be complete Landmarker task bundles, under 100 MiB, with the expected model members. The importer checks the task type, expanded size, CPU initialization, optional face outputs, and a blank-image inference before publishing the model. A generic classifier, detector, raw `.tflite`, or differently indexed mesh is not a substitute. Custom face models must retain the standard 478-point layout; graph validation alone does not prove semantic landmark equivalence.
 
-Files download to a temporary path and are published atomically after verification. Failed downloads/imports leave existing files and tracking selection intact. Only one library job runs at a time, with progress/error reporting. Custom IDs are content hashes; imported files and labels cannot choose arbitrary filesystem destinations. Downloaded/imported models persist in `models/` (or the existing `LENZFORGE_MODELS` directory override); custom metadata lives in `library.json`. These files are ignored by Git. Active model choices follow the existing session-scoped tracking settings and reset when the backend restarts.
+Files download to a temporary path and are published atomically after verification. Failed downloads/imports leave existing files and active tracking selection intact. Only one library job runs at a time, with progress/error reporting. Custom IDs are content hashes; imported files and labels cannot choose arbitrary filesystem destinations. Downloaded/imported models persist in `models/` (or the existing `LENZFORGE_MODELS` directory override); custom metadata lives in `library.json`. These files are ignored by Git. Active model choices save automatically with tracking settings and restore when the backend restarts. See [settings storage](SETTINGS.md).
 
 Both native CPU and browser GPU resolve the same selected model. Changing a selection uses the existing live reconfiguration flow: capture continues, CPU initializes the new configuration, and GPU warms if requested. No browser CDN or remote inference is introduced. All five official bundles are installed in the current workspace and have passed native CPU and browser GPU checks. The portrait fixture verified 478 face points and 33 pose points; it is not a comprehensive hand-detection accuracy test.
 

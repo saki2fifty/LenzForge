@@ -130,6 +130,7 @@ func set_pose(new_yaw: float, new_pitch: float, new_zoom := 1.0) -> void:
 	yaw = wrapf(new_yaw,-180,180)
 	pitch = clampf(new_pitch,-70,70)
 	zoom = clampf(new_zoom,.55,2.0)
+	if not _built: return
 	pivot.rotation_degrees = Vector3(pitch,yaw,0)
 	camera.size = 36/zoom
 	hair_material.set_shader_parameter("units_per_pixel",1/pixels_per_unit())

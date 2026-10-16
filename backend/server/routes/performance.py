@@ -1,7 +1,7 @@
 """Preview quality controls and live inference resolution."""
 from flask import Blueprint, jsonify, request
 from pipeline.performance_config import get_performance_config, update_performance_config
-from pipeline.tracking_config import get_tracking_config, update_tracking_config
+from pipeline.tracking_config import get_tracking_config
 
 performance_bp = Blueprint('performance', __name__)
 PRESETS = {
@@ -22,8 +22,6 @@ def get_config():
 def apply(data):
     try:
         config = update_performance_config(data)
-        if 'mediapipe_max_width' in data:
-            update_tracking_config({'max_width': data['mediapipe_max_width']})
         return jsonify(success=True, config=config.to_dict(), restart_capture=False)
     except (TypeError, ValueError) as exc:
         return jsonify(success=False, error={'message': str(exc)}), 400

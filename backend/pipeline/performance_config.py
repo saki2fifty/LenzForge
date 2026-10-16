@@ -1,6 +1,7 @@
 """Settings consumed by capture and the shared browser preview encoder."""
 from dataclasses import asdict, dataclass, replace
 import math
+from settings_store import save_section
 
 
 @dataclass
@@ -38,5 +39,11 @@ def update_performance_config(data):
         raise ValueError('mediapipe_max_width must be 0, 320, 480, 640, or 960')
     if not 1 <= candidate.preview_max_fps <= 120 or not 1 <= candidate.preview_quality <= 100 or not .1 <= candidate.preview_scale <= 1:
         raise ValueError('Use preview_max_fps 1–120, preview_quality 1–100, and preview_scale 0.1–1')
+    if 'mediapipe_max_width' in data:
+        from pipeline.tracking_config import update_tracking_config
+        update_tracking_config({'max_width': data['mediapipe_max_width']},
+                               additional_settings={'performance': candidate.to_dict()})
+    else:
+        save_section('performance', candidate.to_dict())
     _config = candidate  # Publish a complete validated configuration atomically.
     return candidate

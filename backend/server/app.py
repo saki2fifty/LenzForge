@@ -3,7 +3,8 @@ Flask Application Factory
 Creates and configures the Flask app with all extensions
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
+import threading
 import secrets
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -63,6 +64,28 @@ def create_app(config=None):
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     app.logger.setLevel(logging.INFO)
+
+    from settings_store import initialize_settings
+    initialize_settings(app)
+
+    settings_lock = threading.RLock()
+
+    @app.before_request
+    def serialize_settings_edits():
+        if request.method == 'POST' and (request.path.startswith(('/api/effects/', '/api/performance/'))
+                or request.path in ('/api/tracking/configure', '/api/tracking/reset', '/api/tracking/enable')):
+            settings_lock.acquire()
+            g.settings_locked = True
+
+    @app.teardown_request
+    def release_settings_lock(_error):
+        if g.pop('settings_locked', False):
+            settings_lock.release()
+
+    @app.errorhandler(OSError)
+    def settings_io_error(error):
+        app.logger.exception('Could not save settings')
+        return jsonify(success=False, error={'message': 'Could not save settings: ' + str(error)}), 500
 
     # Register blueprints
     app.register_blueprint(system.bp, url_prefix='/api')

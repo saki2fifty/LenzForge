@@ -37,7 +37,7 @@ func _run() -> void:
 	studio.tracking_panel.controls.backend.select(2)
 	studio.tracking_panel.controls.max_width.select(0)
 	studio.tracking_panel.controls.detection_confidence.value = 0
-	studio.tracking_panel._apply()
+	# A real edit must apply automatically, without the Apply button.
 	deadline = Time.get_ticks_msec() + 5000
 	while (studio.tracking_panel.synced_revision <= before_revision or studio.received_frames < before_frames + 15) and Time.get_ticks_msec() < deadline:
 		await create_timer(.05).timeout

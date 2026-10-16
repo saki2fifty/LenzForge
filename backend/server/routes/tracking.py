@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from pipeline.tracking_config import get_tracking_config, update_tracking_config
 from tracking.models import library
+from settings_store import save_section
 
 bp = Blueprint('tracking', __name__)
 FEATURES = {'face_mesh': 'face', 'iris': 'iris', 'hands': 'hands', 'pose': 'pose'}
@@ -26,6 +27,7 @@ def enable_tracking():
         return jsonify(success=False, error={'message': 'Supply boolean face_mesh, iris, hands, or pose values'}), 400
     from .streaming import get_processor
     processor = get_processor()
+    save_section('features', {**{key: value['enabled'] for key, value in _tracking_stats.items()}, **data})
     for name, enabled in data.items():
         _tracking_stats[name]['enabled'] = enabled
         if processor:

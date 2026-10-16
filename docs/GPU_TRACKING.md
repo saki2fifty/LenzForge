@@ -8,7 +8,7 @@ The follow-up [model library and visibility guide](MODELS_AND_VISIBILITY.md) cov
 
 Existing installations should run `Setup.ps1 -SkipBuild` once to install the pinned browser JS/WASM assets and WebSocket dependency. This workspace already has them installed. Restart the backend and viewer to load the changes. GPU mode requires Microsoft Edge or Chrome and a working hardware WebGL2 context. A missing browser, missing assets, unsupported graphics context, model error, or lost connection leaves tracking on CPU and reports the reason.
 
-Open the desktop's **Tracking** tab on the right. The browser studio exposes the same controls below its appearance settings. Choose settings and press **Apply tracking settings**; capture continues without reopening the camera. Unsubmitted edits are preserved when status updates arrive.
+Open the desktop's **Tracking** tab on the right. The browser studio exposes the same controls below its appearance settings. Changes save and apply automatically after a short pause; capture continues without reopening the camera. Pending edits are preserved when status updates arrive and across app restarts.
 
 | Setting | Behavior |
 | --- | --- |
@@ -20,7 +20,7 @@ Open the desktop's **Tracking** tab on the right. The browser studio exposes the
 | Detection / presence / tracking confidence | Independent 0–1 thresholds, default 0.5; zero is preserved. These settings also apply to enabled hand/pose tasks. |
 | Expression coefficients / 3D face transform | Optional face outputs, enabled by default for compatibility. Available through the backend/JSON; the existing desktop landmark transport still carries points only. |
 
-The panel reports the actual active backend, startup/calibration progress, GPU fallback reason, tracking fps, median/p95 round trip, and capture-to-landmark p95. Auto displays both comparison times. **Restore tracking defaults** restores Auto/640px/one face/0.5 thresholds and both optional outputs. Reapplying settings retries GPU after a fallback. These controls persist across capture restarts within the running backend session; they reset when the backend exits.
+The panel reports the actual active backend, startup/calibration progress, GPU fallback reason, tracking fps, median/p95 round trip, and capture-to-landmark p95. Auto displays both comparison times. **Restore tracking defaults** restores Auto/640px/one face/0.5 thresholds and both optional outputs, and saves that reset. **Apply tracking settings** retries GPU after a fallback. Settings and model selections persist across backend restarts. See [automatic settings](SETTINGS.md) for storage and offline behavior.
 
 The right sidebar now uses compact 12px controls, wrapping row labels, constrained menu widths, and vertical scrolling. The preview's action buttons wrap when space is limited. Layout checks cover all tabs and hair pages at 1440×900, 1200×800, and 960×640.
 

@@ -18,7 +18,7 @@ var model_group := VBoxContainer.new()
 func setup(studio: Control) -> void:
 	host = studio
 	add_theme_constant_override("separation", 8)
-	host._section(self, "MediaPipe", "Apply settings while capture is running. Video keeps playing during model changes.")
+	host._section(self, "MediaPipe", "Changes save and apply automatically. Video keeps playing during model changes.")
 	runtime = host._label("Waiting for backend…", 12, host.ACCENT)
 	runtime.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(runtime)
@@ -31,7 +31,7 @@ func setup(studio: Control) -> void:
 	model_group.add_theme_constant_override("separation",8)
 	model_group.hide()
 	add_child(model_group)
-	host._section(model_group, "Models", "Choose an installed model, then Apply. Downloads keep capture running.")
+	host._section(model_group, "Models", "Selections save automatically. Download a missing model to activate it.")
 	for kind in ["face", "hand", "pose"]:
 		var id: String = kind + "_landmarker" + ("_lite" if kind == "pose" else "")
 		_picker(kind+"_model", kind.capitalize()+" model", [id], [id], model_group)
@@ -65,7 +65,10 @@ func setup(studio: Control) -> void:
 		controls[entry[0]] = check
 		add_child(check)
 	add_child(host._button("Apply tracking settings", _apply, true))
-	add_child(host._button("Restore tracking defaults", func(): host._action("/api/tracking/reset", {})))
+	add_child(host._button("Restore tracking defaults", func():
+		host.pending_settings.erase("/api/tracking/configure")
+		dirty = true
+		host._queue_backend_setting("/api/tracking/reset", {})))
 	explanation = host._label("Auto keeps CPU tracking live while GPU warms up, then compares latency. GPU errors fall back to CPU. Apply again to retry.\n\nOne face enables smoothing. With multiple faces, the desktop follows the first face; JSON includes the others.", 11, host.MUTED)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(explanation)
@@ -101,7 +104,9 @@ func _spin(key: String, title: String, low: float, high: float, increment: float
 	row.add_child(spin)
 
 func _edited() -> void:
-	if not _syncing: dirty = true
+	if not _syncing:
+		dirty = true
+		host._queue_backend_setting("/api/tracking/configure", values())
 
 func values() -> Dictionary:
 	var result := {}
@@ -113,7 +118,10 @@ func values() -> Dictionary:
 	return result
 
 func _apply() -> void:
-	host._action("/api/tracking/configure", values())
+	dirty = true
+	host._queue_backend_setting("/api/tracking/configure", values())
+	host.backend_save_timer.stop()
+	host._flush_backend_settings()
 
 func accept_config(config: Dictionary, revision: int) -> void:
 	_syncing = true
@@ -121,13 +129,19 @@ func accept_config(config: Dictionary, revision: int) -> void:
 		if not config.has(key): continue
 		var control = controls[key]
 		if control is OptionButton:
+			var found := false
 			for i in control.item_count:
-				if control.get_item_metadata(i) == config[key]: control.select(i)
+				if control.get_item_metadata(i) == config[key]: control.select(i); found = true
+			if not found and key.ends_with("_model"):
+				control.add_item(str(config[key]) + " · unavailable")
+				control.set_item_metadata(control.item_count-1,config[key])
+				control.select(control.item_count-1)
 		elif control is CheckBox: control.set_pressed_no_signal(config[key])
 		else: control.set_value_no_signal(config[key])
 	dirty = false
 	synced_revision = revision
 	_syncing = false
+	host.queue_settings_save()
 
 func update_status(data: Dictionary) -> void:
 	if data.has("library"): _update_models(data.library)
@@ -155,6 +169,7 @@ func _update_models(library: Dictionary) -> void:
 	var signature := JSON.stringify(entries)
 	if signature != model_signature:
 		model_signature = signature
+		host.blocked_settings.erase("/api/tracking/configure")
 		for kind in ["face", "hand", "pose"]:
 			var picker: OptionButton = controls[kind+"_model"]
 			var selected = picker.get_item_metadata(picker.selected) if picker.selected >= 0 else ""
@@ -166,12 +181,16 @@ func _update_models(library: Dictionary) -> void:
 				picker.set_item_tooltip(picker.item_count-1, "%s · %.1f MB · %s" % [item.label, item.bytes/1048576.0, "Installed" if item.installed else "Download first"])
 			for i in picker.item_count:
 				if picker.get_item_metadata(i) == selected: picker.select(i)
+			if picker.selected < 0 or picker.get_item_metadata(picker.selected) != selected:
+				picker.add_item(str(selected) + " · unavailable")
+				picker.set_item_metadata(picker.item_count-1,selected)
+				picker.select(picker.item_count-1)
 	var job: Dictionary = library.get("job", {})
 	var state: String = job.get("state", "idle")
 	if state == "idle": return
 	model_status.text = str(job.get("label", "Model")) + " · " + state.capitalize()
 	if state == "downloading": model_status.text += " %.1f / %.1f MB" % [job.get("received",0)/1048576.0,job.get("total",0)/1048576.0]
-	elif state == "ready": model_status.text += ". Select it above, then Apply."
+	elif state == "ready": model_status.text += ". Selected models apply automatically."
 	elif state == "error": model_status.text += "\n" + str(job.get("error", "Import/download failed"))
 
 func _import_model(path: String) -> void:

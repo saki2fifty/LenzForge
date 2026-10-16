@@ -112,7 +112,7 @@ On **Strands**, enable **Select strands in preview**, then click a root in any r
 
 ## Save and exchange designs
 
-Open **Library**, enter a name, and click **Save**. Each look includes all regions, root offsets, physics settings, colors, and individual edits. The dropdown lists saved looks with mannequin thumbnails. **Load** opens the selected model, **Save** updates the currently loaded entry, **Copy** creates another entry, and **Delete** removes the selected entry after confirmation. Deleting an entry leaves the current working preview available. After restarting, load an existing entry before saving if you want to replace it.
+Open **Library**, enter a name, and click **Save**. Each look includes all regions, root offsets, physics settings, colors, and individual edits. The dropdown lists saved looks with mannequin thumbnails. **Load** opens the selected model, **Save** updates the currently loaded entry, **Copy** creates another entry, and **Delete** removes the selected entry after confirmation. Deleting an entry leaves the current working preview available. The working look and loaded library entry now autosave independently of named presets and restore after a restart; **Save** can update the same entry. See [automatic settings](SETTINGS.md).
 
 The library is in Godot's `user://beards`, normally `%APPDATA%\Godot\app_userdata\LenzForge Studio\beards` on Windows. Files use generated IDs so names can contain ordinary punctuation. JSON saves use a temporary file followed by replacement. Thumbnails show a neutral mannequin; no live camera image is stored in them.
 

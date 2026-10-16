@@ -1,0 +1,82 @@
+extends SceneTree
+var failures: Array[String] = []
+
+func check(condition: bool, detail: String) -> void:
+	if not condition: failures.append(detail)
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+func _run() -> void:
+	assert(OS.has_environment("LENZFORGE_SETTINGS_DIR"), "Persistence test requires an isolated settings directory")
+	var studio = load("res://studio.tscn").instantiate()
+	studio.backend_url = "http://127.0.0.1:1"
+	root.add_child(studio)
+	var cameras := [{"index":2,"name":"Test camera","device_id":"stable-test-device"}]
+	studio._set_camera_choices(cameras)
+	var write := OS.get_cmdline_user_args().has("write")
+	if write:
+		studio.source_picker.select(1)
+		studio.source_picker.item_selected.emit(1)
+		studio.resolution_picker.select(2)
+		studio.fps_picker.select(0)
+		studio.exposure_slider.value = .17
+		studio.preset_picker.select(2)
+		studio.preset_picker.item_selected.emit(2)
+		studio.point_slider.value = 3.25
+		studio.point_color.color = Color("c345ab")
+		studio.point_color.color_changed.emit(studio.point_color.color)
+		studio.mirror_check.button_pressed = false
+		studio.points_check.button_pressed = false
+		studio.beard.set_setting("length", .63)
+		studio.beard.set_setting("gravity", 4.1)
+		studio.beard.set_setting("wind", 0.0)
+		studio.beard.set_enabled(true)
+		studio.beard.set_mannequin(true)
+		studio.beard.selected_strand = 0
+		studio.beard.set_strand_setting("curl", .37)
+		studio.beard.mannequin_view.set_pose(35,-12,1.2)
+		studio.beard_panel.select_check.button_pressed = true
+		studio.beard_panel.name_field.text = "Persistence look"
+		studio.beard_panel.name_field.text_changed.emit("Persistence look")
+		studio.extensions.set_settings({"vertical_offset":-.23, "top":.61})
+		studio.occlusion.head_depth = .81
+		studio.occlusion.crown = .29
+		studio.occlusion.enabled = false
+		studio.sidebar_tabs.current_tab = 3
+		studio.tracking_panel.controls.backend.select(1)
+		studio.tracking_panel.controls.backend.item_selected.emit(1)
+		studio.tracking_panel.controls.detection_confidence.value = 0
+		studio.tracking_panel.controls.blendshapes.button_pressed = false
+		studio.tracking_panel.accept_config({"pose_model":"custom_pose_test"},-1)
+		studio.tracking_panel._edited()
+		studio.tracking_checks.hands.button_pressed = true
+		await create_timer(.8).timeout
+		var disk := ConfigFile.new()
+		check(disk.load(studio.settings_path) == OK, "Changes must reach disk while the window is still open")
+		check(is_equal_approx(disk.get_value("view","exposure",0),.17), "Exposure must autosave without closing")
+		check(disk.get_value("backend","pending",{}).has("/api/tracking/configure"), "Offline edits need a durable queue")
+		check(disk.get_value("beard","document",{}).get("name") == "Persistence look", "The complete look must autosave")
+	else:
+		check(studio.source_picker.selected == 1, "Restore the camera by stable device ID")
+		check(studio.resolution_picker.selected == 2 and studio.fps_picker.selected == 0, "Restore capture format")
+		check(is_equal_approx(studio.exposure_slider.value,.17), "Restore exposure slider")
+		check(is_equal_approx(studio.material_video.get_shader_parameter("exposure"),.17), "Apply restored exposure to shader")
+		check(studio.preset_picker.selected == 2, "Restore appearance preset")
+		check(not studio.mirror_check.button_pressed and not studio.points_check.button_pressed, "Restore false toggles")
+		check(studio.overlay.tint == Color("c345ab") and studio.overlay.point_size == 3.25, "Restore landmark color and size")
+		check(studio.beard.enabled and studio.beard.mannequin and studio.beard.edit_strands, "Restore hair/mannequin/edit toggles")
+		check(studio.beard_panel.select_check.button_pressed, "Restored strand toggle must match behavior")
+		check(is_equal_approx(studio.beard.config.length,.63) and is_equal_approx(studio.beard.config.gravity,4.1), "Restore hair and physics settings")
+		check(studio.beard.model_name == "Persistence look", "Restore working look name")
+		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")
+		check(is_equal_approx(studio.beard.mannequin_view.yaw,35) and is_equal_approx(studio.beard.mannequin_view.zoom,1.2), "Restore 3D mannequin pose")
+		check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.23) and is_equal_approx(studio.extensions.model.config.top,.61), "Restore virtual landmark shape")
+		check(not studio.occlusion.enabled and is_equal_approx(studio.occlusion.head_depth,.81) and is_equal_approx(studio.occlusion.crown,.29), "Restore visibility settings")
+		check(studio.sidebar_tabs.current_tab == 3, "Restore active panel")
+		var config: Dictionary = studio.tracking_panel.values()
+		check(config.backend == "gpu" and config.detection_confidence == 0 and not config.blendshapes, "Restore offline MediaPipe edits")
+		check(config.pose_model == "custom_pose_test", "Restore custom model selection before catalog arrives")
+		check(studio.tracking_checks.hands.button_pressed, "Restore pending feature toggles")
+	print("STUDIO_SETTINGS ", "write" if write else "read", " failures=", failures)
+	quit(0 if failures.is_empty() else 1)

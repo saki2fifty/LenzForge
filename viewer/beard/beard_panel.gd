@@ -15,6 +15,7 @@ var models: OptionButton
 var style: OptionButton
 var enabled_check: CheckBox
 var mannequin_check: CheckBox
+var select_check: CheckBox
 var selected_label: Label
 var stats: Label
 var selected_group: VBoxContainer
@@ -146,7 +147,7 @@ func setup(layer: Control, studio: Control) -> void:
 
 	var strands := _page("Strands")
 	host._section(strands,"Individual strands","Select a root to edit that hair in any region.")
-	var select_check := CheckBox.new()
+	select_check = CheckBox.new()
 	select_check.text = "Select strands in preview"
 	select_check.toggled.connect(func(value): beard.set_edit_strands(value))
 	strands.add_child(select_check)
@@ -347,6 +348,7 @@ func _save() -> void:
 	var result := library.save_model(beard.get_document(), current_id)
 	if not result.error.is_empty(): message.emit(result.error); return
 	current_id = result.id
+	host.queue_settings_save()
 	_refresh_library(current_id)
 	message.emit("Saved " + beard.model_name + " to " + ProjectSettings.globalize_path(library.directory))
 	_make_thumbnail(current_id, beard.get_document())
@@ -404,6 +406,7 @@ func _setup_dialogs() -> void:
 		var id: String = models.get_item_metadata(models.selected)
 		var error := library.delete_model(id)
 		if id == current_id: current_id = ""
+		host.queue_settings_save()
 		_refresh_library()
 		message.emit("Removed the saved look. The current preview is still available." if error.is_empty() else error))
 	add_child(delete_dialog)

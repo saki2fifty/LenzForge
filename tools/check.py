@@ -1,5 +1,6 @@
 """Run Python tests, import the Godot project, and verify native IPC."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,14 +15,18 @@ def main():
     artifacts = ROOT / 'artifacts'
     artifacts.mkdir(exist_ok=True)
     test_temp = artifacts / ('pytest-' + uuid.uuid4().hex)
+    os.environ['LENZFORGE_SETTINGS_DIR'] = str(artifacts / ('check-settings-' + uuid.uuid4().hex))
     subprocess.run([sys.executable, '-m', 'pytest', '-p', 'no:cacheprovider',
                     '--basetemp', str(test_temp), str(ROOT / 'tests')], cwd=ROOT, check=True)
+    subprocess.run(['node', '--test', str(ROOT / 'tests/browser_preferences.cjs')], cwd=ROOT, check=True)
     # Godot can race extension-documentation generation against immediate shutdown
     # on first import. Let deferred editor callbacks run; still fail on every error.
     # https://github.com/godotengine/godot/issues/111048
     for name, extra in [('import', ['--import', '--frame-delay', '1000']),
                         ('viewer', ['--quit-after', '10']),
                         ('sources', ['--script', 'res://tests/studio_sources.gd']),
+                        ('settings-write', ['--script', 'res://tests/studio_settings.gd', '--', 'write']),
+                        ('settings-read', ['--script', 'res://tests/studio_settings.gd', '--', 'read']),
                         ('layout', ['--script', 'res://tests/studio_layout.gd']),
                         ('occlusion', ['--script', 'res://tests/occlusion_probe.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),

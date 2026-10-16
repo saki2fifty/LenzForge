@@ -40,6 +40,7 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 
 - One background capture owner and one tracking publisher, shared by both interfaces. GPU tracking starts its own hidden local browser; no browser window needs to be opened manually.
 - [CPU/GPU tracking](docs/GPU_TRACKING.md) with automatic timing-based selection and CPU fallback. The compact **Tracking** tab exposes live resolution, face count, confidence, and output settings. CPU keeps tracking during GPU startup and calibration.
+- [Automatic settings](docs/SETTINGS.md): camera choices, MediaPipe and selected models, appearance, landmarks, hair physics, mannequin controls, and browser effects restore after restarting. Changes save as you edit; pending backend edits survive disconnection.
 - [Model library and head visibility](docs/MODELS_AND_VISIBILITY.md): download/select official Face, Hand, and Pose Lite/Full/Heavy bundles, import compatible custom `.task` models, and hide live landmarks/strands behind the fitted head. **Hair → Roots** controls the pink generated-root guides.
 - Face tracking with 478 landmarks, 52 blendshape scores, and a face transform; optional hand and body tracking. Hand/body results appear in the browser and JSON exports. The desktop overlay currently displays face/iris points.
 - GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.

@@ -60,13 +60,33 @@ var shortcut_hint: Label
 var tracking_checks: Dictionary = {}
 var discovery_attempted := false
 var persist_settings := true
+var settings_path := "user://studio.cfg"
+var save_timer := Timer.new()
+var backend_save_timer := Timer.new()
+var settings_ready := false
+var saved_text := ""
+var pending_settings: Dictionary = {}
+var blocked_settings: Dictionary = {}
+var action_queue: Array[Dictionary] = []
+var pending_payload: Dictionary = {}
+var exposure_slider: HSlider
+var point_slider: HSlider
+var point_color: ColorPickerButton
 
 func _ready() -> void:
 	DisplayServer.window_set_min_size(Vector2i(960, 640))
-	settings.load("user://studio.cfg")
+	if OS.has_environment("LENZFORGE_SETTINGS_DIR"):
+		settings_path = OS.get_environment("LENZFORGE_SETTINGS_DIR").path_join("studio.cfg")
+	if persist_settings:
+		var error := settings.load(settings_path)
+		if error != OK and error != ERR_FILE_NOT_FOUND:
+			push_warning("Could not read settings; trying the previous save.")
+			settings.load(settings_path + ".bak")
+	pending_settings = settings.get_value("backend", "pending", {})
 	_build_ui()
 	_setup_requests()
 	_setup_readers()
+	_setup_autosave()
 	var timer := Timer.new()
 	timer.wait_time = 1.0
 	timer.timeout.connect(_poll)
@@ -200,7 +220,8 @@ func _build_ui() -> void:
 	fps_picker = OptionButton.new()
 	for item in ["30 fps", "60 fps", "24 fps"]:
 		fps_picker.add_item(item)
-	fps_picker.select(1)
+	resolution_picker.select(clampi(int(settings.get_value("capture", "resolution", 0)),0,2))
+	fps_picker.select(clampi(int(settings.get_value("capture", "fps", 1)),0,2))
 	left.add_child(fps_picker)
 	connect_button = _button("Start capture", _start, true)
 	connect_button.disabled = true
@@ -213,7 +234,7 @@ func _build_ui() -> void:
 		check.text = {"face_mesh": "Face + iris", "hands": "Hands", "pose": "Body pose"}[feature]
 		check.button_pressed = feature == "face_mesh"
 		tracking_checks["face" if feature == "face_mesh" else feature] = check
-		check.toggled.connect(func(value): _action("/api/tracking/enable", {"face_mesh": value, "iris": value} if feature == "face_mesh" else {feature: value}))
+		check.toggled.connect(func(value): _queue_backend_setting("/api/tracking/enable", {"face_mesh": value, "iris": value} if feature == "face_mesh" else {feature: value}))
 		left.add_child(check)
 	_spacer(left)
 	left.add_child(_label("LOCAL PROCESSING", 10, ACCENT))
@@ -305,7 +326,8 @@ func _build_ui() -> void:
 	right.add_child(preset_picker)
 	preset_picker.select(int(settings.get_value("view", "look", 0)))
 	_set_look(preset_picker.selected)
-	_slider(right, "Exposure", -0.3, 0.3, 0.01, 0.0, func(value): material_video.set_shader_parameter("exposure", value))
+	exposure_slider = _slider(right, "Exposure", -0.3, 0.3, 0.01, float(settings.get_value("view", "exposure", 0.0)), func(value): material_video.set_shader_parameter("exposure", value))
+	material_video.set_shader_parameter("exposure", exposure_slider.value)
 	mirror_check = CheckBox.new()
 	mirror_check.text = "Mirror preview"
 	mirror_check.button_pressed = bool(settings.get_value("view", "mirror", true))
@@ -339,9 +361,12 @@ func _build_ui() -> void:
 	points_check.toggled.connect(_set_points)
 	landmark_column.add_child(points_check)
 	_set_points(points_check.button_pressed)
-	_slider(landmark_column, "Point size", 1.0, 5.0, 0.25, 2.0, func(value): overlay.point_size = value; overlay.queue_redraw())
+	point_slider = _slider(landmark_column, "Point size", 1.0, 5.0, 0.25, float(settings.get_value("view", "point_size", 2.0)), func(value): overlay.point_size = value; overlay.queue_redraw())
+	overlay.point_size = point_slider.value
 	var color := ColorPickerButton.new()
-	color.color = ACCENT
+	point_color = color
+	color.color = settings.get_value("view", "point_color", ACCENT)
+	overlay.tint = color.color
 	color.custom_minimum_size.y = 32
 	color.color_changed.connect(func(value): overlay.tint = value; overlay.queue_redraw())
 	landmark_column.add_child(color)
@@ -409,7 +434,7 @@ func _compact_panel(node: Node) -> void:
 		node.custom_minimum_size.x = 80
 	for child in node.get_children(): _compact_panel(child)
 
-func _slider(parent: Node, title: String, minimum: float, maximum: float, step: float, value: float, callback: Callable) -> void:
+func _slider(parent: Node, title: String, minimum: float, maximum: float, step: float, value: float, callback: Callable) -> HSlider:
 	parent.add_child(_label(title, 12, MUTED))
 	var slider := HSlider.new()
 	slider.min_value = minimum
@@ -418,6 +443,7 @@ func _slider(parent: Node, title: String, minimum: float, maximum: float, step: 
 	slider.value = value
 	slider.value_changed.connect(callback)
 	parent.add_child(slider)
+	return slider
 
 func _setup_requests() -> void:
 	api_poll = HTTPRequest.new()
@@ -508,9 +534,10 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 		status.text = "DEMO ACTIVE" if source_id == -1 else "CAMERA LIVE"
 	var tracking: Dictionary = data.get("tracking", {})
 	tracking_panel.update_status(tracking)
+	if not backend_save_timer.time_left: _flush_backend_settings()
 	var features: Dictionary = tracking.get("features", {})
 	for feature in tracking_checks:
-		if features.has(feature):
+		if features.has(feature) and not pending_settings.has("/api/tracking/enable"):
 			tracking_checks[feature].set_pressed_no_signal(features[feature])
 	var capture_fps := float(data.get("capture_timing", {}).get("fps", data.get("fps", 0.0)))
 	var preview_fps: int = video_reader.get_fps() if video_reader and video_reader.is_reading() else 0
@@ -527,30 +554,44 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 
 func _action(path: String, data: Dictionary, method := HTTPClient.METHOD_POST) -> void:
 	if action_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
-		message.text = "Waiting for the previous request…"
+		for queued in action_queue:
+			if queued.path == path:
+				queued.data.merge(data, true)
+				return
+		action_queue.append({"path":path,"data":data.duplicate(true),"method":method})
 		return
 	pending_action = path
+	pending_payload = data.duplicate(true)
 	message.text = "Working…"
 	var error := action_request.request(backend_url + path, ["Content-Type: application/json"], method, "" if method == HTTPClient.METHOD_GET else JSON.stringify(data))
 	if error != OK:
 		message.text = "Could not contact the backend."
 
 func _on_action(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_next_action.call_deferred()
+	if code == 0: online = false
 	var data = JSON.parse_string(body.get_string_from_utf8())
 	if result == HTTPRequest.RESULT_TIMEOUT:
 		message.text = "Camera request timed out. Check the backend for a device error, then try again."
 		return
 	if code < 200 or code >= 300 or not data is Dictionary:
+		if code >= 400 and pending_settings.get(pending_action) == pending_payload:
+			blocked_settings[pending_action] = true
 		var detail = data.get("error", "Request failed. Check the backend.") if data is Dictionary else "Backend unavailable. Run Start-Backend.ps1."
 		message.text = str(detail.get("message", "Request failed.")) if detail is Dictionary else str(detail)
 		return
 	message.text = "Updated."
+	if pending_settings.get(pending_action) == pending_payload:
+		pending_settings.erase(pending_action)
+		blocked_settings.erase(pending_action)
+		queue_settings_save()
 	if pending_action == "/api/camera/list":
 		_set_camera_choices(data.get("cameras", []))
 	elif pending_action == "/api/camera/select":
 		message.text = "Capturing " + str(data.get("camera", {}).get("name", "camera")) + "."
 	elif pending_action in ["/api/tracking/configure", "/api/tracking/reset"]:
-		tracking_panel.accept_config(data.get("config", {}), int(data.get("revision", 0)))
+		if not pending_settings.has("/api/tracking/configure"):
+			tracking_panel.accept_config(data.get("config", {}), int(data.get("revision", 0)))
 		message.text = "Tracking settings applied. " + {"cpu":"CPU tracking selected.", "gpu":"CPU stays live while GPU starts.", "auto":"Auto will compare CPU and GPU."}.get(data.get("config", {}).get("backend", "auto"), "")
 	if data.has("files"):
 		message.text = "Recording: " + ", ".join(PackedStringArray(data.files))
@@ -561,6 +602,8 @@ func _find_cameras() -> void:
 
 func _set_camera_choices(cameras: Array) -> void:
 	var previous = source_picker.get_item_metadata(source_picker.selected) if source_picker.selected >= 0 else null
+	if not previous is Dictionary and settings.has_section_key("capture", "camera"):
+		previous = settings.get_value("capture", "camera")
 	source_picker.clear()
 	source_picker.add_item("Choose your camera…")
 	source_picker.set_item_disabled(0, true)
@@ -573,7 +616,7 @@ func _set_camera_choices(cameras: Array) -> void:
 		if camera.index >= 0:
 			device_count += 1
 		if previous is Dictionary:
-			if (previous.get("device_id", "") != "" and previous.get("device_id") == camera.get("device_id")) or (previous.get("index") == -1 and camera.index == -1):
+			if (previous.get("device_id", "") != "" and previous.get("device_id") == camera.get("device_id")) or (previous.get("index") == -1 and camera.index == -1) or (not previous.get("device_id") and previous.get("index") == camera.index):
 				selected = item
 		elif camera.index == last_source_id:
 			selected = item
@@ -588,7 +631,7 @@ func _source_selected(index: int) -> void:
 
 func _start() -> void:
 	var camera = source_picker.get_item_metadata(source_picker.selected)
-	if not camera is Dictionary or action_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+	if not camera is Dictionary:
 		return
 	if video_reader:
 		video_reader.stop_reading()
@@ -644,6 +687,7 @@ func _set_look(index: int) -> void:
 	material_video.set_shader_parameter("contrast", looks[index][1])
 	material_video.set_shader_parameter("warmth", looks[index][2])
 	settings.set_value("view", "look", index)
+	queue_settings_save()
 
 func _set_mirror(value: bool) -> void:
 	material_video.set_shader_parameter("mirror", value)
@@ -652,11 +696,13 @@ func _set_mirror(value: bool) -> void:
 	beard.set_mirror(value)
 	extensions.set_mirror(value)
 	settings.set_value("view", "mirror", value)
+	queue_settings_save()
 
 func _set_points(value: bool) -> void:
 	overlay.show_points = value
 	overlay.queue_redraw()
 	settings.set_value("view", "points", value)
+	queue_settings_save()
 
 func _snapshot() -> void:
 	if video.texture == null and not beard.mannequin:
@@ -678,21 +724,143 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			KEY_L: points_check.button_pressed = not points_check.button_pressed
 			KEY_M: mirror_check.button_pressed = not mirror_check.button_pressed
 			KEY_F11: DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		queue_settings_save()
+
+func _setup_autosave() -> void:
+	# Restore view-only choices after constructing all controls, before observing edits.
+	beard.set_mannequin(bool(settings.get_value("beard", "mannequin", false)))
+	beard.set_edit_strands(bool(settings.get_value("beard", "edit_strands", false)))
+	var pose: Vector3 = settings.get_value("beard", "pose", Vector3(0,0,1))
+	beard.mannequin_view.set_pose(pose.x,pose.y,pose.z)
+	beard_panel.select_check.set_pressed_no_signal(beard.edit_strands)
+	beard_panel.page_picker.select(clampi(int(settings.get_value("view", "hair_page", 0)),0,beard_panel.page_picker.item_count-1))
+	beard_panel.show_page(beard_panel.page_picker.get_item_text(beard_panel.page_picker.selected))
+	beard_panel.style.select(clampi(int(settings.get_value("view", "beard_preset", 0)),0,beard_panel.style.item_count-1))
+	beard_panel.current_id = str(settings.get_value("beard", "library_id", ""))
+	var library_selection: String = settings.get_value("beard", "library_selection", beard_panel.current_id)
+	for i in beard_panel.models.item_count:
+		if beard_panel.models.get_item_metadata(i) == library_selection: beard_panel.models.select(i)
+	landmarks_panel.region_picker.select(clampi(int(settings.get_value("view", "landmark_region", 0)),0,3))
+	landmarks_panel.show_region(landmarks_panel.Extensions.REGIONS[landmarks_panel.region_picker.selected])
+	tracking_panel.model_group.visible = bool(settings.get_value("view", "model_group", false))
+	tracking_panel.import_kind.select(clampi(int(settings.get_value("view", "import_kind", 0)),0,2))
+	var cached: Dictionary = settings.get_value("backend", "tracking", {})
+	if not cached.is_empty(): tracking_panel.accept_config(cached,-1)
+	if pending_settings.has("/api/tracking/configure"):
+		tracking_panel.accept_config(pending_settings["/api/tracking/configure"],-1)
+		tracking_panel.dirty = true
+	var features: Dictionary = settings.get_value("backend", "features", {})
+	for key in tracking_checks:
+		if features.has(key): tracking_checks[key].set_pressed_no_signal(features[key])
+	if persist_settings and DisplayServer.get_name() != "headless":
+		var dimensions: Vector2i = settings.get_value("window", "size", Vector2i(1440,900))
+		DisplayServer.window_set_size(dimensions.clamp(Vector2i(960,640), DisplayServer.screen_get_usable_rect().size.max(Vector2i(960,640))))
+		var mode: int = int(settings.get_value("window", "mode", DisplayServer.WINDOW_MODE_WINDOWED))
+		if mode in [DisplayServer.WINDOW_MODE_WINDOWED,DisplayServer.WINDOW_MODE_MAXIMIZED,DisplayServer.WINDOW_MODE_FULLSCREEN]: DisplayServer.window_set_mode(mode)
+	for timer in [save_timer, backend_save_timer]:
+		timer.one_shot = true
+		timer.wait_time = .35
+		add_child(timer)
+	save_timer.timeout.connect(_save_settings)
+	backend_save_timer.timeout.connect(_flush_backend_settings)
+	beard.changed.connect(queue_settings_save)
+	beard.mannequin_view.pose_changed.connect(queue_settings_save)
+	extensions.settings_changed.connect(queue_settings_save)
+	get_window().size_changed.connect(queue_settings_save)
+	_watch_settings_controls(self)
+	settings_ready = true
+	saved_text = settings.encode_to_text()
+
+func _watch_settings_controls(node: Node) -> void:
+	if node is Range: node.value_changed.connect(func(_v): queue_settings_save())
+	elif node is OptionButton: node.item_selected.connect(func(_v): queue_settings_save())
+	elif node is CheckBox: node.toggled.connect(func(_v): queue_settings_save())
+	elif node is ColorPickerButton: node.color_changed.connect(func(_v): queue_settings_save())
+	elif node is LineEdit: node.text_changed.connect(func(_v): queue_settings_save())
+	if node == sidebar_tabs: sidebar_tabs.tab_changed.connect(func(_v): queue_settings_save())
+	if node == tracking_panel.model_group: node.visibility_changed.connect(queue_settings_save)
+	for child in node.get_children(): _watch_settings_controls(child)
+
+func queue_settings_save() -> void:
+	if settings_ready and persist_settings: save_timer.start()
+
+func _queue_backend_setting(path: String, data: Dictionary) -> void:
+	if path == "/api/tracking/enable":
+		var merged: Dictionary = pending_settings.get(path, {}).duplicate()
+		merged.merge(data, true)
+		pending_settings[path] = merged
+	else: pending_settings[path] = data.duplicate(true)
+	blocked_settings.erase(path)
+	queue_settings_save()
+	backend_save_timer.start()
+
+func _flush_backend_settings() -> void:
+	if not online or backend_save_timer.time_left > 0 or action_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED: return
+	for path in pending_settings:
+		if blocked_settings.has(path): continue
+		_action(path, pending_settings[path])
+		return
+
+func _next_action() -> void:
+	if not action_queue.is_empty():
+		var queued: Dictionary = action_queue.pop_front()
+		_action(queued.path,queued.data,queued.method)
+	else: _flush_backend_settings()
 
 func _store_settings() -> void:
 	if beard:
 		settings.set_value("beard", "document", beard.get_document())
 		settings.set_value("beard", "enabled", beard.enabled)
+		settings.set_value("beard", "mannequin", beard.mannequin)
+		settings.set_value("beard", "edit_strands", beard.edit_strands)
+		settings.set_value("beard", "pose", Vector3(beard.mannequin_view.yaw,beard.mannequin_view.pitch,beard.mannequin_view.zoom))
+		settings.set_value("beard", "library_id", beard_panel.current_id)
+		if beard_panel.models.selected > 0: settings.set_value("beard", "library_selection", beard_panel.models.get_item_metadata(beard_panel.models.selected))
 	if extensions: settings.set_value("landmarks", "extensions", extensions.model.config)
 	settings.set_value("view", "occlusion", occlusion.enabled)
 	settings.set_value("view", "head_depth", occlusion.head_depth)
 	settings.set_value("view", "head_crown", occlusion.crown)
 	if sidebar_tabs: settings.set_value("view", "sidebar_tab", sidebar_tabs.current_tab)
+	settings.set_value("view", "exposure", exposure_slider.value)
+	settings.set_value("view", "point_size", overlay.point_size)
+	settings.set_value("view", "point_color", overlay.tint)
+	settings.set_value("view", "hair_page", beard_panel.page_picker.selected)
+	settings.set_value("view", "beard_preset", beard_panel.style.selected)
+	settings.set_value("view", "landmark_region", landmarks_panel.region_picker.selected)
+	settings.set_value("view", "model_group", tracking_panel.model_group.visible)
+	settings.set_value("view", "import_kind", tracking_panel.import_kind.selected)
+	settings.set_value("backend", "tracking", tracking_panel.values())
+	settings.set_value("backend", "pending", pending_settings)
+	var features := {}
+	for key in tracking_checks: features[key] = tracking_checks[key].button_pressed
+	settings.set_value("backend", "features", features)
+	settings.set_value("capture", "resolution", resolution_picker.selected)
+	settings.set_value("capture", "fps", fps_picker.selected)
+	if source_picker.selected >= 0:
+		var camera = source_picker.get_item_metadata(source_picker.selected)
+		if camera is Dictionary: settings.set_value("capture", "camera", camera)
+	if DisplayServer.get_name() != "headless":
+		var mode := DisplayServer.window_get_mode()
+		if mode == DisplayServer.WINDOW_MODE_WINDOWED: settings.set_value("window", "size", DisplayServer.window_get_size())
+		if mode != DisplayServer.WINDOW_MODE_MINIMIZED: settings.set_value("window", "mode", mode)
+
+func _save_settings() -> void:
+	if not persist_settings or not settings_ready: return
+	_store_settings()
+	var encoded := settings.encode_to_text()
+	if encoded == saved_text: return
+	var path := ProjectSettings.globalize_path(settings_path)
+	var error := DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	if error == OK: error = settings.save(path + ".tmp")
+	if error == OK and FileAccess.file_exists(path): error = DirAccess.copy_absolute(path,path + ".bak")
+	if error == OK: error = DirAccess.rename_absolute(path + ".tmp",path)
+	if error == OK: saved_text = encoded
+	else:
+		message.text = "Settings could not be saved: " + error_string(error)
+		push_warning(message.text)
 
 func _exit_tree() -> void:
-	if not persist_settings: return
-	_store_settings()
-	settings.save("user://studio.cfg")
+	_save_settings()
 
 func _capture_and_quit() -> void:
 	await RenderingServer.frame_post_draw
