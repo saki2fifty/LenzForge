@@ -1,4 +1,4 @@
-[![What's new in LenzForge — explore the daily changelog](docs/images/changelog-banner.svg)](CHANGELOG.md)
+[![Changelog](docs/images/changelog-badge.svg)](CHANGELOG.md)
 
 # LenzForge Studio
 

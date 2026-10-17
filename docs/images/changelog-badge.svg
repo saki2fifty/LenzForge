@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="174" height="32" viewBox="0 0 174 32" role="img" aria-labelledby="title desc">
+  <title id="title">Changelog</title>
+  <desc id="desc">Daily features, performance improvements, and fixes.</desc>
+  <rect x=".5" y=".5" width="173" height="31" rx="9" fill="#12252d" stroke="#396a6e"/>
+  <path d="m22 7-8 11h7l-1 7 9-12h-8Z" fill="#78efd4"/>
+  <text x="39" y="21" fill="#ecfff9" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600">Changelog</text>
+  <path d="m151 11 5 5-5 5m-7-5h12" fill="none" stroke="#78efd4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
