@@ -8,6 +8,9 @@ var pair_skews: Array[float] = []
 var pair_mismatches := 0
 var last_frame_at := 0
 var measuring := false
+var camera_consumer := -1
+var output_readbacks: Array[float] = []
+var output_conversions: Array[float] = []
 
 func distribution(values: Array[float]) -> Dictionary:
 	if values.is_empty():
@@ -66,6 +69,22 @@ func _run() -> void:
 		print("PERFORMANCE_FAILED ", studio.message.text)
 		quit(1)
 		return
+	if args.size() > 11 and args[11] == "1":
+		studio.virtual_camera.start()
+		deadline = Time.get_ticks_msec()+25000
+		while studio.virtual_camera.state == "Starting" and Time.get_ticks_msec()<deadline: await create_timer(.05).timeout
+		if studio.virtual_camera.state != "Ready":
+			print("PERFORMANCE_FAILED ",studio.virtual_camera.detail)
+			quit(1)
+			return
+		camera_consumer = OS.create_process(ProjectSettings.globalize_path("res://../artifacts/virtual-camera-build/LenzForgeCameraProbe.exe"),["--discard",str(int((duration+float(args[9])+20)*60))],false)
+		deadline = Time.get_ticks_msec()+10000
+		while studio.virtual_camera.state != "Live" and Time.get_ticks_msec()<deadline: await create_timer(.05).timeout
+		if studio.virtual_camera.state != "Live":
+			print("PERFORMANCE_FAILED Virtual camera consumer did not connect")
+			if camera_consumer > 0: OS.kill(camera_consumer)
+			quit(1)
+			return
 	studio.video_reader.frame_ready.connect(func(_y, _uv, _frame, _timestamp):
 		if not measuring:
 			return
@@ -78,6 +97,9 @@ func _run() -> void:
 			uploads.append(studio.video_reader.get_upload_ms())
 		if studio.beard.enabled and studio.beard._face_live:
 			beard_updates.append(studio.beard.update_ms)
+		if studio.virtual_camera.active:
+			output_readbacks.append(studio.virtual_camera.readback_ms)
+			output_conversions.append(studio.virtual_camera.stats.get("conversion_ms",0))
 	)
 	studio.landmark_reader.landmarks_ready.connect(func(_points, _frame, timestamp):
 		if measuring:
@@ -107,8 +129,12 @@ func _run() -> void:
 		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads),
 		"landmark_age_ms": distribution(landmark_ages), "landmark_frames": landmark_ages.size(),
 		"presented_pair_skew_ms":distribution(pair_skews),"mismatched_presentations":pair_mismatches,
-		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size()}
+		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size(),
+		"output_readback_ms":distribution(output_readbacks),"output_conversion_ms":distribution(output_conversions)}
+	if studio.virtual_camera.active: result["virtual_camera"] = studio.virtual_camera.writer.get_status()
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
+	if camera_consumer > 0 and OS.is_process_running(camera_consumer): OS.kill(camera_consumer)
+	studio.virtual_camera.stop()
 	studio.video_reader.stop_reading()
 	studio.landmark_reader.stop_reading()
 	quit()

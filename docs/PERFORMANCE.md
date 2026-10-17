@@ -1,5 +1,11 @@
 # Performance measurements
 
+## Custom virtual camera: local validation
+
+The custom Windows camera implementation has passed its in-process Media Foundation source-reader checks at 720p 30 and 60 fps, COM activation/attribute/lifetime checks, RGBA-to-NV12 color/chroma checks, and a rendered Godot composition check. These tests do not establish receiving-app compatibility or end-to-end streaming performance. Windows component registration was not completed after the administrator prompt was canceled; the installed-device test and active-output benchmark remain pending. See [setup and test commands](VIRTUAL_CAMERA.md).
+
+A final 20-second synthetic portrait run with CPU tracking, 1,024 × 8 facial strands, and virtual-camera output **off** retained **59.99 matched preview fps**, a 120 fps render rate, zero frame intervals over 50 ms, and zero frame/landmark mismatches. Hair physics/upload median was 1.115 ms. The output viewport is absent while off, so this confirms the normal preview still runs at its intended rate; it does not measure the cost of output readback/conversion or Windows consumption. [Raw report](performance/2026-10-17-virtual-camera-disabled.json).
+
 ## October 17: restoring preview throughput
 
 Baseline `ca89eb6` reproduced the reported 30 fps ceiling on the same Ryzen 5 5500 / RX 7900 XTX / 60 Hz Windows workstation. The current defaults use 1,024 facial strands × 8 segments and solid 3D head collision, a larger workload than the older 256-strand measurements below.

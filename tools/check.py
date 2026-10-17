@@ -29,6 +29,7 @@ def main():
                         ('settings-read', ['--script', 'res://tests/studio_settings.gd', '--', 'read']),
                         ('layout', ['--script', 'res://tests/studio_layout.gd']),
                         ('quick-toolbar', ['--script', 'res://tests/quick_toolbar.gd']),
+                        ('virtual-camera', ['--script', 'res://tests/virtual_camera.gd']),
                         ('occlusion', ['--script', 'res://tests/occlusion_probe.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),

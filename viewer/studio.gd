@@ -8,6 +8,7 @@ const HeadOcclusion = preload("res://tracking/head_occlusion.gd")
 const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
 const QuickToolbar = preload("res://ui/quick_toolbar.gd")
+const VirtualCamera = preload("res://output/virtual_camera.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -74,6 +75,7 @@ var exposure_slider: HSlider
 var point_slider: HSlider
 var point_color: ColorPickerButton
 var quick_toolbar: PanelContainer
+var virtual_camera: Node
 var guides_check: CheckBox
 var occlusion_check: CheckBox
 var pacing_picker: OptionButton
@@ -431,6 +433,9 @@ func _build_ui() -> void:
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
+	virtual_camera = VirtualCamera.new()
+	add_child(virtual_camera)
+	virtual_camera.setup(self,canvas)
 	quick_toolbar.setup(self)
 	resized.connect(_adapt_layout)
 	call_deferred("_adapt_layout")

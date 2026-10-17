@@ -7,7 +7,8 @@ const ICONS := {
 	"mirror": '<path d="M12 3v18 M8 6 3 18h5Z M16 6l5 12h-5Z"/>',
 	"mannequin": '<path d="M7 8a5 5 0 0 1 10 0v4c0 3-2 5-5 5s-5-2-5-5Z M9 17v3h6v-3 M6 21h12 M8 10h2 M14 10h2"/>',
 	"processor": '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
-	"models": '<path d="m12 3 9 5-9 5-9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/>'
+	"models": '<path d="m12 3 9 5-9 5-9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/>',
+	"camera": '<rect x="2" y="5" width="13" height="14" rx="3"/><path d="m15 10 7-4v12l-7-4 M6 12h5 M8.5 9.5v5"/>'
 }
 const MODES := ["auto", "gpu", "cpu"]
 var host: Control
@@ -36,6 +37,10 @@ func setup(studio: Control) -> void:
 	_toggle("hair", "Hair and beard", "Show / hide hair and beard.", func(value): host.beard.set_enabled(value))
 	_toggle("mirror", "Mirror preview", "Mirror preview (M).", func(value): host.mirror_check.button_pressed = value)
 	_toggle("mannequin", "3D mannequin", "Switch between the camera and 3D mannequin.", func(value): host.beard.set_mannequin(value))
+	_toggle("camera", "Virtual camera", "Send the composed preview to other apps.", func(value):
+		if value: host.virtual_camera.start()
+		else: host.virtual_camera.stop())
+	host.virtual_camera.changed.connect(_sync_camera)
 	processing.text = "Auto"
 	processing.flat = false
 	processing.icon = _icon("processor")
@@ -73,6 +78,13 @@ func setup(studio: Control) -> void:
 	resized.connect(_adapt_width)
 	sync()
 	_adapt_width.call_deferred()
+	_sync_camera()
+
+func _sync_camera() -> void:
+	var camera: Node = host.virtual_camera
+	buttons.camera.set_pressed_no_signal(camera.active)
+	buttons.camera.text = "ON" if camera.active else ""
+	buttons.camera.tooltip_text = "Virtual camera · " + camera.state + "\n" + camera.detail
 
 func _icon(key: String) -> ImageTexture:
 	var image := Image.new()

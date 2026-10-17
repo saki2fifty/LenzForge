@@ -5,6 +5,7 @@
 #include "beard_simulator.h"
 #include "face_occluder.h"
 #include "head_surface_math.h"
+#include "virtual_camera_output.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -24,6 +25,7 @@ void initialize_lenzforge_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<BeardSimulator>();
 	ClassDB::register_class<FaceOccluder>();
 	ClassDB::register_class<HeadSurfaceMath>();
+	ClassDB::register_class<VirtualCameraOutput>();
 }
 
 void uninitialize_lenzforge_module(ModuleInitializationLevel p_level) {

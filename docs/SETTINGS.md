@@ -14,7 +14,7 @@ The desktop saves after 350 ms without another edit and flushes remaining change
 - Hair visibility, mannequin mode/rotation/zoom, strand edit mode, active panels, library selection, model controls, window size, and fullscreen/maximized mode.
 - Browser preview effect chains (including enabled state and parameter values), JPEG quality, preview frame rate, and preview scale.
 
-Capture and recording are actions: reopening the app restores their controls but does not start a camera or recording. Named hair-library entries still use **Save** or **Copy**; autosave preserves your current working look without overwriting a named preset. The loaded library entry is remembered, so **Save** can update it after a restart.
+Capture, recording, and virtual-camera output are actions: reopening the app restores their controls but does not start capture, recording, or broadcasting. Named hair-library entries still use **Save** or **Copy**; autosave preserves your current working look without overwriting a named preset. The loaded library entry is remembered, so **Save** can update it after a restart.
 
 **Look → Preview pacing** defaults to **Responsive (up to 120 fps)**, which disables VSync and bounds rendering while polling new camera frames frequently. **Display synchronized** uses VSync with no software cap; it can prevent tearing but may reduce throughput on some drivers. **Low power (up to 60 fps)** disables VSync and lowers render work. These settings affect rendering, not camera FPS or MediaPipe model quality. Hover over the preview metrics to see renderer FPS and hair CPU time separately from distinct camera frames.
 

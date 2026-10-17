@@ -18,6 +18,10 @@ flowchart LR
     Video --> Native[C++ Godot readers]
     Points --> Native
     Native --> Desktop[Godot studio]
+    Desktop --> Output[Composed preview viewport]
+    Output --> CameraWorker[C++ NV12 output worker]
+    CameraWorker --> CameraSource[Windows Media Foundation camera source]
+    CameraSource --> CameraClients[Other camera apps]
     Capture --> Preview[Shared preview worker]
     Tasks --> Preview
     Preview --> JPEG[One cached JPEG]
@@ -58,6 +62,8 @@ The video reader copies directly into packed upload planes, reuses image/texture
 
 ## State and output
 
+The top-toolbar camera control owns a separate [native Windows virtual-camera output](VIRTUAL_CAMERA.md). A culled view of the existing 2D canvas includes composed video and effects while excluding UI controls. It is read back at a bounded cadence only while a camera client requests samples. A C++ worker with one replaceable pending frame converts to NV12, publishing three sequence-checked slots. A custom Media Foundation source supplies pooled 720p 30/60 fps samples through Windows Camera Frame Server. No additional inference, hair simulation, Python video path, or desktop screen capture is involved. The older GOD1 writer is not used by this feature. Startup and shutdown run off the UI thread; installation requires one-time machine COM registration.
+
 - Tracking toggles apply to the shared worker and synchronize between desktop and browser.
 - Face/iris points cross LMK1. Hands, pose, blendshapes, and transform data are available through the HTTP snapshot and JSON exports; desktop hand/body rendering is future work.
 - Desktop looks are GPU preview settings. Browser effects run before JPEG encoding. Neither changes source recordings.
@@ -89,7 +95,7 @@ Independent strands run in disjoint ranges on the calling thread and up to three
 
 `SurfaceGroom.draw_order()` samples fitted neutral root positions and sorts beard/mustache slots from lower to upper once per placement change. Exact height ties use the original index; scalp/brow slots retain their order. `BeardSimulator.set_render_order()` validates the complete permutation before applying it. Buffer packing follows that cached order while physics arrays, per-strand queries, editing and exports retain their original IDs. Both renderers consume the same buffer. The cached permutation now supplies a small root-height tie-breaker; actual endpoint depth controls strand overlap and head occlusion. No ordering work runs during head movement. The live depth layer adds a GPU depth pass and composite, with one packed texture upload per frame.
 
-This avoids per-hair Godot nodes, rigid bodies, or Python work in the camera path. Estimated live head self-occlusion is implemented. Native head-surface collision is enabled by the saved `collisions` setting for every hair region; hair-to-hair/body collision, scene occlusion and composed-video output remain future work. The [beard guide](BEARD.md) documents controls, persistence, Blender curve exchange, and test commands. The [performance report](PERFORMANCE.md#beard-physics) includes actual webcam runs at default and maximum density.
+This avoids per-hair Godot nodes, rigid bodies, or Python work in the camera path. Estimated live head self-occlusion is implemented. Native head-surface collision is enabled by the saved `collisions` setting for every hair region; hair-to-hair/body collision and scene occlusion remain future work. The [beard guide](BEARD.md) documents controls, persistence, Blender curve exchange, and test commands. The [performance report](PERFORMANCE.md#beard-physics) includes actual webcam runs at default and maximum density.
 
 The offline preview in `viewer/mannequin/` builds a genuine 3D bust lazily: the bundled canonical MediaPipe face retains landmark indices, and procedural geometry closes the skull and adds ears, eyes, neck, and a stand. An orthographic camera projects the 478 reference points and the same shared surface bindings used for live fitting. Geometry and points rotate together through side/rear views without relying on a projected cheek width, which collapses at profile. Two directional lights and ambient light provide shading under the existing Compatibility renderer.
 
@@ -112,7 +118,7 @@ Other camera models, sustained recording, GPU/driver variation, and all retained
 ## Next improvements
 
 1. Validate multiple real webcams at 720p/1080p and 30/60 fps; record capture, inference, and display latency separately before further optimization.
-2. Connect a composed-video output path to OBS/virtual-camera tooling. A user-space OBS integration is a practical first step before maintaining a signed Windows camera driver.
+2. Measure and improve composed virtual-camera output across receiving apps; consider asynchronous GPU readback if the current Compatibility readback becomes a measured bottleneck.
 3. Extend desktop overlays and avatar controls with hand/pose data, blendshapes, and the face transform.
 4. Add a real segmentation mask before exposing background replacement controls. Keep it on the same bounded worker pipeline.
 5. Package a signed Windows release with model/dependency notices and a first-run hardware check after the hardware validation pass.

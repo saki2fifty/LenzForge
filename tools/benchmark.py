@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--offscreen', action='store_true', help='Keep the rendered test window off-screen')
     parser.add_argument('--vsync', choices=['project', 'on', 'off'], default='project', help='Diagnose presentation pacing independently of the software frame cap')
     parser.add_argument('--portrait', action='store_true', help='Use a deterministic public-domain portrait as the demo source')
+    parser.add_argument('--virtual-camera', action='store_true', help='Measure composed output with an actual Windows camera consumer; requires native camera installation')
     args = parser.parse_args()
     os.environ['LENZFORGE_SETTINGS_DIR'] = str(ROOT / 'artifacts' / ('benchmark-settings-' + uuid.uuid4().hex))
     if not 1 <= args.seconds <= 300:
@@ -76,6 +77,7 @@ def main():
     command += ['1' if args.beard else '0', str(args.beard_strands), str(args.beard_segments)]
     command.append(str(args.warmup))
     command.append(args.vsync)
+    command.append('1' if args.virtual_camera else '0')
     if args.offscreen:
         command[1:1] = ['--position', '-3000,0']
     try:
@@ -92,6 +94,7 @@ def main():
                   'seconds': args.seconds, 'requested_fps': args.fps,
                   'tracking_backend': args.tracking_backend, 'warmup_s': args.warmup, 'offscreen': args.offscreen,
                   'vsync': args.vsync,
+                  'virtual_camera': args.virtual_camera,
                   'source': f'public-domain portrait, synthetic {args.fps} fps' if args.portrait else 'camera' if args.camera >= 0 else 'demo',
                   'overlay': not args.no_overlay, 'beard': args.beard, 'beard_strands': args.beard_strands,
                   'beard_segments': args.beard_segments},
