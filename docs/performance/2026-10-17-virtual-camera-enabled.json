@@ -1,0 +1,241 @@
+{
+  "configuration": {
+    "utc": "2026-10-17T21:45:05.286550+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "tracking_backend": "cpu",
+    "warmup_s": 5.0,
+    "offscreen": true,
+    "vsync": "project",
+    "virtual_camera": true,
+    "source": "public-domain portrait, synthetic 60 fps",
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 1024,
+    "beard_segments": 8
+  },
+  "viewer": {
+    "beard_frames": 1199,
+    "beard_update_ms": {
+      "max": 3.655,
+      "mean": 1.20680984153461,
+      "p50": 1.138,
+      "p95": 1.826,
+      "p99": 2.277
+    },
+    "displayed_fps": 59.9860546181282,
+    "elapsed_s": 19.987979,
+    "frame_age_ms": {
+      "max": 35.9560999908447,
+      "mean": 18.0029763969313,
+      "p50": 19.3680999908447,
+      "p95": 20.1446999969482,
+      "p99": 27.284
+    },
+    "frame_cap": 120,
+    "frames": 1199,
+    "gaps_over_50_ms": 0,
+    "interval_ms": {
+      "max": 33.558,
+      "mean": 16.6656452420701,
+      "p50": 16.661,
+      "p95": 25.235,
+      "p99": 25.362
+    },
+    "landmark_age_ms": {
+      "max": 38.6085999984741,
+      "mean": 20.3426689739911,
+      "p50": 21.7545999984741,
+      "p95": 22.6338000030518,
+      "p99": 29.9493000030518
+    },
+    "landmark_frames": 1199,
+    "mismatched_presentations": 0,
+    "output_conversion_ms": {
+      "max": 4.4137,
+      "mean": 2.77359357798165,
+      "p50": 2.6886,
+      "p95": 3.433,
+      "p99": 4.0118
+    },
+    "output_readback_ms": {
+      "max": 7.101,
+      "mean": 1.97603753127606,
+      "p50": 1.878,
+      "p95": 2.594,
+      "p99": 3.331
+    },
+    "presented_pair_skew_ms": {
+      "max": 0.0,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0
+    },
+    "render_fps": 120.0,
+    "screen_refresh_hz": 60.0,
+    "upload_ms": {
+      "max": 1.5766,
+      "mean": 0.481620350291909,
+      "p50": 0.4654,
+      "p95": 0.6989,
+      "p99": 0.8597
+    },
+    "virtual_camera": {
+      "consumer": true,
+      "conversion_ms": 2.4451,
+      "error": "",
+      "error_code": 0,
+      "replaced": 0,
+      "sent": 1503,
+      "state": 2
+    },
+    "vsync": 0
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": -1,
+    "capture_format": "BGR",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 1.627,
+        "mean": 0.516,
+        "p95": 0.604
+      },
+      "fps": 60.0,
+      "interval_ms": {
+        "max": 18.286,
+        "mean": 16.667,
+        "p95": 17.056
+      },
+      "late_frames": 0,
+      "publish_ms": {
+        "max": 0.279,
+        "mean": 0.127,
+        "p95": 0.17
+      },
+      "read_ms": {
+        "max": 0.077,
+        "mean": 0.024,
+        "p95": 0.032
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.0,
+    "frames": 1889,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "Demo pattern",
+    "tracking": {
+      "active_backend": "cpu",
+      "applied_revision": 1,
+      "avg_inference_ms": 11.548649468103905,
+      "capture_to_landmarks_p95_ms": 14.036100000000001,
+      "comparison": null,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "fallback_reason": null,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 59.86617143741773,
+      "frames_dropped": 8,
+      "frames_processed": 1880,
+      "inference_size": [
+        640,
+        360
+      ],
+      "landmark_count": 478,
+      "last_inference_ms": 13.683999997738283,
+      "library": {
+        "job": {
+          "state": "idle"
+        },
+        "models": [
+          {
+            "bytes": 3758596,
+            "id": "face_landmarker",
+            "installed": true,
+            "kind": "face",
+            "label": "Face \u00b7 standard",
+            "official": true,
+            "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+            "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          },
+          {
+            "bytes": 7819105,
+            "id": "hand_landmarker",
+            "installed": true,
+            "kind": "hand",
+            "label": "Hands \u00b7 full",
+            "official": true,
+            "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+            "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+          },
+          {
+            "bytes": 5777746,
+            "id": "pose_landmarker_lite",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Lite",
+            "official": true,
+            "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+          },
+          {
+            "bytes": 9398198,
+            "id": "pose_landmarker_full",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Full",
+            "official": true,
+            "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+          },
+          {
+            "bytes": 30664242,
+            "id": "pose_landmarker_heavy",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Heavy",
+            "official": true,
+            "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+          }
+        ]
+      },
+      "model_ms": 13.054499999270774,
+      "phase": "ready",
+      "processing_time": 13.683999997738283,
+      "queue_size": 0,
+      "renderer": null,
+      "requested_backend": "cpu",
+      "round_trip_p50_ms": 11.300750000373228,
+      "round_trip_p95_ms": 13.353494993498316,
+      "running": true,
+      "settings": {
+        "backend": "cpu",
+        "blendshapes": true,
+        "detection_confidence": 0.5,
+        "face_model": "face_landmarker",
+        "face_transform": true,
+        "hand_model": "hand_landmarker",
+        "max_width": 640,
+        "num_faces": 1,
+        "pose_model": "pose_landmarker_lite",
+        "presence_confidence": 0.5,
+        "tracking_confidence": 0.5
+      },
+      "settings_revision": 1
+    }
+  }
+}

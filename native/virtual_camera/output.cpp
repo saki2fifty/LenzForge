@@ -30,7 +30,8 @@ class Output : public Tracked {
         LF_CHECK(camera->SetString(owner_sid_key, sid.c_str()));
         LF_CHECK(CoCreateGuid(&session));
         LF_CHECK(camera->SetGUID(session_key,session));
-        return camera->Start(nullptr);
+        LF_CHECK(camera->Start(nullptr));
+        return S_OK;
     }
     void publish(const uint8_t* rgba) {
         auto began = std::chrono::steady_clock::now();

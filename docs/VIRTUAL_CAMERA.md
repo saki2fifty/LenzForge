@@ -41,7 +41,10 @@ If camera access is denied, enable **Windows Settings → Privacy & security →
 - A C++ worker converts RGBA to BT.601 limited-range NV12 and publishes to a three-slot shared-memory transport. There is only one replaceable pending RGBA frame; slow output cannot build a FIFO of stale frames.
 - The Media Foundation source supplies pooled samples to Windows Camera Frame Server. A high-resolution waitable timer paces delivery without a process-wide timer-resolution change. Frames older than 500 ms, invalid publications, and stopped output produce black rather than retaining a stale face.
 - The mapping uses the owning Windows user's SID and an unpredictable per-session GUID. Its ACL permits that user, Local Service, and SYSTEM. The camera is registered for the current user with session lifetime.
+- Shared memory is allocated only when the Windows Frame Server starts the stream. Windows can query camera formats in an ordinary app process without requesting administrator privileges.
 - The Microsoft SDK DLL and MinGW Godot extension communicate through a small versioned C ABI. The camera uses a static C++ runtime and adds no Python package or browser worker.
+
+The installed device has also passed normal-user startup, independent Windows Media Foundation reception at 60 fps, and close/reopen with the composed hair visible. The active-output benchmark retained 59.99 matched preview fps with CPU tracking and 1,024 × 8 facial strands; [measurements and limits](PERFORMANCE.md#custom-virtual-camera-local-validation) include the extra readback and conversion costs.
 
 Native source and rendered composition checks:
 

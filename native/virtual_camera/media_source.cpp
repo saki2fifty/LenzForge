@@ -36,21 +36,36 @@ HRESULT Stream::initialize(IMFMediaSource* source, const std::wstring& sid, cons
     ComPtr<IMFMediaTypeHandler> handler;
     LF_CHECK(descriptor->GetMediaTypeHandler(&handler));
     LF_CHECK(handler->SetCurrentMediaType(fast.Get()));
+    owner_sid = sid;
+    transport_name = local_test ? L"Local\\LenzForge.Camera.Test." + std::to_wstring(GetCurrentProcessId()) : mapping_name(sid,session);
+    wake = CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    if (!wake) return HRESULT_FROM_WIN32(GetLastError());
+    parent = source;
+    return S_OK;
+}
+HRESULT Stream::open_transport() {
+    if (frames) return S_OK;
+    // Windows also instantiates the source in the unelevated publisher while
+    // discovering its formats. Only the streaming Frame Server in session 0
+    // creates the global transport; metadata queries need no global privilege.
     // Only this camera's user, SYSTEM and Local Service can access its transport.
     PSID parsed = nullptr;
-    if (!ConvertStringSidToSidW(sid.c_str(), &parsed)) return E_INVALIDARG;
+    if (!ConvertStringSidToSidW(owner_sid.c_str(), &parsed)) return E_INVALIDARG;
     LocalFree(parsed);
-    std::wstring acl = L"D:P(A;;GA;;;SY)(A;;GA;;;LS)(A;;GA;;;" + sid + L")";
+    std::wstring acl = L"D:P(A;;GA;;;SY)(A;;GA;;;LS)(A;;GA;;;" + owner_sid + L")";
     PSECURITY_DESCRIPTOR security = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(acl.c_str(), SDDL_REVISION_1, &security, nullptr)) return HRESULT_FROM_WIN32(GetLastError());
     SECURITY_ATTRIBUTES sa{sizeof(sa), security, FALSE};
-    auto name = local_test ? L"Local\\LenzForge.Camera.Test." + std::to_wstring(GetCurrentProcessId()) : mapping_name(sid,session);
-    mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE, 0, sizeof(SharedFrames), name.c_str());
+    mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE, 0, sizeof(SharedFrames), transport_name.c_str());
     DWORD error = GetLastError();
     LocalFree(security);
     if (!mapping) return HRESULT_FROM_WIN32(error);
     frames = static_cast<SharedFrames*>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedFrames)));
-    if (!frames) return HRESULT_FROM_WIN32(GetLastError());
+    if (!frames) {
+        HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+        CloseHandle(mapping); mapping = nullptr;
+        return hr;
+    }
     if (error != ERROR_ALREADY_EXISTS) {
         frames->version = 1; frames->frame_width = width; frames->frame_height = height;
         frames->published = -1;
@@ -59,9 +74,6 @@ HRESULT Stream::initialize(IMFMediaSource* source, const std::wstring& sid, cons
     }
     if (!valid(frames)) return E_UNEXPECTED;
     snapshot.resize(bytes);
-    wake = CreateEventW(nullptr,FALSE,FALSE,nullptr);
-    if (!wake) return HRESULT_FROM_WIN32(GetLastError());
-    parent = source;
     return S_OK;
 }
 HRESULT Stream::GetMediaSource(IMFMediaSource** out) {
@@ -85,6 +97,7 @@ HRESULT Stream::start(IMFMediaType* type, bool event) {
     LF_CHECK(MFGetAttributeSize(selected.Get(), MF_MT_FRAME_SIZE, &w, &h));
     LF_CHECK(MFGetAttributeRatio(selected.Get(), MF_MT_FRAME_RATE, &numerator, &denominator));
     if (w != width || h != height || subtype != MFVideoFormat_NV12 || denominator != 1 || (numerator != 30 && numerator != 60)) return MF_E_INVALIDMEDIATYPE;
+    LF_CHECK(open_transport());
     if (state == MF_STREAM_STATE_RUNNING) {
         if (duration != 10000000 / numerator) return MF_E_INVALID_STATE_TRANSITION;
     } else {

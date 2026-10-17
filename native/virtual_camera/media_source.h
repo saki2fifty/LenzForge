@@ -15,7 +15,9 @@ class Stream final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, Microsof
     HANDLE mapping = nullptr;
     HANDLE wake = nullptr;
     SharedFrames* frames = nullptr;
+    std::wstring owner_sid, transport_name;
     std::vector<uint8_t> snapshot;
+    HRESULT open_transport();
     void run();
     HRESULT deliver(IUnknown* token);
 public:

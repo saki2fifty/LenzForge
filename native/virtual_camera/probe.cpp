@@ -36,7 +36,20 @@ static HRESULT component_test(const wchar_t* path) {
     wchar_t sid[192]{};
     LF_CHECK(activation->GetString(owner_sid_key,sid,192,nullptr));
     if (wcscmp(sid,L"S-1-5-18") || unload_fn() != S_FALSE) return E_FAIL;
+    LF_CHECK(attributes->SetString(owner_sid_key,current_sid().c_str()));
+    GUID session{};
+    LF_CHECK(CoCreateGuid(&session));
+    LF_CHECK(attributes->SetGUID(session_key,session));
+    ComPtr<IMFMediaSource> source;
+    LF_CHECK(activation->ActivateObject(IID_PPV_ARGS(&source)));
+    ComPtr<IMFPresentationDescriptor> presentation;
+    LF_CHECK(source->CreatePresentationDescriptor(&presentation));
+    // Metadata discovery happens in the normal publisher process. It must not
+    // create global shared memory or require administrator privileges.
+    HANDLE mapping = OpenFileMappingW(FILE_MAP_READ,FALSE,mapping_name(current_sid(),session).c_str());
+    if (mapping) { CloseHandle(mapping); return E_FAIL; }
     LF_CHECK(activation->ShutdownObject());
+    presentation.Reset(); source.Reset();
     attributes.Reset(); activation.Reset(); factory.Reset();
     if (unload_fn() != S_OK) return E_FAIL;
     FreeLibrary(library);
@@ -84,11 +97,6 @@ static HRESULT self_test(UINT32 fps) {
     LF_CHECK(source.As(&source_interface));
     ComPtr<IMFMediaEventGenerator> event_interface;
     LF_CHECK(source.As(&event_interface));
-    auto name = L"Local\\LenzForge.Camera.Test." + std::to_wstring(GetCurrentProcessId());
-    HANDLE mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS,FALSE,name.c_str());
-    if (!mapping) return HRESULT_FROM_WIN32(GetLastError());
-    auto* frames = static_cast<SharedFrames*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(SharedFrames)));
-    if (!valid(frames)) return E_FAIL;
     ComPtr<IMFSourceReader> reader;
     ComPtr<IMFAttributes> reader_attrs;
     LF_CHECK(MFCreateAttributes(&reader_attrs,1));
@@ -96,9 +104,25 @@ static HRESULT self_test(UINT32 fps) {
     LF_CHECK(MFCreateSourceReaderFromMediaSource(source.Get(), reader_attrs.Get(), &reader));
     std::vector<uint8_t> data;
     LONGLONG last = -1, stamp = 0;
+    LF_CHECK(select_type(reader.Get(),fps));
+    LF_CHECK(read(reader.Get(),data,stamp)); // Start lazily creates the transport.
+    auto name = L"Local\\LenzForge.Camera.Test." + std::to_wstring(GetCurrentProcessId());
+    HANDLE mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS,FALSE,name.c_str());
+    if (!mapping) return HRESULT_FROM_WIN32(GetLastError());
+    auto* frames = static_cast<SharedFrames*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(SharedFrames)));
+    if (!valid(frames)) return E_FAIL;
+    last = stamp;
+    // Flush any pre-requested black sample before checking publication values.
+    auto& initial = frames->slots[0];
+    memset(initial.nv12,81,pixels);
+    for (uint32_t p = pixels; p < bytes; p += 2) { initial.nv12[p]=90; initial.nv12[p+1]=240; }
+    initial.timestamp_ms = GetTickCount64();
+    InterlockedExchange64(&initial.sequence,2);
+    InterlockedExchange(&frames->published,0);
+    InterlockedExchange(&frames->producing,1);
+    for (int i = 0; i < 10; ++i) LF_CHECK(read(reader.Get(),data,stamp));
     double measured = 0;
     {
-        LF_CHECK(select_type(reader.Get(),fps));
         auto began = std::chrono::steady_clock::now();
         for (int i = 0; i < 60; ++i) {
             auto& slot = frames->slots[i%3];
