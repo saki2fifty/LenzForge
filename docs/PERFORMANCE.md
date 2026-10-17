@@ -52,6 +52,12 @@ Reproduce after `Setup.ps1 -SkipInstall`:
 
 The second command writes `artifacts/frame-budget-current.json`. To isolate pacing on the current build, append `--vsync on --frame-cap 0` or `--vsync off --frame-cap 120` to the first command. Omit `--offscreen` for an on-screen window, or replace `--portrait` with `--camera <index>` for a physical device. Benchmarks run sequentially and neither load nor save personal designs. They do not record camera images.
 
+### Facial layering follow-up
+
+The height-based beard/mustache ordering uses a cached permutation during native buffer packing. Sorting runs only when root placement changes; the simulation and single draw batch remain intact. On October 17, a sequential 20-second run of the same off-screen portrait/CPU/1,024 × 8 benchmark measured **59.97 distinct preview fps**, **17.23 ms p95 frame interval**, zero gaps over 50 ms, and **1.30 ms median / 1.84 ms p95** for hair physics plus upload preparation. This preserves the recovered throughput; the single run is not an isolated measurement of sorting overhead. [Raw report](performance/2026-10-17-strand-layering.json).
+
+`tests/strand_layering.gd` checks stable root-height order, measured/virtual reassignment, indexed selection, invalid permutations and resizing. Run it with `--render` to additionally check actual overlap pixels in the 2D preview and 3D mannequin, mirroring and head occlusion.
+
 ## Earlier measurements
 
 The October 16 [CPU/GPU tracking comparison](GPU_TRACKING.md#measurements) covers the browser worker, CPU fallback/Auto selection, and the complete viewer with a 512-strand beard. The older camera measurements below describe the October 15 capture optimization and use a different input/test setup.

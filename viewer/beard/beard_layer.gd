@@ -7,6 +7,7 @@ var surface := preload("res://tracking/head_surface.gd").new()
 var external_surface := false
 var extension_model: RefCounted
 var root_bindings: Dictionary = {}
+var render_order := PackedInt32Array()
 var _binding_config: Dictionary = {}
 var _binding_overrides: Dictionary = {}
 signal changed
@@ -269,6 +270,7 @@ func _rebuild() -> void:
 		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
 	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty():
 		root_bindings = SurfaceGroom.build(surface,config,attachment,anchors_only)
+		render_order = SurfaceGroom.draw_order(surface,root_bindings,attachment)
 		_binding_config = placement
 		_binding_overrides = anchors_only
 	mannequin_view.shared_root_bindings = root_bindings
@@ -305,6 +307,9 @@ func _rebuild() -> void:
 	physics.length = 1.0 # Attributes carry absolute lengths in face widths for every region.
 	if not simulator.configure(attachment.size(), int(config.segments), physics, attributes, steps, options):
 		last_error = "The beard configuration could not be applied."
+		return
+	if not simulator.set_render_order(render_order):
+		last_error = "The strand layering could not be applied."
 		return
 	last_error = ""
 	root_markers.material.set_shader_parameter("point_color",Color.html(config.generated_root_color))

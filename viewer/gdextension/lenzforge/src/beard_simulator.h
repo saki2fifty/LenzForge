@@ -33,6 +33,7 @@ public:
     bool set_forces(double gravity, double wind, double turbulence, double damping);
     bool set_mustache_forces(double gravity, double wind, double turbulence, double damping, bool collisions);
     void reset();
+    bool set_render_order(const godot::PackedInt32Array &order);
     godot::PackedFloat32Array get_render_buffer() const;
     godot::PackedVector2Array get_strand_points(int strand) const;
     godot::PackedVector3Array get_strand_points_3d(int strand) const;
@@ -55,6 +56,7 @@ private:
     std::vector<float> rest_lengths;
     HeadCollider head;
     std::vector<int> contact_hint;
+    std::vector<int> render_order;
     godot::Vector3 rest_direction(int strand, int segment) const;
     double segment_length(int strand, int segment) const;
     float clearance(int strand, int segment) const;

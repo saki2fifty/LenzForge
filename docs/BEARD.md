@@ -18,6 +18,8 @@ The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage wid
 
 Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. **Collide with head surface**, on the **Physics** and **Mustache** pages, keeps the corresponding strands outside the shared face, chin, sides, crown and back of the head. Both switches default on and work with landmark guides or visual occlusion turned off. Hair can still be hidden when it is correctly behind the head.
 
+Beard and mustache strands layer by their root height: lower roots draw behind higher roots, so upper hairs overlap the layers beneath them. This applies to measured and virtual attachments in both the live preview and mannequin. Height comes from the fitted roots on the neutral head, keeping the order stable through head turns, tilt and mirroring. Moving a root to another landmark updates its layer automatically. Head occlusion still uses actual strand depth; strand selection, saved edits and physical motion retain their stable IDs. Layer ordering is cached when placement changes and adds no per-frame sorting or extra draw batches.
+
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
 ## Hair root surface

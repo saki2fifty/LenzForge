@@ -32,6 +32,21 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 		result.weights[i] = binding.weights[0]
 	return result
 
+static func draw_order(surface: RefCounted, bindings: Dictionary, anchors: Array) -> PackedInt32Array:
+	# Sort fitted neutral roots once per placement edit, never by noisy live
+	# screen Y. Lower facial roots draw first; upper roots overlap them.
+	var positions: PackedVector3Array = surface.math.sample(surface.neutral_vertices(),bindings.indices,bindings.weights)
+	var facial: Array[int] = []
+	var order := PackedInt32Array(range(anchors.size()))
+	for i in anchors.size():
+		if anchors[i].region in ["beard","mustache"]: facial.append(i)
+	var slots := facial.duplicate()
+	facial.sort_custom(func(a: int, b: int):
+		if positions[a].y == positions[b].y: return a < b
+		return positions[a].y > positions[b].y)
+	for i in slots.size(): order[slots[i]] = facial[i]
+	return order
+
 static func lower_binding(uv: Vector2) -> Dictionary:
 	# Reuse the shared head triangles directly. Guide density/visibility never
 	# changes these attachments, and no nearest search runs during tracking.

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <mutex>
+#include <numeric>
 #include <thread>
 
 using namespace godot;
@@ -68,6 +69,7 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_forces", "gravity", "wind", "turbulence", "damping"), &BeardSimulator::set_forces);
     ClassDB::bind_method(D_METHOD("set_mustache_forces", "gravity", "wind", "turbulence", "damping", "collisions"), &BeardSimulator::set_mustache_forces);
     ClassDB::bind_method(D_METHOD("reset"), &BeardSimulator::reset);
+    ClassDB::bind_method(D_METHOD("set_render_order", "order"), &BeardSimulator::set_render_order);
     ClassDB::bind_method(D_METHOD("get_render_buffer"), &BeardSimulator::get_render_buffer);
     ClassDB::bind_method(D_METHOD("get_strand_points", "strand"), &BeardSimulator::get_strand_points);
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
@@ -133,6 +135,8 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     set_mustache_forces(mg,mw,mt,md,bool(settings.get("mustache_collisions",collisions)));
     preserve_shape = bool(settings.get("preserve_shape", false));
     attributes.resize(count);
+    render_order.resize(count);
+    std::iota(render_order.begin(),render_order.end(),0);
     roots.resize(count); positions.resize(count * (segments + 1)); previous.resize(positions.size());
     contact_hint.assign(positions.size(), -1);
     directions.resize(count * segments); rest_lengths.resize(count * segments);
@@ -284,12 +288,26 @@ void BeardSimulator::step_strand(int s,double dt,double root_fraction,double ste
         }
 }
 
+bool BeardSimulator::set_render_order(const PackedInt32Array &order) {
+    if(order.size()!=count) return false;
+    const auto *ids=order.ptr();
+    std::vector<bool> seen(count,false);
+    for(int i=0;i<count;++i) {
+        if(ids[i]<0 || ids[i]>=count || seen[ids[i]]) return false;
+        seen[ids[i]]=true;
+    }
+    // Only output placement changes. Simulation, collision hints, selection
+    // and exported strand IDs retain their original stable indices.
+    for(int i=0;i<count;++i) render_order[i]=ids[i];
+    return true;
+}
 PackedFloat32Array BeardSimulator::get_render_buffer() const {
     PackedFloat32Array buffer;
     if (!initialized) return buffer;
     buffer.resize(count * segments * 16);
     float *out = buffer.ptrw();
-    for (int s=0; s<count; ++s) {
+    for (int slot=0; slot<count; ++slot) {
+        const int s=render_order[slot];
         const auto &a=attributes[s]; const int base=s*(segments+1);
         for (int j=0; j<segments; ++j) {
             const float t0=float(j)/segments, t1=float(j+1)/segments, t=(t0+t1)*.5f;
