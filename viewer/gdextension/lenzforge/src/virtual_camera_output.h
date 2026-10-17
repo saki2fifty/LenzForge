@@ -15,6 +15,8 @@ class VirtualCameraOutput : public godot::RefCounted {
     lenzcam::StopFn stop_fn = nullptr;
     lenzcam::SubmitFn submit_fn = nullptr;
     lenzcam::StatusFn status_fn = nullptr;
+    lenzcam::TextureFn texture_fn = nullptr;
+    lenzcam::ResetTextureFn reset_texture_fn = nullptr;
     godot::String last_error;
     std::thread stopping_thread;
     std::atomic<bool> stopped{true};
@@ -25,6 +27,7 @@ public:
     bool start(const godot::String& library_path);
     void stop();
     bool submit(const godot::Ref<godot::Image>& image);
+    bool submit_texture(int64_t texture);
     godot::Dictionary get_status() const;
 };
 }

@@ -10,7 +10,7 @@ var root_bindings: Dictionary = {}
 var render_order := PackedInt32Array()
 var _binding_config: Dictionary = {}
 var _binding_overrides: Dictionary = {}
-var _binding_shape := Vector2(-1,-1)
+var _binding_shape := Vector4(-1,-1,-1,-1)
 signal changed
 var guides_visible := true
 signal preview_face_changed
@@ -264,7 +264,7 @@ func _rebuild() -> void:
 	for id in overrides:
 		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
 	var source: RefCounted = mannequin_view.surface if mannequin else surface
-	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty() or _binding_shape != Vector2(source.head_depth,source.crown):
+	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty() or _binding_shape != source.shape_signature():
 		_binding_config = placement
 		_binding_overrides = anchors_only
 		_fit_bindings(source)
@@ -369,12 +369,12 @@ func _attach_mannequin() -> void:
 func _fit_bindings(source: RefCounted) -> void:
 	root_bindings = SurfaceGroom.build(source,config,attachment,_binding_overrides)
 	render_order = SurfaceGroom.draw_order(source,root_bindings,attachment)
-	_binding_shape = Vector2(source.head_depth,source.crown)
+	_binding_shape = source.shape_signature()
 	mannequin_view.shared_root_bindings = root_bindings
 	mannequin_view._roots_dirty = true
 
 func _update_binding_shape(source: RefCounted) -> void:
-	if _binding_shape == Vector2(source.head_depth,source.crown): return
+	if _binding_shape == source.shape_signature(): return
 	_fit_bindings(source)
 	if simulator: simulator.set_render_order(render_order)
 

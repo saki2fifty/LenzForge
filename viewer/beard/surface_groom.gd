@@ -20,7 +20,7 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 	var targets := PackedVector3Array()
 	var reference := Surface.canonical_points()
 	var reference_width := reference[454].distance_to(reference[234])
-	var fitted: PackedVector3Array = surface.math.build(reference,PackedInt32Array(Surface.OUTLINE),Surface.RINGS,surface.head_depth,surface.crown)
+	var fitted: PackedVector3Array = surface.build_reference()
 	# The measured ear-side points define the rear edge, not the virtual skull.
 	var rear_limit := maxf(reference[234].z,reference[454].z)
 	for i in anchors.size():

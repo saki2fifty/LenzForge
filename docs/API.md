@@ -17,6 +17,9 @@ Default base: `http://127.0.0.1:5000`. JSON control requests use `Content-Type: 
 | GET | `/api/tracking/statistics` | Actual worker timing, counts, queue depth, dropped work, and errors |
 | GET / POST | `/api/tracking/configure` | Read/update live tracking settings; returns validated `config` and `revision` |
 | POST | `/api/tracking/reset` | Restore Auto/640px/single-face/0.5 confidence defaults, optional outputs enabled |
+| POST | `/api/calibration/sample` | Analyze the current camera frame on demand; returns local JPEG, face/contour coordinates, hand boxes, pose, frame ID and usability. Lazily loads verified contour/face/hand models; requires active capture. |
+| POST | `/api/calibration/fit` | Fit 2–12 observations (`face`: 478 XYZ points, `contour`: 8–160 XY points) with `initial: [depth,crown,sides,jaw]`; returns a bounded version-1 profile. Different head angles are required. The desktop saves only after review. |
+| POST | `/api/calibration/stop` | Release calibration-only models; waits for any in-flight analysis to finish. Normal tracking continues. |
 | GET | `/video_feed` | Shared MJPEG preview with browser effects and overlays |
 | GET | `/api/effects/list` | Retained effect registry, including experimental categories |
 | POST | `/api/effects/apply` | Append an effect with `effect_name` and optional `parameters` |

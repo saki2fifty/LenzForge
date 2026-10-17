@@ -6,6 +6,7 @@ void VirtualCameraOutput::_bind_methods() {
     ClassDB::bind_method(D_METHOD("start", "library_path"), &VirtualCameraOutput::start);
     ClassDB::bind_method(D_METHOD("stop"), &VirtualCameraOutput::stop);
     ClassDB::bind_method(D_METHOD("submit", "image"), &VirtualCameraOutput::submit);
+    ClassDB::bind_method(D_METHOD("submit_texture", "texture"), &VirtualCameraOutput::submit_texture);
     ClassDB::bind_method(D_METHOD("get_status"), &VirtualCameraOutput::get_status);
 }
 VirtualCameraOutput::~VirtualCameraOutput() {
@@ -26,14 +27,17 @@ bool VirtualCameraOutput::start(const String& path) {
         stop_fn = reinterpret_cast<lenzcam::StopFn>(GetProcAddress(library,"LFCameraStop"));
         status_fn = reinterpret_cast<lenzcam::StatusFn>(GetProcAddress(library,"LFCameraStatus"));
         submit_fn = reinterpret_cast<lenzcam::SubmitFn>(GetProcAddress(library,"LFCameraSubmit"));
+        texture_fn = reinterpret_cast<lenzcam::TextureFn>(GetProcAddress(library,"LFCameraTexture"));
+        reset_texture_fn = reinterpret_cast<lenzcam::ResetTextureFn>(GetProcAddress(library,"LFCameraResetTexture"));
     }
-    if (!start_fn || !stop_fn || !status_fn || !submit_fn) { last_error = "Camera component version is incompatible. Rebuild it."; return false; }
+    if (!start_fn || !stop_fn || !status_fn || !submit_fn || !texture_fn || !reset_texture_fn) { last_error = "Camera component version is incompatible. Rebuild it."; return false; }
     output = start_fn();
     if (!output) last_error = "Could not start the camera output worker.";
     return output != nullptr;
 }
 void VirtualCameraOutput::stop() {
     if (!output) return;
+    if (reset_texture_fn) reset_texture_fn(output);
     if (stopping_thread.joinable()) stopping_thread.join();
     auto* closing = output; output = nullptr; stopped = false;
     stopping_thread = std::thread([this, closing] { stop_fn(closing); stopped = true; });
@@ -43,6 +47,9 @@ bool VirtualCameraOutput::submit(const Ref<Image>& image) {
         image->get_width() != lenzcam::width || image->get_height() != lenzcam::height) return false;
     auto data = image->get_data();
     return submit_fn(output, data.ptr(), static_cast<uint32_t>(data.size()));
+}
+bool VirtualCameraOutput::submit_texture(int64_t texture) {
+    return output && texture_fn && texture>0 && texture<=UINT32_MAX && texture_fn(output,uint32_t(texture));
 }
 Dictionary VirtualCameraOutput::get_status() const {
     lenzcam::Status status;
@@ -54,6 +61,8 @@ Dictionary VirtualCameraOutput::get_status() const {
     result["sent"] = int64_t(status.sent);
     result["replaced"] = int64_t(status.replaced);
     result["conversion_ms"] = status.conversion_ms;
+    result["gpu_transfer"] = bool(status.gpu);
+    result["gpu_error"] = int64_t(uint32_t(status.gpu_error));
     result["error_code"] = int64_t(uint32_t(status.error));
     String detail = last_error;
     if (status.state == 3) {

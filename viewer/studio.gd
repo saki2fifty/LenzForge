@@ -9,6 +9,8 @@ const BeardLayer = preload("res://beard/beard_layer.gd")
 const BeardPanel = preload("res://beard/beard_panel.gd")
 const QuickToolbar = preload("res://ui/quick_toolbar.gd")
 const VirtualCamera = preload("res://output/virtual_camera.gd")
+const HeadProfile = preload("res://tracking/head_profile.gd")
+const CalibrationWizard = preload("res://tracking/calibration_wizard.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -76,6 +78,10 @@ var point_slider: HSlider
 var point_color: ColorPickerButton
 var quick_toolbar: PanelContainer
 var virtual_camera: Node
+var calibration: Window
+var calibration_profile: Dictionary = {}
+var head_depth_slider: HSlider
+var head_crown_slider: HSlider
 var guides_check: CheckBox
 var occlusion_check: CheckBox
 var pacing_picker: OptionButton
@@ -376,8 +382,12 @@ func _build_ui() -> void:
 	landmark_column.add_child(hide_back)
 	occlusion.head_depth = clampf(float(settings.get_value("view", "head_depth", .65)),.25,1.0)
 	occlusion.crown = clampf(float(settings.get_value("view", "head_crown", .20)),0,.5)
-	_slider(landmark_column, "Head depth", .25, 1.0, .01, occlusion.head_depth, func(value): occlusion.head_depth = value; _refresh_occlusion())
-	_slider(landmark_column, "Crown height", 0.0, .5, .01, occlusion.crown, func(value): occlusion.crown = value; _refresh_occlusion())
+	calibration_profile = HeadProfile.validate(settings.get_value("calibration","profile",{}))
+	occlusion.surface.sides = calibration_profile.get("sides",1.0)
+	occlusion.surface.jaw = calibration_profile.get("jaw",1.0)
+	head_depth_slider = _slider(landmark_column, "Head depth", .25, 1.0, .005, occlusion.head_depth, func(value): occlusion.head_depth = value; _refresh_occlusion())
+	head_crown_slider = _slider(landmark_column, "Crown height", 0.0, .5, .005, occlusion.crown, func(value): occlusion.crown = value; _refresh_occlusion())
+	landmark_column.add_child(_button("Calibrate head…",func(): calibration.open()))
 	overlay.occlusion = occlusion
 	extensions.occlusion = occlusion
 	beard.occlusion = occlusion
@@ -386,7 +396,7 @@ func _build_ui() -> void:
 	extensions.model.surface = occlusion.surface
 	extensions.model.external_surface = true
 	beard.extension_model = extensions.model
-	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown)
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw)
 	landmark_column.add_child(HSeparator.new())
 	_section(landmark_column, "Measured landmarks")
 	points_check = CheckBox.new()
@@ -436,6 +446,9 @@ func _build_ui() -> void:
 	virtual_camera = VirtualCamera.new()
 	add_child(virtual_camera)
 	virtual_camera.setup(self,canvas)
+	calibration = CalibrationWizard.new()
+	add_child(calibration)
+	calibration.setup(self)
 	quick_toolbar.setup(self)
 	resized.connect(_adapt_layout)
 	call_deferred("_adapt_layout")
@@ -724,13 +737,25 @@ func _on_landmarks(points: Array, frame_id: int, timestamp: int) -> void:
 	beard.set_face(normalized, overlay.video_size, depth)
 
 func _refresh_occlusion() -> void:
-	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown)
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw)
 	if beard.mannequin: return
 	occlusion.update(overlay.points,overlay.depth,overlay.video_size)
 	overlay.queue_redraw()
 	extensions._refresh()
 	if beard.enabled and beard._face_live: beard._attach()
 	beard._apply_occlusion()
+
+func apply_calibration(profile: Dictionary) -> void:
+	calibration_profile = HeadProfile.validate(profile)
+	occlusion.surface.sides = calibration_profile.get("sides",1.0)
+	occlusion.surface.jaw = calibration_profile.get("jaw",1.0)
+	occlusion.head_depth = calibration_profile.get("depth",.65)
+	occlusion.crown = calibration_profile.get("crown",.20)
+	head_depth_slider.set_value_no_signal(occlusion.head_depth)
+	head_crown_slider.set_value_no_signal(occlusion.crown)
+	_refresh_occlusion()
+	queue_settings_save()
+	message.text = "Head fit saved. Virtual landmarks, roots, occlusion and collisions share the fitted surface." if not calibration_profile.is_empty() else "Head shape reset to defaults."
 
 func _set_look(index: int) -> void:
 	var looks := [[1.0, 1.0, 0.0], [0.0, 1.15, 0.0], [0.8, 1.05, 0.045], [1.15, 1.18, 0.0]]
@@ -879,6 +904,10 @@ func _next_action() -> void:
 	else: _flush_backend_settings()
 
 func _store_settings() -> void:
+	if not calibration_profile.is_empty():
+		calibration_profile.depth = occlusion.head_depth
+		calibration_profile.crown = occlusion.crown
+	settings.set_value("calibration","profile",calibration_profile)
 	if beard:
 		settings.set_value("beard", "document", beard.get_document())
 		settings.set_value("beard", "enabled", beard.enabled)

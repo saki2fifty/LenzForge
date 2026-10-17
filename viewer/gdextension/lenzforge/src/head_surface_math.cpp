@@ -7,11 +7,12 @@
 using namespace godot;
 namespace lenzforge {
 void HeadSurfaceMath::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("build", "face", "outline", "rings", "depth", "crown"), &HeadSurfaceMath::build);
+    ClassDB::bind_method(D_METHOD("build", "face", "outline", "rings", "depth", "crown", "sides", "jaw"), &HeadSurfaceMath::build, DEFVAL(1.0), DEFVAL(1.0));
     ClassDB::bind_method(D_METHOD("bind_nearest", "vertices", "triangles", "targets"), &HeadSurfaceMath::bind_nearest);
     ClassDB::bind_method(D_METHOD("sample", "vertices", "indices", "weights"), &HeadSurfaceMath::sample);
 }
-PackedVector3Array HeadSurfaceMath::build(const PackedVector3Array &face, const PackedInt32Array &outline, int rings, double depth, double crown) const {
+PackedVector3Array HeadSurfaceMath::build(const PackedVector3Array &face, const PackedInt32Array &outline, int rings, double depth, double crown, double sides, double jaw) const {
+    if (!std::isfinite(sides) || !std::isfinite(jaw) || sides<.8 || sides>1.25 || jaw<.8 || jaw>1.2) return {};
     if (face.size()!=478 || outline.size()!=36 || rings<2 || rings>32 || !std::isfinite(depth) || !std::isfinite(crown) || depth<0 || depth>2 || crown<0 || crown>1) return {};
     const auto *fp=face.ptr(); const auto *op=outline.ptr();
     for (int i=0;i<478;++i) if (!fp[i].is_finite()) return {};
@@ -32,7 +33,8 @@ PackedVector3Array HeadSurfaceMath::build(const PackedVector3Array &face, const 
         for (int c=0;c<36;++c) {
             const Vector3 local=fp[op[c]]-center;
             const double upper=std::max(-local.dot(down)/width,0.0);
-            out[478+(r-1)*36+c]=center+(right*local.dot(right)+down*local.dot(down))*radial
+            const double bend=std::sin(t*3.141592653589793);
+            out[478+(r-1)*36+c]=center+(right*local.dot(right)*(1+(sides-1)*bend)+down*(local.dot(down)+std::max(double(local.dot(down)),0.0)*(jaw-1)*bend))*radial
                 +back*(local.dot(back)*(1-reach)+depth*width*reach)
                 -down*(upper*upper*crown*4*width*std::sin(t*3.141592653589793));
         }

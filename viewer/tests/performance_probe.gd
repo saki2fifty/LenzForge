@@ -130,7 +130,7 @@ func _run() -> void:
 		"landmark_age_ms": distribution(landmark_ages), "landmark_frames": landmark_ages.size(),
 		"presented_pair_skew_ms":distribution(pair_skews),"mismatched_presentations":pair_mismatches,
 		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size(),
-		"output_readback_ms":distribution(output_readbacks),"output_conversion_ms":distribution(output_conversions)}
+		"output_handoff_ms":distribution(output_readbacks),"output_cpu_conversion_ms":distribution(output_conversions)}
 	if studio.virtual_camera.active: result["virtual_camera"] = studio.virtual_camera.writer.get_status()
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
 	if camera_consumer > 0 and OS.is_process_running(camera_consumer): OS.kill(camera_consumer)

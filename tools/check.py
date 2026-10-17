@@ -30,6 +30,8 @@ def main():
                         ('layout', ['--script', 'res://tests/studio_layout.gd']),
                         ('quick-toolbar', ['--script', 'res://tests/quick_toolbar.gd']),
                         ('virtual-camera', ['--script', 'res://tests/virtual_camera.gd']),
+                        ('calibration', ['--script', 'res://tests/calibration.gd']),
+                        ('calibration-wizard', ['--script', 'res://tests/calibration_wizard.gd']),
                         ('occlusion', ['--script', 'res://tests/occlusion_probe.gd']),
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),

@@ -69,12 +69,16 @@ static HRESULT select_type(IMFSourceReader* reader, UINT32 fps) {
             return reader->SetCurrentMediaType(video_stream, nullptr, type.Get());
     }
 }
-static HRESULT read(IMFSourceReader* reader, std::vector<uint8_t>& output, LONGLONG& timestamp) {
+static HRESULT read(IMFSourceReader* reader, std::vector<uint8_t>& output, LONGLONG& timestamp, bool* gpu = nullptr) {
     for (int retry = 0; retry < 10; ++retry) {
         DWORD flags = 0;
         ComPtr<IMFSample> sample; ComPtr<IMFMediaBuffer> buffer;
         LF_CHECK(reader->ReadSample(video_stream, 0, nullptr, &flags, &timestamp, &sample));
         if (!sample) continue;
+        if (gpu) {
+            ComPtr<IMFMediaBuffer> first; ComPtr<IMFDXGIBuffer> surface;
+            *gpu = SUCCEEDED(sample->GetBufferByIndex(0,&first)) && SUCCEEDED(first.As(&surface));
+        }
         LF_CHECK(sample->ConvertToContiguousBuffer(&buffer));
         BYTE* data = nullptr; DWORD length = 0;
         LF_CHECK(buffer->Lock(&data, nullptr, &length));
@@ -151,7 +155,7 @@ static HRESULT self_test(UINT32 fps) {
     puts("{\"test\":\"source_lifecycle_and_stale_frame\",\"passed\":true}");
     return S_OK;
 }
-static HRESULT capture(const wchar_t* output_path, UINT32 count) {
+static HRESULT capture(const wchar_t* output_path, UINT32 count, bool use_gpu) {
     ComPtr<IMFAttributes> attrs;
     LF_CHECK(MFCreateAttributes(&attrs,1));
     LF_CHECK(attrs->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID));
@@ -169,18 +173,34 @@ static HRESULT capture(const wchar_t* output_path, UINT32 count) {
     ComPtr<IMFMediaSource> source;
     LF_CHECK(selected->ActivateObject(IID_PPV_ARGS(&source)));
     ComPtr<IMFSourceReader> reader;
-    LF_CHECK(MFCreateSourceReaderFromMediaSource(source.Get(),nullptr,&reader));
+    ComPtr<IMFAttributes> reader_attrs;
+    LF_CHECK(MFCreateAttributes(&reader_attrs,2));
+    ComPtr<ID3D11Device> device; ComPtr<ID3D11DeviceContext> context;
+    ComPtr<IMFDXGIDeviceManager> manager;
+    if (use_gpu) {
+        LF_CHECK(D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
+            nullptr,0,D3D11_SDK_VERSION,&device,nullptr,&context));
+        ComPtr<ID3D10Multithread> protection;
+        if (SUCCEEDED(context.As(&protection))) protection->SetMultithreadProtected(TRUE);
+        UINT token=0;
+        LF_CHECK(MFCreateDXGIDeviceManager(&token,&manager));
+        LF_CHECK(manager->ResetDevice(device.Get(),token));
+        LF_CHECK(reader_attrs->SetUnknown(MF_SOURCE_READER_D3D_MANAGER,manager.Get()));
+        LF_CHECK(reader_attrs->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS,TRUE));
+    }
+    LF_CHECK(MFCreateSourceReaderFromMediaSource(source.Get(),reader_attrs.Get(),&reader));
     LF_CHECK(select_type(reader.Get(),60));
     std::vector<uint8_t> data;
     LONGLONG stamp = 0;
     for (int i = 0; i < 30; ++i) LF_CHECK(read(reader.Get(),data,stamp));
     auto began = std::chrono::steady_clock::now();
-    for (UINT32 i = 0; i < count; ++i) LF_CHECK(read(reader.Get(),data,stamp));
+    bool gpu=false;
+    for (UINT32 i = 0; i < count; ++i) LF_CHECK(read(reader.Get(),data,stamp,&gpu));
     double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now()-began).count();
     if (output_path) { std::ofstream file(output_path,std::ios::binary); file.write(reinterpret_cast<char*>(data.data()),data.size()); }
-    printf("{\"test\":\"installed_camera\",\"frames\":%u,\"fps\":%.3f,\"bytes\":%zu}\n",count,count/seconds,data.size());
+    printf("{\"test\":\"installed_camera\",\"frames\":%u,\"fps\":%.3f,\"bytes\":%zu,\"dxgi_sample\":%s}\n",count,count/seconds,data.size(),gpu?"true":"false");
     reader.Reset(); source->Shutdown(); selected->ShutdownObject();
-    return S_OK;
+    return use_gpu && !gpu ? E_FAIL : S_OK;
 }
 int wmain(int argc, wchar_t** argv) {
     setvbuf(stdout,nullptr,_IONBF,0);
@@ -192,7 +212,8 @@ int wmain(int argc, wchar_t** argv) {
             hr = color_test();
             if (SUCCEEDED(hr)) hr = self_test(60);
             if (SUCCEEDED(hr)) hr = self_test(30);
-        } else hr = capture(argc>1 && wcscmp(argv[1],L"--discard") != 0 ? argv[1] : nullptr,argc>2?wcstoul(argv[2],nullptr,10):120);
+        } else hr = capture(argc>1 && wcscmp(argv[1],L"--discard") != 0 ? argv[1] : nullptr,argc>2?wcstoul(argv[2],nullptr,10):120,
+            argc>3 && wcscmp(argv[3],L"--dxgi")==0);
     }
     if (FAILED(hr)) printf("{\"error\":\"0x%08lx\"}\n",hr);
     MFShutdown(); CoUninitialize();

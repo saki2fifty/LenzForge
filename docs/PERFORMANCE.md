@@ -1,5 +1,25 @@
 # Performance measurements
 
+## GPU virtual-camera transfer and head calibration
+
+Measured October 17 on the same Ryzen 5 5500 / RX 7900 XTX workstation, Godot 4.7.2 Compatibility rendering, AMD driver 26.6.4. Sequential 20-second runs, 5-second warmup, synthetic 1280×720 portrait at 60 fps, actual CPU face inference at width 640, 1,024 × 8 facial strands, off-screen rendered viewer, isolated settings and an active Windows camera client. The CPU comparison forces the original output transport with `LENZFORGE_CAMERA_CPU=1`; tracking stays on CPU in **both** runs.
+
+| Measurement | CPU camera transport | Shared GPU textures |
+| --- | ---: | ---: |
+| Distinct matched preview fps | 59.984 | 60.002 |
+| Renderer fps | 120 | 120 |
+| Preview intervals >50 ms / mismatched presentations | 0 / 0 | 0 / 0 |
+| Output handoff median / p95 | 1.784 / 2.137 ms | 1.802 / 2.545 ms |
+| Publisher CPU color conversion median / p95 | 2.681 / 3.084 ms | Removed; conversion runs on GPU |
+| Hair physics/upload median | 1.028 ms | 1.031 ms |
+| Preview interval p95 | 25.022 ms | 25.114 ms |
+
+The improvement is removal of full RGBA readback/CPU handoff and the publisher's CPU color-conversion stage, **not an observed preview FPS or render-thread latency gain**. GL/D3D synchronization still costs time; its p95 was higher in this run. The GPU path reports zero publisher CPU conversion time because that stage no longer executes, not because GPU conversion is free. These timings do not measure aggregate system CPU, GPU energy, display scanout or receiving-app latency. Output handoff is sampled at preview presentation and can repeat a recent measurement.
+
+The Frame Server video processor converts shared RGBA textures to NV12. CPU-only clients still need NV12 readback in that service; GPU-backed samples can remain on the GPU. Unsupported interop uses the original bounded CPU transport. No tracking quality, simulation settings, strand counts or source rate were reduced. [CPU report](performance/2026-10-17-camera-cpu-transport.json), [GPU report](performance/2026-10-17-camera-gpu-transport.json), [implementation and reproduction commands](VIRTUAL_CAMERA.md).
+
+The calibration wizard performs separate CPU analysis only while collecting poses, capped below four requests per second. The fit is a one-time bounded search over four head parameters. Normal preview runs no additional segmenter or optimizer, retains the same shared surface topology, and refreshes hair bindings only when its shape changes. The runs above include the new code with calibration closed. They do not measure a calibration session's temporary CPU load or establish personal-fit accuracy. See [calibration behavior and limits](CALIBRATION.md).
+
 ## Custom virtual camera: local validation
 
 The installed custom Windows camera now passes normal-user startup and discovery, independent Media Foundation reception, close/reopen, and composed-image validation. Two 180-frame receiving runs measured **60.000 and 60.013 fps** at 1280 × 720. The received image contains the mannequin and styled hair, without studio controls. Native source-reader checks also cover 30/60 fps, COM activation/attribute/lifetime, and RGBA-to-NV12 color/chroma. These checks establish compatibility with the Windows Media Foundation consumer used here; individual calling apps still need their own validation. See [setup and test commands](VIRTUAL_CAMERA.md).

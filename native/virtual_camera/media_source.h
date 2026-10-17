@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "gpu_transport.h"
 namespace lenzcam {
 class Stream final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, Microsoft::WRL::ChainInterfaces<IMFMediaStream2, IMFMediaStream, IMFMediaEventGenerator>, FtmBase>, public Tracked {
     std::mutex mutex;
@@ -17,10 +18,14 @@ class Stream final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, Microsof
     SharedFrames* frames = nullptr;
     std::wstring owner_sid, transport_name;
     std::vector<uint8_t> snapshot;
+    std::unique_ptr<GpuReceiver> gpu;
+    bool allow_gpu = true;
+    ComPtr<IUnknown> device_manager;
     HRESULT open_transport();
     void run();
     HRESULT deliver(IUnknown* token);
 public:
+    HRESULT set_device_manager(IUnknown* manager);
     ComPtr<IMFStreamDescriptor> descriptor;
     ComPtr<IMFAttributes> attributes;
     HRESULT initialize(IMFMediaSource* source, const std::wstring& sid, const GUID& session, bool local_test = false);
@@ -57,7 +62,7 @@ public:
     HRESULT STDMETHODCALLTYPE Shutdown() override;
     HRESULT STDMETHODCALLTYPE GetSourceAttributes(IMFAttributes** out) override;
     HRESULT STDMETHODCALLTYPE GetStreamAttributes(DWORD id, IMFAttributes** out) override;
-    HRESULT STDMETHODCALLTYPE SetD3DManager(IUnknown*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE SetD3DManager(IUnknown* manager) override;
     HRESULT STDMETHODCALLTYPE GetService(REFGUID, REFIID, LPVOID* out) override { if (out) *out = nullptr; return MF_E_UNSUPPORTED_SERVICE; }
     HRESULT STDMETHODCALLTYPE SetDefaultAllocator(DWORD id, IUnknown*) override { return id == 0 ? S_OK : MF_E_INVALIDSTREAMNUMBER; }
     HRESULT STDMETHODCALLTYPE GetAllocatorUsage(DWORD id, DWORD* input, MFSampleAllocatorUsage* usage) override;

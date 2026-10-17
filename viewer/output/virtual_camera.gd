@@ -1,6 +1,7 @@
 extends Node
 ## Shares the preview's canvas, not its physics/tracking. Only the output viewport
-## is read back, and only at a bounded cadence while a camera client requests video.
+## is transferred at a bounded cadence while a camera client requests video.
+## GL/D3D shared textures avoid readback when supported; CPU output is the fallback.
 signal changed
 const OUTPUT_SIZE := Vector2i(1280,720)
 const PERIOD_US := 16667
@@ -86,9 +87,11 @@ func _process(_delta: float) -> void:
 		_fail(stats.error)
 		return
 	var desired := "Starting" if stats.state == 1 else "Live" if stats.consumer else "Ready"
-	if desired != state:
+	var transfer := "GPU shared textures" if stats.get("gpu_transfer",false) else "CPU transfer fallback"
+	var desired_detail := "Sending composed video · 1280 × 720 · up to 60 fps · " + transfer if desired == "Live" else "Select LenzForge Windows Virtual Camera in your calling or recording app." if desired == "Ready" else "Starting LenzForge Virtual Camera…"
+	if desired != state or desired_detail != detail:
 		state = desired
-		detail = "Sending composed video · 1280 × 720 · up to 60 fps" if state == "Live" else "Select LenzForge Windows Virtual Camera in your calling or recording app." if state == "Ready" else "Starting LenzForge Virtual Camera…"
+		detail = desired_detail
 		host.message.text = detail
 		changed.emit()
 	if stats.state != 2 or not stats.consumer: return
@@ -115,6 +118,13 @@ func _after_draw() -> void:
 		_fail("Virtual camera stopped because the capture source stopped.")
 		return
 	var began := Time.get_ticks_usec()
+	if writer.has_method("submit_texture") and RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		# ViewportTexture exposes a proxy RID; GL's native handle belongs to the
+		# renderer's actual viewport texture, not that proxy.
+		var handle := RenderingServer.texture_get_native_handle(RenderingServer.viewport_get_texture(viewport.get_viewport_rid()))
+		if writer.submit_texture(handle):
+			readback_ms = float(Time.get_ticks_usec()-began)/1000.0
+			return
 	var image := viewport.get_texture().get_image()
 	if image == null or image.is_empty():
 		_fail("The renderer could not read the virtual-camera output.")
