@@ -494,13 +494,18 @@ func _setup_readers() -> void:
 		return
 	video_reader = ClassDB.instantiate("VID1Reader")
 	landmark_reader = ClassDB.instantiate("LMK1Reader")
+	# Publish a matched pair before hair simulation and GPU uploads this frame.
+	landmark_reader.process_priority = -20
+	video_reader.process_priority = -10
 	add_child(video_reader)
 	add_child(landmark_reader)
 	video_reader.frame_ready.connect(_on_video)
 	landmark_reader.landmarks_ready.connect(_on_landmarks)
 	landmark_reader.face_lost.connect(_clear_tracking)
+	video_reader.synchronization_lost.connect(_clear_tracking)
 
 func _sync_preview_landmarks() -> void:
+	if video_reader: video_reader.set_frame_locked(false)
 	overlay.preview_surface = beard.mannequin_view
 	extensions.preview_surface = beard.mannequin_view
 	overlay.points = beard.face
@@ -510,6 +515,7 @@ func _sync_preview_landmarks() -> void:
 	if empty_state: empty_state.hide()
 
 func _clear_tracking() -> void:
+	if video_reader: video_reader.set_frame_locked(false)
 	occlusion.valid = false
 	if beard.mannequin: return
 	occlusion.surface.clear()
@@ -577,7 +583,7 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 	var capture_fps := float(data.get("capture_timing", {}).get("fps", data.get("fps", 0.0)))
 	var preview_fps: int = video_reader.get_fps() if video_reader and video_reader.is_reading() else 0
 	metrics.text = "%d preview / %.1f capture fps    ·    %d landmarks    ·    %.1f ms inference" % [preview_fps, capture_fps, tracking.get("landmark_count", 0), tracking.get("last_inference_ms", 0.0)]
-	metrics.tooltip_text = "%s\nRender: %d fps · Hair CPU: %.2f ms\nPreview counts new video frames displayed; capture measures camera delivery.\nPreview pacing: Look → Preview pacing." % [data.get("source","No source"),Engine.get_frames_per_second(),beard.update_ms]
+	metrics.tooltip_text = "%s\nRender: %d fps · Hair CPU: %.2f ms\nPreview counts new video frames displayed; capture measures camera delivery.\nWith face tracking, video and attachments use the same captured frame.\nPreview rate follows completed tracking; Auto selects the faster backend.\nPreview pacing: Look → Preview pacing." % [data.get("source","No source"),Engine.get_frames_per_second(),beard.update_ms]
 	if data.get("error"):
 		status.text = "CAPTURE ERROR"
 		message.text = str(data.error)
@@ -692,10 +698,14 @@ func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int
 	if frame_timestamp - landmark_timestamp > 150000 and not overlay.points.is_empty():
 		_clear_tracking()
 
-func _on_landmarks(points: Array, _frame_id: int, timestamp: int) -> void:
+func _on_landmarks(points: Array, frame_id: int, timestamp: int) -> void:
 	landmark_timestamp = timestamp
-	if beard.mannequin or absi(frame_timestamp - timestamp) > 150000:
-		return
+	if beard.mannequin: return
+	if video_reader and video_reader.is_reading():
+		if not video_reader.present_frame(frame_id,timestamp):
+			_clear_tracking()
+			return
+	elif absi(frame_timestamp - timestamp) > 150000: return
 	var normalized := PackedVector2Array()
 	var depth := PackedFloat32Array()
 	for point in points:

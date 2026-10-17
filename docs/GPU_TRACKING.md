@@ -36,6 +36,12 @@ Explicit GPU mode warms eight frames and then switches. A production GPU request
 
 Godot rendering and GPU inference share the same graphics hardware. Their combined behavior matters more than a model-only timing. Python's Windows wheel remains CPU-only; selecting GPU changes the runtime, rather than enabling an unsupported Python delegate.
 
+## Attachment synchronization
+
+The desktop now pairs each face result with its exact source video frame, using both frame ID and capture timestamp. Hair updates afterward in the same render cycle. CPU and GPU use this same native path, with no growing queue or motion prediction. It removes the extra sliding caused by displaying older landmarks over newer video. A missing frame or stalled tracker clears the overlays and returns to raw video.
+
+A slower delegate now reduces the number of distinct matched frames displayed, rather than letting its landmarks trail a faster video stream. It also increases capture-to-display age. Auto selects the faster measured delegate; explicit GPU still respects your selection and retains CPU failure recovery. This fix does not eliminate model localization error, internal smoothing or camera motion blur. Current CPU/GPU timings and limits are recorded in [Performance](PERFORMANCE.md#matched-attachments-and-beard-boundary).
+
 ## Measurements
 
 Development PC: Windows, Ryzen 5 5500, Radeon RX 7900 XTX. Browser GPU renderer: ANGLE / Direct3D 11 on the AMD card. The webcam was enumerated but returned no frames during this review, so these comparisons use Matplotlib's public-domain portrait with deterministic small translations. They are not measurements of live head motion, camera exposure/driver delay, or foreground display presentation.

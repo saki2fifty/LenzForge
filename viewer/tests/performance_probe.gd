@@ -4,6 +4,8 @@ var ages: Array[float] = []
 var uploads: Array[float] = []
 var beard_updates: Array[float] = []
 var landmark_ages: Array[float] = []
+var pair_skews: Array[float] = []
+var pair_mismatches := 0
 var last_frame_at := 0
 var measuring := false
 
@@ -83,6 +85,11 @@ func _run() -> void:
 			# measure age at the landmark callback without another native API.
 			landmark_ages.append(studio.video_reader.get_frame_age_ms() + (studio.video_reader.get_timestamp() - timestamp) / 1000.0)
 	)
+	RenderingServer.frame_pre_draw.connect(func():
+		if measuring and not studio.overlay.points.is_empty():
+			var skew := absf(studio.frame_timestamp-studio.landmark_timestamp)/1000.0
+			pair_skews.append(skew)
+			if skew != 0: pair_mismatches += 1)
 	await create_timer(float(args[9]) if args.size() > 9 else 2.0).timeout
 	var started := Time.get_ticks_usec()
 	measuring = true
@@ -99,6 +106,7 @@ func _run() -> void:
 		"interval_ms": distribution(intervals), "gaps_over_50_ms": gaps,
 		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads),
 		"landmark_age_ms": distribution(landmark_ages), "landmark_frames": landmark_ages.size(),
+		"presented_pair_skew_ms":distribution(pair_skews),"mismatched_presentations":pair_mismatches,
 		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size()}
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
 	studio.video_reader.stop_reading()

@@ -78,6 +78,37 @@ Rendered checks cover crossing endpoint depths, near/equal/far strands, mirrored
 .\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --script res://tests/sideburn_render.gd
 ```
 
+### Matched attachments and beard boundary
+
+The viewer previously uploaded the newest video frame while drawing landmarks from an older capture. Its hair callback also ran before the readers, adding a render-frame delay. The native reader now retrieves the exact captured frame for each face result from the existing VID1 ring, using both frame ID and QPC timestamp. Readers run before attachment simulation/upload. A pinned root updates even when no fixed physics step runs, while the previous physics root preserves substep interpolation and free-joint inertia.
+
+There is no additional FIFO or pose extrapolation. Missing or overwritten pairs clear overlays; a 150 ms result timeout resumes raw video. Frame locking follows completed tracking, so a slow delegate now limits matched preview throughput. Inference time moves the whole image later instead of letting its face overlays trail newer video. This fixes presentation skew, not model localization errors, internal model smoothing, camera blur or physical display latency.
+
+Four sequential runs used the same workstation, 20-second public-domain portrait fixture, 5-second warmup, 1280×720 synthetic capture at 60 fps, 640-pixel face inference and 1,024 × 8 hair. Settings were isolated and no physical camera was opened. Baseline: `b0fa99d`.
+
+| Measurement | Before CPU | Matched CPU | Before GPU | Matched GPU |
+| --- | ---: | ---: | ---: | ---: |
+| Distinct preview fps | 60.03 | 59.98 | 58.63 | 48.28 |
+| Tracking results received / second | 59.93 | 59.98 | 46.73 | 48.28 |
+| Video age at upload, median | 6.48 ms | 13.29 ms | 6.01 ms | 27.81 ms |
+| Landmark age at callback, median | 16.46 ms | 15.72 ms | 29.57 ms | 30.08 ms |
+| Preview interval p95 | 17.08 ms | 24.93 ms | 18.14 ms | 41.58 ms |
+| Preview intervals >50 ms | 0 | 0 | 6 | 16 |
+| Hair physics/upload CPU median | 1.07 ms | 1.16 ms | 1.14 ms | 1.06 ms |
+| Mismatched rendered video/face timestamps | Not instrumented | **0** | Not instrumented | **0** |
+
+The final GPU run's longest interval was 133.47 ms; it remained slower and less regular than CPU. Auto/CPU is the faster choice on this workstation. No inference/model settings or strand counts were reduced. These short sequential runs include desktop variation and changed beard placement; they are not an isolated native-reader speed test. Video and landmark ages above are recorded at different callbacks and must not be subtracted as a frame-pair skew measurement. The new skew metric samples the actual presented pair before drawing. CPU hair timings exclude GPU completion; preview counters measure texture submissions, not display scanout.
+
+Raw reports: [before CPU](performance/2026-10-17-attachment-before-cpu.json), [matched CPU](performance/2026-10-17-attachment-after-cpu.json), [before GPU](performance/2026-10-17-attachment-before-gpu.json), [matched GPU](performance/2026-10-17-attachment-after-gpu.json). Reproduce with the existing full-pipeline command, changing `--tracking-backend cpu` to `gpu` for the second delegate.
+
+`tools/check_attachment_sync.py` drives a separate moving canonical face, rapid translation/yaw reversals, 8–45 ms processing delays, 280 ms stalls, face loss and recovery. Frame IDs are independently encoded in NV12 pixels and read back from the uploaded texture. The final six-second run checked **599 matched render frames and 215 source textures**, with **zero failures**, including two timeout/recovery events. It also checks pinned-root positions before drawing, ring wraps, wrong timestamps/IDs and atomic rejection. This is a deterministic transport/attachment fixture without AI; it does not establish real-camera landmark accuracy.
+
+`tests/beard_boundary.gd` verifies that automatic beard roots stay in front of the measured 234/454 rear edge under different head fits, maximum wrap widths, lower virtual and legacy offset modes. Head-shape edits refit cached bindings; normal tracking performs only sampling. Explicit per-strand landmark assignments remain available. `sideburn_render.gd` verifies both profile views and hidden far-side strands. The full regression suite passes, including unchanged 30/60/120 Hz motion response and serial/parallel physics parity.
+
+```powershell
+.\buildtools\python-3.15.0\python.exe tools/check_attachment_sync.py
+```
+
 ## Earlier measurements
 
 The October 16 [CPU/GPU tracking comparison](GPU_TRACKING.md#measurements) covers the browser worker, CPU fallback/Auto selection, and the complete viewer with a 512-strand beard. The older camera measurements below describe the October 15 capture optimization and use a different input/test setup.

@@ -110,6 +110,8 @@ This runs Python regression tests, a Godot headless import/startup, native video
 
 The latest performance fix removes a reproduced 30 fps VSync ceiling and parallelizes strand simulation in C++. With a synthetic 60 fps portrait, CPU face tracking, and 1,024 strands × 8 segments with full head collision, distinct preview throughput improved from 22.5 to about 60 fps. Fixed-step simulation time fell from 4.96 to 1.23 ms median on the development PC. **Look → Preview pacing** defaults to a bounded, responsive mode; display synchronization and a lower-power mode remain available. See the [measurements, limits, and reproducible benchmark](docs/PERFORMANCE.md), including earlier physical-camera results. These short runs are not guarantees for other devices or lighting conditions; other cameras and the full range of retained effects still need hardware/manual coverage.
 
+Face attachments now use the exact camera frame that produced their landmarks, keeping video, guides and hair roots aligned during movement. Preview throughput follows completed tracking: the current synthetic comparison retained about 60 matched fps on CPU and 48 on GPU, with zero video/landmark timestamp mismatches. Auto selects the faster measured backend. See the [synchronization results and latency tradeoff](docs/PERFORMANCE.md#matched-attachments-and-beard-boundary).
+
 See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported API](docs/API.md), [GPU tracking and measurements](docs/GPU_TRACKING.md), and the earlier [MediaPipe capability review](docs/MEDIAPIPE_FACE_LANDMARKER.md). Historical documents describe earlier plans and are not current feature guarantees.
 
 ## Troubleshooting

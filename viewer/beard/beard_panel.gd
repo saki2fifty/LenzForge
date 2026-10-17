@@ -62,6 +62,7 @@ func setup(layer: Control, studio: Control) -> void:
 	_color(roots_page,"generated_root_color","Generated point color")
 	_config_check(roots_page,"beard_virtual_roots","Use lower virtual landmarks")
 	_spin(roots_page,"lower_root_depth","Under-jaw / side reach",.05,.7,.01)
+	controls.lower_root_depth.tooltip_text = "Spread lower roots within the rear edge set by the measured landmarks nearest the ears. Automatic beard growth stops there."
 	_config_check(roots_page,"beard_sideburns","Sideburns in front of ears")
 	_spin(roots_page,"sideburn_rise","Sideburn rise",0,1,.05)
 	_spin(roots_page,"sideburn_width","Sideburn wrap width",.02,.2,.01)

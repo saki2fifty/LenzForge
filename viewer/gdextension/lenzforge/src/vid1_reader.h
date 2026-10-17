@@ -29,6 +29,10 @@ public:
 	uint64_t get_timestamp() const { return last_timestamp; }
 	double get_frame_age_ms() const;
 	double get_upload_ms() const { return upload_ms; }
+	bool present_frame(int64_t frame_id, int64_t timestamp_us);
+	void set_frame_locked(bool enabled) { frame_locked = enabled; matched_age = 0; }
+	bool is_frame_locked() const { return frame_locked; }
+	int64_t get_frame_id() const { return last_frame_id; }
 
 protected:
 	static void _bind_methods();
@@ -53,9 +57,12 @@ private:
 	godot::Ref<godot::Image> y_image;
 	godot::Ref<godot::Image> uv_image;
 	double upload_ms = 0.0;
+	bool frame_locked = false;
+	double matched_age = 0.0;
 
 	bool open_shared_memory();
 	void read_latest_frame();
+	bool upload_frame(size_t offset, int64_t expected_id = -1, uint64_t expected_timestamp = 0);
 };
 
 } // namespace lenzforge

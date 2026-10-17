@@ -33,6 +33,11 @@ void VID1Reader::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_timestamp"), &VID1Reader::get_timestamp);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_frame_age_ms"), &VID1Reader::get_frame_age_ms);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_upload_ms"), &VID1Reader::get_upload_ms);
+	godot::ClassDB::bind_method(godot::D_METHOD("present_frame", "frame_id", "timestamp_us"), &VID1Reader::present_frame);
+	godot::ClassDB::bind_method(godot::D_METHOD("set_frame_locked", "enabled"), &VID1Reader::set_frame_locked);
+	godot::ClassDB::bind_method(godot::D_METHOD("is_frame_locked"), &VID1Reader::is_frame_locked);
+	godot::ClassDB::bind_method(godot::D_METHOD("get_frame_id"), &VID1Reader::get_frame_id);
+	ADD_SIGNAL(godot::MethodInfo("synchronization_lost"));
 
 	ADD_SIGNAL(godot::MethodInfo("frame_ready",
 		godot::PropertyInfo(godot::Variant::OBJECT, "y_texture"),
@@ -50,7 +55,14 @@ void VID1Reader::_process(double delta) {
 		return;
 	}
 
-	read_latest_frame();
+	if (frame_locked) {
+		matched_age += delta;
+		if (matched_age > .15) {
+			frame_locked = false;
+			emit_signal("synchronization_lost");
+		}
+	}
+	if (!frame_locked) read_latest_frame();
 
 	fps_timer += delta;
 
@@ -74,6 +86,8 @@ bool VID1Reader::start_reading(const godot::String &name) {
 	}
 
 	reading = true;
+	frame_locked = false;
+	matched_age = 0;
 	last_frame_id = std::numeric_limits<uint32_t>::max();
 	fps_timer = 0.0;
 	fps_counter = 0;
@@ -89,6 +103,7 @@ void VID1Reader::stop_reading() {
 	}
 
 	reading = false;
+	frame_locked = false;
 	memory.close();
 	y_texture.unref();
 	uv_texture.unref();
@@ -136,14 +151,48 @@ void VID1Reader::read_latest_frame() {
     MemoryBarrier();
     if (!sequence || !header->slot_count || !header->qpc_freq) return;
     const size_t offset = VID1_HEADER_SIZE + size_t((sequence - 1) % header->slot_count) * header->slot_stride;
+    upload_frame(offset);
+}
+
+bool VID1Reader::present_frame(int64_t frame_id, int64_t timestamp_us) {
+    if (!reading || frame_id < 0 || uint64_t(frame_id) > UINT32_MAX || timestamp_us <= 0) return false;
+    const auto* header = reinterpret_cast<const VidHeader*>(memory.data());
+    if (!header->qpc_freq || !header->slot_count || header->slot_count > 128 || header->slot_stride < VID1_SLOT_HEADER_SIZE) return false;
+    LARGE_INTEGER now, frequency;
+    QueryPerformanceCounter(&now); QueryPerformanceFrequency(&frequency);
+    const double age_us = double(now.QuadPart)*1000000.0/frequency.QuadPart - timestamp_us;
+    if (age_us < -1000 || age_us > 150000 || (frame_locked && uint64_t(timestamp_us) < last_timestamp)) return false;
+    // Reuse the producer's bounded history. Never queue video behind inference,
+    // guess a pose for a newer frame, or upload a mismatched frame on failure.
+    for (uint32_t i=0; i<header->slot_count; ++i) {
+        const size_t offset = VID1_HEADER_SIZE + size_t(i)*header->slot_stride;
+        if (offset + VID1_SLOT_HEADER_SIZE > memory.size()) return false;
+        const auto* slot = reinterpret_cast<const VidSlotHeader*>(memory.data()+offset);
+        if (!slot->valid || slot->frame_id != uint32_t(frame_id)) continue;
+        if (!upload_frame(offset,frame_id,uint64_t(timestamp_us))) return false;
+        frame_locked = true; matched_age = 0;
+        return true;
+    }
+    return false;
+}
+
+bool VID1Reader::upload_frame(size_t offset, int64_t expected_id, uint64_t expected_timestamp) {
+    const uint8_t* data = memory.data();
+    const auto* header = reinterpret_cast<const VidHeader*>(data);
+    if (!header->qpc_freq) return false;
     const size_t bytes = size_t(header->y_stride) * height + size_t(header->uv_stride) * (height / 2);
     if (header->y_stride < uint32_t(width) || header->uv_stride < uint32_t(width) ||
         bytes + VID1_SLOT_HEADER_SIZE > header->slot_stride ||
-        offset + VID1_SLOT_HEADER_SIZE + bytes > memory.size()) return;
+        offset + VID1_SLOT_HEADER_SIZE + bytes > memory.size()) return false;
     const auto* slot = reinterpret_cast<const VidSlotHeader*>(data + offset);
-    if (!slot->valid || slot->frame_id == last_frame_id) return;
+    if (!slot->valid) return false;
+    MemoryBarrier();
     const uint32_t frame_id = slot->frame_id;
     const uint64_t timestamp = slot->ts_qpc;
+    const uint64_t timestamp_us = (timestamp / header->qpc_freq) * 1000000ULL +
+                                 ((timestamp % header->qpc_freq) * 1000000ULL) / header->qpc_freq;
+    if (expected_id >= 0 && (frame_id != uint32_t(expected_id) || timestamp_us != expected_timestamp)) return false;
+    if (frame_id == last_frame_id && timestamp_us == last_timestamp) return expected_id >= 0;
     LARGE_INTEGER started, finished, frequency;
     QueryPerformanceCounter(&started);
     QueryPerformanceFrequency(&frequency);
@@ -166,7 +215,7 @@ void VID1Reader::read_latest_frame() {
         std::memcpy(dest_uv + row * width, source_uv + row * header->uv_stride, width);
     MemoryBarrier();
     // A newer publication in another slot does not invalidate this snapshot.
-    if (!slot->valid || slot->frame_id != frame_id) return;
+    if (!slot->valid || slot->frame_id != frame_id || slot->ts_qpc != timestamp) return false;
     if (y_image.is_null()) { y_image.instantiate(); uv_image.instantiate(); }
     y_image->set_data(width, height, false, godot::Image::FORMAT_R8, y_packed);
     uv_image->set_data(width / 2, height / 2, false, godot::Image::FORMAT_RG8, uv_packed);
@@ -180,10 +229,10 @@ void VID1Reader::read_latest_frame() {
     QueryPerformanceCounter(&finished);
     upload_ms = double(finished.QuadPart - started.QuadPart) * 1000.0 / frequency.QuadPart;
     last_frame_id = frame_id;
-    last_timestamp = (timestamp / header->qpc_freq) * 1000000ULL +
-                     ((timestamp % header->qpc_freq) * 1000000ULL) / header->qpc_freq;
+    last_timestamp = timestamp_us;
     ++fps_counter;
     emit_signal("frame_ready", y_texture, uv_texture, (int64_t)frame_id, (int64_t)last_timestamp);
+    return true;
 }
 
 double VID1Reader::get_frame_age_ms() const {

@@ -10,6 +10,7 @@ var root_bindings: Dictionary = {}
 var render_order := PackedInt32Array()
 var _binding_config: Dictionary = {}
 var _binding_overrides: Dictionary = {}
+var _binding_shape := Vector2(-1,-1)
 signal changed
 var guides_visible := true
 signal preview_face_changed
@@ -77,6 +78,7 @@ func _init() -> void:
 	mannequin_toolbar.hide()
 
 func _ready() -> void:
+	process_priority = 10 # Readers and matched landmark attachments run first.
 	set_process(false)
 	if not ClassDB.class_exists("BeardSimulator"):
 		last_error = "Run Setup.ps1 -SkipInstall to build beard physics."
@@ -261,11 +263,11 @@ func _rebuild() -> void:
 	var anchors_only := {}
 	for id in overrides:
 		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
-	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty():
-		root_bindings = SurfaceGroom.build(surface,config,attachment,anchors_only)
-		render_order = SurfaceGroom.draw_order(surface,root_bindings,attachment)
+	var source: RefCounted = mannequin_view.surface if mannequin else surface
+	if placement != _binding_config or anchors_only != _binding_overrides or root_bindings.is_empty() or _binding_shape != Vector2(source.head_depth,source.crown):
 		_binding_config = placement
 		_binding_overrides = anchors_only
+		_fit_bindings(source)
 	mannequin_view.shared_root_bindings = root_bindings
 	virtual_anchors.clear()
 	virtual_points.clear()
@@ -316,6 +318,7 @@ func _attach() -> void:
 		_attach_mannequin()
 		return
 	if not external_surface: surface.update(face,face_depth,video_size)
+	_update_binding_shape(surface)
 	var width: float = surface.width
 	if width < 10: clear_face(); return
 	var positions: PackedVector3Array = surface.sample(root_bindings)
@@ -340,6 +343,7 @@ func _attach() -> void:
 	_update_virtual_markers()
 
 func _attach_mannequin() -> void:
+	_update_binding_shape(mannequin_view.surface)
 	roots = mannequin_view.attach_roots()
 	var width := mannequin_view.face_width*mannequin_view.pixels_per_unit()
 	var down3: Vector3 = mannequin_view.pivot.basis*Vector3.DOWN
@@ -361,6 +365,18 @@ func _attach_mannequin() -> void:
 	live_view.hide()
 	_update_root_markers()
 	_update_virtual_markers()
+
+func _fit_bindings(source: RefCounted) -> void:
+	root_bindings = SurfaceGroom.build(source,config,attachment,_binding_overrides)
+	render_order = SurfaceGroom.draw_order(source,root_bindings,attachment)
+	_binding_shape = Vector2(source.head_depth,source.crown)
+	mannequin_view.shared_root_bindings = root_bindings
+	mannequin_view._roots_dirty = true
+
+func _update_binding_shape(source: RefCounted) -> void:
+	if _binding_shape == Vector2(source.head_depth,source.crown): return
+	_fit_bindings(source)
+	if simulator: simulator.set_render_order(render_order)
 
 func _update_virtual_markers() -> void:
 	# General landmarks own the shared surface guides, independently of hair.

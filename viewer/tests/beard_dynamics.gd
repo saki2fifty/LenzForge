@@ -48,6 +48,14 @@ func turn(ticks: int, frame_ticks := 1) -> Dictionary:
 
 func _initialize() -> void:
 	var solver := solver_with(3)
+	var pinned := solver_with(3)
+	var before: PackedVector3Array = pinned.get_strand_points_3d(0)
+	var target := ROOT+Vector2(30,-20)
+	pinned.set_anchors(PackedVector2Array([target]),200,Vector2.DOWN,Vector2.ZERO,Vector2.ONE)
+	check(pinned.get_strand_points(0)[0] == target,"Pinned root follows an attachment immediately, before a fixed step")
+	check(pinned.get_strand_points_3d(0).slice(1) == before.slice(1),"Moving the pinned root does not drag the free strand joints")
+	pinned.advance(.001)
+	check(pinned.get_strand_points(0)[0] == target,"Sub-timestep render cannot display an old root")
 	var config := fixture_settings()
 	config.collisions = false; config.turbulence = 5; config.stiffness = 1
 	solver.configure(1,8,config,PackedFloat32Array(ATTRIBUTES))

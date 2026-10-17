@@ -184,6 +184,12 @@ bool BeardSimulator::set_anchors_3d(const PackedVector3Array &p_roots, double p_
         }
     }
     if (teleport) reset();
+    else for (int s=0; s<count; ++s) {
+        // A pinned root is the measured attachment, even when this render
+        // frame has no fixed physics step. Free joints keep their momentum.
+        const int base=s*(segments+1);
+        positions[base]=roots[s];
+    }
     return true;
 }
 
@@ -208,8 +214,8 @@ void BeardSimulator::advance(double delta) {
     if (!initialized || !std::isfinite(delta) || delta <= 0) return;
     constexpr double dt = 1.0 / 120.0;
     accumulator = std::min(accumulator + delta, dt * 4);
-    // Interpolate only the pinned roots across this frame's physics steps.
-    // The free points retain world-space momentum when the head moves or turns.
+    // Rendered roots already match the displayed face. Retain the last physics
+    // root in previous[base] to distribute its motion over fixed substeps.
     const int steps = std::min(4, int((accumulator + 1e-9) / dt));
     if(steps==0) return;
     last_worker_count=1;
@@ -229,7 +235,7 @@ void BeardSimulator::step_range(int first,int last,int steps,double start_time) 
 void BeardSimulator::step_strand(int s,double dt,double root_fraction,double step_time) {
         const int base = s * (segments + 1);
         if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; return; }
-        const Vector3 root = positions[base].lerp(roots[s], root_fraction);
+        const Vector3 root = previous[base].lerp(roots[s], root_fraction);
         const auto &attribute=attributes[s];
         const bool solid_head=head_collision(s) && !head.empty();
         const bool mouth_collision=(attribute.mustache ? mustache_collisions : attribute.collision) && head.empty();
