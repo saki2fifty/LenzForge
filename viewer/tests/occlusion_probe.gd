@@ -16,6 +16,12 @@ func _run() -> void:
 	check(is_equal_approx(image.get_pixel(10,10).r,-.2),"Nearest triangle wins regardless of winding/order")
 	check(image.get_pixel(90,90).r > 1e9,"No surface outside triangles")
 	check(raster.rasterize(vertices,PackedInt32Array([0,1,999]),Vector2(100,100),100) == null,"Reject invalid mesh indices")
+	var scaled := vertices.duplicate()
+	for i in scaled.size(): scaled[i].z *= .01
+	var expected: Image = raster.rasterize(scaled,PackedInt32Array([0,1,2,5,4,3]),Vector2(100,100),100)
+	var actual: Image = raster.rasterize(vertices,PackedInt32Array([0,1,2,5,4,3]),Vector2(100,100),100,.01)
+	check(expected.get_data() == actual.get_data(),"Native depth scaling matches pre-scaled mesh")
+	check(raster.rasterize(vertices,PackedInt32Array([0,1,2]),Vector2(100,100),100,NAN) == null,"Reject non-finite depth scale")
 	var reference := Head.reference_points()
 	var counts := []
 	var timings := []

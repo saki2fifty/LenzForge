@@ -28,9 +28,10 @@ func _run() -> void:
 	studio.backend_url = args[0]
 	var source_id := int(args[1])
 	var duration := float(args[2])
-	if args.size() > 3:
-		Engine.max_fps = int(args[3])
 	root.add_child(studio)
+	if args.size() > 3 and int(args[3]) >= 0: Engine.max_fps = int(args[3])
+	if args.size() > 10 and args[10] != "project":
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if args[10] == "on" else DisplayServer.VSYNC_DISABLED)
 	studio.set_process_unhandled_key_input(false)
 	studio.beard.set_enabled(args.size() > 6 and args[6] == "1")
 	if studio.beard.enabled:
@@ -83,14 +84,17 @@ func _run() -> void:
 			landmark_ages.append(studio.video_reader.get_frame_age_ms() + (studio.video_reader.get_timestamp() - timestamp) / 1000.0)
 	)
 	await create_timer(float(args[9]) if args.size() > 9 else 2.0).timeout
+	var started := Time.get_ticks_usec()
 	measuring = true
 	await create_timer(duration).timeout
 	measuring = false
+	var elapsed := (Time.get_ticks_usec()-started)/1000000.0
 	var gaps := 0
 	for interval in intervals:
 		if interval > 50:
 			gaps += 1
-	var result := {"frames": intervals.size(), "displayed_fps": intervals.size()/duration,
+	var result := {"frames": intervals.size()+1, "elapsed_s":elapsed, "displayed_fps": (intervals.size()+1)/elapsed,
+		"vsync":DisplayServer.window_get_vsync_mode(),"screen_refresh_hz":DisplayServer.screen_get_refresh_rate(),
 		"render_fps": Engine.get_frames_per_second(), "frame_cap": Engine.max_fps,
 		"interval_ms": distribution(intervals), "gaps_over_50_ms": gaps,
 		"frame_age_ms": distribution(ages), "upload_ms": distribution(uploads),

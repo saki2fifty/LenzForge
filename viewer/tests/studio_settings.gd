@@ -27,6 +27,8 @@ func _run() -> void:
 		studio.point_color.color = Color("c345ab")
 		studio.point_color.color_changed.emit(studio.point_color.color)
 		studio.mirror_check.button_pressed = false
+		studio.pacing_picker.select(2)
+		studio.pacing_picker.item_selected.emit(2)
 		studio.points_check.button_pressed = false
 		studio.quick_toolbar.buttons.landmarks.button_pressed = false
 		studio.beard.set_setting("length", .63)
@@ -68,6 +70,7 @@ func _run() -> void:
 		check(is_equal_approx(studio.material_video.get_shader_parameter("exposure"),.17), "Apply restored exposure to shader")
 		check(studio.preset_picker.selected == 2, "Restore appearance preset")
 		check(not studio.mirror_check.button_pressed and not studio.points_check.button_pressed, "Restore false toggles")
+		check(studio.pacing_picker.selected == 2 and Engine.max_fps == 60,"Restore preview pacing")
 		check(not studio.quick_toolbar.buttons.landmarks.button_pressed and not studio.overlay.guides_visible and not studio.beard.guides_visible,"Restore the toolbar's master guide visibility")
 		check(studio.overlay.tint == Color("c345ab") and studio.overlay.point_size == 3.25, "Restore landmark color and size")
 		check(studio.beard.enabled and studio.beard.mannequin and studio.beard.edit_strands, "Restore hair/mannequin/edit toggles")

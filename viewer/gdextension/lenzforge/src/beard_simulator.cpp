@@ -2,9 +2,60 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <algorithm>
 #include <cmath>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 using namespace godot;
 namespace lenzforge {
+// Independent strands share a read-only collider. Keep a small pool asleep
+// between frames; never create threads or copy joint arrays per simulation step.
+struct BeardSimulator::ParallelState {
+    BeardSimulator *owner;
+    std::mutex mutex;
+    std::condition_variable ready, done;
+    std::vector<std::thread> threads;
+    bool stopping=false;
+    unsigned generation=0;
+    int remaining=0, steps=0;
+    double start_time=0;
+    explicit ParallelState(BeardSimulator *p_owner):owner(p_owner) {
+        const unsigned count=std::min(3u,std::max(1u,std::thread::hardware_concurrency())-1);
+        threads.reserve(count);
+        for(unsigned i=0;i<count;++i) threads.emplace_back([this,i,count] {
+            unsigned observed=0;
+            std::unique_lock<std::mutex> lock(mutex);
+            while(true) {
+                ready.wait(lock,[&] { return stopping || generation!=observed; });
+                if(stopping) return;
+                observed=generation;
+                const int n=steps, first=owner->count*(i+1)/(count+1), last=owner->count*(i+2)/(count+1);
+                const double time=start_time;
+                lock.unlock();
+                owner->step_range(first,last,n,time);
+                lock.lock();
+                if(--remaining==0) done.notify_one();
+            }
+        });
+    }
+    ~ParallelState() {
+        { std::lock_guard<std::mutex> lock(mutex); stopping=true; }
+        ready.notify_all();
+        for(auto &thread:threads) thread.join();
+    }
+    void run(int count, double time) {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            steps=count; start_time=time; remaining=int(threads.size()); ++generation;
+        }
+        ready.notify_all();
+        owner->step_range(0,owner->count/(int(threads.size())+1),count,time);
+        std::unique_lock<std::mutex> lock(mutex);
+        done.wait(lock,[&] { return remaining==0; });
+    }
+};
+BeardSimulator::BeardSimulator() = default;
+BeardSimulator::~BeardSimulator() = default;
 void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps", "strand_options"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()), DEFVAL(PackedFloat32Array()));
     ClassDB::bind_method(D_METHOD("set_anchors", "roots", "face_width", "down", "mouth", "mouth_radii"), &BeardSimulator::set_anchors);
@@ -12,6 +63,8 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_head_surface", "vertices", "triangles"), &BeardSimulator::set_head_surface);
     ClassDB::bind_method(D_METHOD("get_strand_points_3d", "strand"), &BeardSimulator::get_strand_points_3d);
     ClassDB::bind_method(D_METHOD("advance", "delta"), &BeardSimulator::advance);
+    ClassDB::bind_method(D_METHOD("set_parallel_enabled", "enabled"), &BeardSimulator::set_parallel_enabled);
+    ClassDB::bind_method(D_METHOD("get_worker_count"), &BeardSimulator::get_worker_count);
     ClassDB::bind_method(D_METHOD("set_forces", "gravity", "wind", "turbulence", "damping"), &BeardSimulator::set_forces);
     ClassDB::bind_method(D_METHOD("set_mustache_forces", "gravity", "wind", "turbulence", "damping", "collisions"), &BeardSimulator::set_mustache_forces);
     ClassDB::bind_method(D_METHOD("reset"), &BeardSimulator::reset);
@@ -153,14 +206,25 @@ void BeardSimulator::advance(double delta) {
     accumulator = std::min(accumulator + delta, dt * 4);
     // Interpolate only the pinned roots across this frame's physics steps.
     // The free points retain world-space momentum when the head moves or turns.
-    int remaining = std::min(4, int((accumulator + 1e-9) / dt));
-    while (remaining > 0) { step(dt, 1.0 / remaining); accumulator -= dt; --remaining; }
+    const int steps = std::min(4, int((accumulator + 1e-9) / dt));
+    if(steps==0) return;
+    last_worker_count=1;
+    if(parallel_enabled && count*segments*steps>=8192) {
+        if(!workers) workers=std::make_unique<ParallelState>(this);
+        last_worker_count=int(workers->threads.size())+1;
+        workers->run(steps,clock);
+    } else step_range(0,count,steps,clock);
+    clock+=steps*dt;
+    accumulator-=steps*dt;
 }
-void BeardSimulator::step(double dt, double root_fraction) {
-    clock += dt;
-    for (int s = 0; s < count; ++s) {
+void BeardSimulator::step_range(int first,int last,int steps,double start_time) {
+    constexpr double dt=1.0/120.0;
+    for(int tick=0;tick<steps;++tick)
+        for(int s=first;s<last;++s) step_strand(s,dt,1.0/(steps-tick),start_time+(tick+1)*dt);
+}
+void BeardSimulator::step_strand(int s,double dt,double root_fraction,double step_time) {
         const int base = s * (segments + 1);
-        if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; continue; }
+        if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; return; }
         const Vector3 root = positions[base].lerp(roots[s], root_fraction);
         const auto &attribute=attributes[s];
         const bool solid_head=head_collision(s) && !head.empty();
@@ -172,7 +236,7 @@ void BeardSimulator::step(double dt, double root_fraction) {
                 if(solid_head) collide_link(base+j,clearance(s,j));
                 previous[base+j]=positions[base+j];
             }
-            continue;
+            return;
         }
         // Select once per strand; no dictionary reads or allocations per joint.
         const double g=attribute.mustache ? mustache_gravity : gravity, w=attribute.mustache ? mustache_wind : wind;
@@ -182,7 +246,7 @@ void BeardSimulator::step(double dt, double root_fraction) {
             const int k = base+j;
             const Vector3 velocity = (positions[k] - previous[k]) * (1.0 - d);
             previous[k] = positions[k];
-            const double gust = w != 0 && t > 0 ? t * std::sin(clock * 2.1 + s * .17 + j * .3)*scale*dt*dt : 0;
+            const double gust = w != 0 && t > 0 ? t * std::sin(step_time * 2.1 + s * .17 + j * .3)*scale*dt*dt : 0;
             positions[k] += velocity + acceleration + Vector3(gust,0,0);
         }
         if(solid_head) for(int j=1;j<=segments;++j) {
@@ -218,7 +282,6 @@ void BeardSimulator::step(double dt, double root_fraction) {
             if (mouth_collision) collide_mouth(k);
             if(solid_head) collide_link(k,clearance(s,j));
         }
-    }
 }
 
 PackedFloat32Array BeardSimulator::get_render_buffer() const {

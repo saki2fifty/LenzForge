@@ -1,5 +1,59 @@
 # Performance measurements
 
+## October 17: restoring preview throughput
+
+Baseline `ca89eb6` reproduced the reported 30 fps ceiling on the same Ryzen 5 5500 / RX 7900 XTX / 60 Hz Windows workstation. The current defaults use 1,024 facial strands × 8 segments and solid 3D head collision, a larger workload than the older 256-strand measurements below.
+
+Two causes were isolated. With hair hidden, the Windows Compatibility renderer still ran at **30 fps with VSync enabled**. The camera source continued at 60 fps. Disabling VSync alone, using the original serial solver, restored **59.88 distinct preview frames/sec**, but rendered 409 frames/sec unnecessarily. With hair enabled, presentation stalls also caused the 120 Hz solver to execute more catch-up steps per render frame, compounding the slowdown. This identifies the presentation path on this machine, not a general limitation of all VSync implementations or a MediaPipe GPU/CPU problem.
+
+The fix defaults to **Responsive** pacing: VSync off, rendering capped at 120 fps. **Look → Preview pacing** also offers **Display synchronized** and **Low power (up to 60 fps)**, with automatic persistence. Rendering above camera rate improves the opportunity to pick up a newly published frame; it does not create extra camera frames or make a 60 Hz monitor display 120 unique frames/sec.
+
+The solver now uses the main thread plus up to three persistent native C++ workers for independent strand ranges. Small workloads run serially. No strand counts, simulation frequency, constraint iterations, collision sweeps, or tracking quality were reduced. Mesh/attachment loops cache validated packed-array pointers, and native depth projection replaces the GDScript depth-copy loop.
+
+### Full preview pipeline
+
+Sequential runs used the public-domain portrait bundled with Matplotlib, synthetic 1280×720 capture at 60 fps, actual CPU face inference at width 640, the real studio/HTTP/shared-memory path, and the debug native extension. No browser or recording was active. Settings were isolated. The table uses off-screen rendered windows to keep window placement consistent; these are texture submissions, not measured display scanout.
+
+| Measurement | Before, no hair | Before, 1,024 × 8 | After, 1,024 × 8 |
+| --- | ---: | ---: | ---: |
+| Measurement window | 8 s | 10 s | 20 s |
+| Distinct preview frames/sec | 29.88 | 22.50 | **59.98** |
+| Renderer FPS at end | 30 | 22 | 120 |
+| Capture FPS | 60.0 | 60.0 | 60.0 |
+| Preview interval p95 | 34.64 ms | 46.29 ms | **16.98 ms** |
+| Preview gaps >50 ms | 0 | 1 | 0 |
+| Capture-read to texture-submission p95 | — | 17.00 ms | **7.37 ms** |
+| Hair step + packing/upload CPU median | — | 9.40 ms | 1.08 ms |
+
+Hair CPU time in this table depends on the number of physics steps per rendered frame. Use the fixed-step comparison below to assess simulation speed separately from pacing. The final run processed 1,200 source frames in 20.006 seconds, with 60 fps tracking. Video upload remained about 0.33 ms median; replacing the capture pipeline was not justified by its cost.
+
+Raw reports: [before, no hair](performance/2026-10-17-before-nohair.json), [before, hair](performance/2026-10-17-before-portrait.json), [VSync-only experiment, original solver](performance/2026-10-17-before-unsynced.json), [final off-screen run](performance/2026-10-17-after-portrait.json). Baseline counters used intervals divided by requested duration (one fewer than frame count); updated counters use actual elapsed wall time and frame count. This small counting difference does not account for the throughput improvement.
+
+A separate [on-screen final run](performance/2026-10-17-after-visible.json) measured **60.03 preview fps**, 17.08 ms p95 frame interval, and zero gaps over 50 ms across another 20 seconds. The [on-screen baseline](performance/2026-10-17-before-visible.json) also reproduced the slowdown (21.0 preview fps), so moving the test window off-screen was not its sole cause. An [intermediate worker-only/120 fps run](performance/2026-10-17-worker-cap120.json) had four long gaps, including a 451 ms outlier; their cause was not isolated. Neither final 20-second run reproduced them. These are short sequential observations under desktop load, not a guarantee of stall-free operation, physical-camera throughput or sensor-to-screen latency. No physical webcam was opened for these October 17 comparisons.
+
+### Fixed-step CPU cost
+
+The headless `frame_budget_probe.gd` rotates the canonical head through yaw/pitch, warms 40 updates and measures 180. Automatic hair processing is disabled: each sample explicitly advances two 120 Hz steps, independent of renderer speed. Tracking time here means the viewer callback (head geometry, depth map, attachment), **not MediaPipe inference**. These stage timings measure elapsed time on the calling thread, including worker synchronization, not summed processor time or power consumption. Total also includes buffer generation and upload preparation; GPU completion is excluded.
+
+| Workload | Simulation median before → after | Simulation p95 before → after | Total CPU median before → after |
+| --- | ---: | ---: | ---: |
+| 1,024 × 8, collision disabled for diagnosis | 1.68 → 0.49 ms | 1.93 → 0.80 ms | 3.40 → 1.75 ms |
+| 1,024 × 8, full head collision | **4.96 → 1.23 ms** | 7.29 → 1.56 ms | **8.36 → 3.70 ms** |
+| 2,048 × 16, beard/brows/Afro with head collision | **14.28 → 4.04 ms** | 15.47 → 4.64 ms | **18.08 → 7.30 ms** |
+
+Raw stages: [before](performance/2026-10-17-frame-budget-before.json), [after](performance/2026-10-17-frame-budget-after.json). Default simulation time fell about 75%; maximum combined simulation fell about 72%. `parallel_physics.gd` compares entire output buffers exactly between serial/parallel execution, including turns, mixed regional motion, forces, count/segment changes, small-workload fallback, and worker shutdown. Existing collision, occlusion, dynamics, persistence and layout checks also pass.
+
+Reproduce after `Setup.ps1 -SkipInstall`:
+
+```powershell
+.\buildtools\python-3.15.0\python.exe tools/benchmark.py --portrait --beard --beard-strands 1024 --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen --output artifacts/preview-current.json
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --headless --path viewer --script res://tests/frame_budget_probe.gd -- current
+```
+
+The second command writes `artifacts/frame-budget-current.json`. To isolate pacing on the current build, append `--vsync on --frame-cap 0` or `--vsync off --frame-cap 120` to the first command. Omit `--offscreen` for an on-screen window, or replace `--portrait` with `--camera <index>` for a physical device. Benchmarks run sequentially and neither load nor save personal designs. They do not record camera images.
+
+## Earlier measurements
+
 The October 16 [CPU/GPU tracking comparison](GPU_TRACKING.md#measurements) covers the browser worker, CPU fallback/Auto selection, and the complete viewer with a 512-strand beard. The older camera measurements below describe the October 15 capture optimization and use a different input/test setup.
 
 Measured October 15, 2026 on Windows, Ryzen 5 5500, Radeon RX 7900 XTX, a 60 Hz display, and a NexiGo N960E FHD Webcam at 1280×720. Face/iris tracking and the desktop landmark overlay were enabled. No browser client or recording was active. The measurements use the actual Godot studio, its Start capture button, HTTP controls, and compiled shared-memory readers.
@@ -28,7 +82,7 @@ These are short development runs, not repeated controlled trials. Camera deliver
 - Kept a validated BGR fallback, with reusable conversion buffers, for incompatible camera formats/layouts. Camera-reported frame rate is retained when the driver negotiates a lower rate.
 - Removed an intermediate full-frame snapshot copy in the native video reader; reused image/texture objects and avoided resetting unchanged shader bindings. Snapshot validation checks the copied slot rather than discarding it because another slot received a newer frame.
 - Replaced hundreds of antialiased circle draw commands with one instanced landmark batch. Synthetic rendered tests verify circle shape, mirroring, letterboxing, resizing, and hiding.
-- Let VSync pace Godot without an additional software frame cap. Capture defaults to 60 fps, with 30 and 24 still available.
+- At that time, let VSync pace Godot without an additional software frame cap. This was superseded by the October 17 pacing fix above. Capture defaults to 60 fps, with 30 and 24 still available.
 
 The latest-frame policy prioritizes responsiveness. A 60 Hz display can receive fewer distinct camera frames than the camera produces when arrival times fluctuate: older frames are skipped instead of building a playback queue. The measured 8.36 ms starts **after the camera read completes** and ends at texture submission; it excludes sensor exposure, driver queues, GPU completion, and display scanout. It is not sensor-to-screen latency.
 
@@ -52,7 +106,7 @@ Two initial beard runs (commit `84daf2b`) used the same webcam, 720p/60 FPS sett
 
 Raw reports: [default beard](performance/beard-256.json), [maximum beard](performance/beard-1024.json). Timing is sampled on newly delivered camera frames while a face is live; brief detection gaps pause physics and are excluded from the beard cost distribution. The beard timer includes native stepping, instance-buffer generation, and buffer assignment. It excludes landmark-to-root attachment, GPU completion, and display scanout. Renderer FPS is an end-of-run counter, not a guarantee that every frame met its deadline.
 
-The runs are separate observations, not a controlled claim that adding a beard improves preview FPS. Delivery and VSync phase vary as described above. Defaults remain 256 strands and 8 segments to preserve headroom. Disabling the beard stops simulation; loss of a tracked face hides it and pauses work. Counts and physics catch-up are bounded.
+The runs are separate observations, not a controlled claim that adding a beard improves preview FPS. Delivery and VSync phase vary as described above. Defaults at the time were 256 strands and 8 segments. Disabling the beard stops simulation; loss of a tracked face hides it and pauses work. Counts and physics catch-up are bounded.
 
 To profile a beard, append `--beard --beard-strands 256 --beard-segments 8` to the benchmark below. The maximum supported values are 1,024 and 16. The command changes only its temporary viewer session; it does not overwrite the user's saved design.
 
@@ -70,7 +124,7 @@ The expanded editor was measured on the same Ryzen 5 5500 / RX 7900 XTX using an
 | Maximum combined, 2,048 × 16 | 2.44 ms | 8.31 ms | 10.75 / 11.70 ms |
 | Maximum with markers visible | 2.65 ms | 8.10 ms | 10.76 / 11.56 ms |
 
-Mean frame intervals were approximately 16.66 ms in all five cases. This is a short synthetic measurement, not a live-camera FPS guarantee; CPU timings exclude GPU completion and presentation. Individual frames varied, and the maximum setting leaves considerably less time for the rest of the studio. Default facial density remains 256, brows 96 when enabled, and scalp hair 512 when enabled. Static eyebrows skip force/constraint work. All regions share one solver and one hair draw batch; generated dots use one additional batch. No new tracking model or Python inference is introduced.
+Mean frame intervals were approximately 16.66 ms in all five cases. This is a short synthetic measurement, not a live-camera FPS guarantee; CPU timings exclude GPU completion and presentation. Individual frames varied, and the maximum setting leaves considerably less time for the rest of the studio. Defaults at the time were 256 facial strands, 96 brows when enabled, and 512 scalp strands when enabled. Static eyebrows skip force/constraint work. All regions share one solver and one hair draw batch; generated dots use one additional batch. No new tracking model or Python inference is introduced.
 
 Profile reconstruction took about 24–27 ms at the combined default and 72 ms at maximum, once per settings change. Root-marker indices and rest guides are cached between changes. [Raw measurements](performance/groom-combined.json).
 

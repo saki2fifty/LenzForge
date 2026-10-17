@@ -8,13 +8,15 @@ The desktop saves after 350 ms without another edit and flushes remaining change
 
 - Camera selection by stable device ID, resolution, and frame rate. An unplugged camera remains the saved choice; another camera is not selected automatically.
 - MediaPipe processing mode, input width, face count, all confidence thresholds, optional outputs, face/hand/pose model IDs, and tracking feature toggles.
-- Appearance preset, exposure, mirror, master landmark-guide visibility, measured landmark visibility/color/size, head occlusion, depth, and crown height.
+- Appearance preset, exposure, mirror, preview pacing, master landmark-guide visibility, measured landmark visibility/color/size, head occlusion, depth, and crown height.
 - All virtual landmark settings and colors, all hair/beard/mustache/eyebrow/scalp controls, gravity/wind/damping, per-strand edits, and the working look name.
 - Independent mustache forces, collision and length variation, plus automatic lower beard coverage and wrap depth. Older looks initialize missing mustache fields from their previously shared values; later edits remain separate.
 - Hair visibility, mannequin mode/rotation/zoom, strand edit mode, active panels, library selection, model controls, window size, and fullscreen/maximized mode.
 - Browser preview effect chains (including enabled state and parameter values), JPEG quality, preview frame rate, and preview scale.
 
 Capture and recording are actions: reopening the app restores their controls but does not start a camera or recording. Named hair-library entries still use **Save** or **Copy**; autosave preserves your current working look without overwriting a named preset. The loaded library entry is remembered, so **Save** can update it after a restart.
+
+**Look → Preview pacing** defaults to **Responsive (up to 120 fps)**, which disables VSync and bounds rendering while polling new camera frames frequently. **Display synchronized** uses VSync with no software cap; it can prevent tearing but may reduce throughput on some drivers. **Low power (up to 60 fps)** disables VSync and lowers render work. These settings affect rendering, not camera FPS or MediaPipe model quality. Hover over the preview metrics to see renderer FPS and hair CPU time separately from distinct camera frames.
 
 ## Storage
 

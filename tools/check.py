@@ -33,6 +33,7 @@ def main():
                         ('beard', ['--script', 'res://tests/beard_probe.gd']),
                         ('beard-dynamics', ['--script', 'res://tests/beard_dynamics.gd']),
                         ('regional-physics', ['--script', 'res://tests/regional_physics.gd']),
+                        ('parallel-physics', ['--script', 'res://tests/parallel_physics.gd']),
                         ('head-collision', ['--script', 'res://tests/head_collision.gd']),
                         ('groom', ['--script', 'res://tests/groom_probe.gd']),
                         ('virtual-head', ['--script', 'res://tests/virtual_head_probe.gd']),

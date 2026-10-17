@@ -40,9 +40,10 @@ func _run() -> void:
 					await process_frame
 					await process_frame
 					check(not scroll.get_h_scroll_bar().visible, "Hair page %s fits %s" % [page,dimensions])
-			if "--render" in OS.get_cmdline_user_args() and tab == 3:
+			if "--render" in OS.get_cmdline_user_args() and tab in [0,3]:
 				await RenderingServer.frame_post_draw
-				root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../artifacts/tracking-panel-%d.png" % dimensions.x))
+				var panel_name := "look" if tab == 0 else "tracking"
+				root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../artifacts/%s-panel-%d.png" % [panel_name,dimensions.x]))
 			if tab == 3:
 				studio.tracking_panel.model_group.show()
 				await process_frame

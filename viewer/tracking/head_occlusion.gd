@@ -22,9 +22,7 @@ func update(points: PackedVector2Array, depth: PackedFloat32Array, dimensions: V
 	surface.update(points,depth,dimensions)
 	if not enabled or rasterizer == null or surface.vertices.is_empty() or depth.size() < 468: return
 	width = surface.width/dimensions.x
-	var vertices: PackedVector3Array = surface.vertices.duplicate()
-	for i in vertices.size(): vertices[i].z /= dimensions.x
-	var image: Image = rasterizer.rasterize(vertices,surface.topology(),dimensions,384)
+	var image: Image = rasterizer.rasterize(surface.vertices,surface.topology(),dimensions,384,1.0/dimensions.x)
 	if image == null: return
 	depth_image = image
 	if texture == null or texture.get_size() != Vector2(image.get_size()): texture = ImageTexture.create_from_image(image)

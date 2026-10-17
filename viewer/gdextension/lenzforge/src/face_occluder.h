@@ -9,7 +9,7 @@ class FaceOccluder : public godot::RefCounted {
     GDCLASS(FaceOccluder, godot::RefCounted)
 public:
     godot::Ref<godot::Image> rasterize(const godot::PackedVector3Array &vertices,
-        const godot::PackedInt32Array &indices, godot::Vector2 dimensions, int map_width = 384) const;
+        const godot::PackedInt32Array &indices, godot::Vector2 dimensions, int map_width = 384, double depth_scale = 1.0) const;
 protected:
     static void _bind_methods();
 };

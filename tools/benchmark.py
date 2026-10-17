@@ -2,10 +2,12 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import threading
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'backend'))
@@ -20,7 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--camera', type=int, default=-1, help='Windows camera index; -1 uses the demo')
     parser.add_argument('--seconds', type=float, default=15)
-    parser.add_argument('--frame-cap', type=int, help='Override Godot frame cap; 0 lets VSync set the rate')
+    parser.add_argument('--frame-cap', type=int, help='Override the app render cap; 0 removes the software cap')
     parser.add_argument('--fps', type=int, choices=[24, 30, 60], default=60)
     parser.add_argument('--no-overlay', action='store_true')
     parser.add_argument('--beard', action='store_true', help='Enable the default physics beard')
@@ -30,12 +32,16 @@ def main():
     parser.add_argument('--tracking-backend', choices=['auto', 'gpu', 'cpu'], default='auto')
     parser.add_argument('--warmup', type=float, default=8)
     parser.add_argument('--offscreen', action='store_true', help='Keep the rendered test window off-screen')
+    parser.add_argument('--vsync', choices=['project', 'on', 'off'], default='project', help='Diagnose presentation pacing independently of the software frame cap')
     parser.add_argument('--portrait', action='store_true', help='Use a deterministic public-domain portrait as the demo source')
     args = parser.parse_args()
+    os.environ['LENZFORGE_SETTINGS_DIR'] = str(ROOT / 'artifacts' / ('benchmark-settings-' + uuid.uuid4().hex))
     if not 1 <= args.seconds <= 300:
         parser.error('--seconds must be 1 to 300')
     if not 0 <= args.warmup <= 60:
         parser.error('--warmup must be 0 to 60')
+    if args.frame_cap is not None and not 0 <= args.frame_cap <= 1000:
+        parser.error('--frame-cap must be 0 to 1000')
     if not 16 <= args.beard_strands <= 1024:
         parser.error('--beard-strands must be 16 to 1024')
     if not 2 <= args.beard_segments <= 16:
@@ -65,10 +71,11 @@ def main():
     command = [str(godot), '--path', str(ROOT / 'viewer'), '--log-file', str(artifacts / 'benchmark-viewer.log'),
                '--script', 'res://tests/performance_probe.gd', '--',
                f'http://127.0.0.1:{server.server_port}', str(args.camera), str(args.seconds)]
-    command += [str(args.frame_cap if args.frame_cap is not None else 0), str(args.fps)]
+    command += [str(args.frame_cap if args.frame_cap is not None else -1), str(args.fps)]
     command.append('0' if args.no_overlay else '1')
     command += ['1' if args.beard else '0', str(args.beard_strands), str(args.beard_segments)]
     command.append(str(args.warmup))
+    command.append(args.vsync)
     if args.offscreen:
         command[1:1] = ['--position', '-3000,0']
     try:
@@ -84,6 +91,7 @@ def main():
         report = {'configuration': {'utc': datetime.now(timezone.utc).isoformat(),
                   'seconds': args.seconds, 'requested_fps': args.fps,
                   'tracking_backend': args.tracking_backend, 'warmup_s': args.warmup, 'offscreen': args.offscreen,
+                  'vsync': args.vsync,
                   'source': f'public-domain portrait, synthetic {args.fps} fps' if args.portrait else 'camera' if args.camera >= 0 else 'demo',
                   'overlay': not args.no_overlay, 'beard': args.beard, 'beard_strands': args.beard_strands,
                   'beard_segments': args.beard_segments},

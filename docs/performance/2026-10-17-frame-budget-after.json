@@ -1,0 +1,95 @@
+{
+	"cases": [
+		{
+			"case": "default_no_collision",
+			"packing": {
+				"max": 0.233,
+				"median": 0.118,
+				"p95": 0.178
+			},
+			"segments": 8,
+			"simulation": {
+				"max": 3.957,
+				"median": 0.494,
+				"p95": 0.8
+			},
+			"strands": 1024,
+			"total": {
+				"max": 5.826,
+				"median": 1.747,
+				"p95": 2.424
+			},
+			"tracking": {
+				"max": 1.953,
+				"median": 1.08,
+				"p95": 1.425
+			},
+			"upload": {
+				"max": 0.074,
+				"median": 0.051,
+				"p95": 0.061
+			}
+		},
+		{
+			"case": "default",
+			"packing": {
+				"max": 0.505,
+				"median": 0.121,
+				"p95": 0.167
+			},
+			"segments": 8,
+			"simulation": {
+				"max": 2.024,
+				"median": 1.231,
+				"p95": 1.561
+			},
+			"strands": 1024,
+			"total": {
+				"max": 4.958,
+				"median": 3.695,
+				"p95": 4.12
+			},
+			"tracking": {
+				"max": 2.85,
+				"median": 2.257,
+				"p95": 2.69
+			},
+			"upload": {
+				"max": 0.066,
+				"median": 0.052,
+				"p95": 0.057
+			}
+		},
+		{
+			"case": "maximum",
+			"packing": {
+				"max": 1.153,
+				"median": 0.724,
+				"p95": 0.889
+			},
+			"segments": 16,
+			"simulation": {
+				"max": 5.175,
+				"median": 4.036,
+				"p95": 4.636
+			},
+			"strands": 2048,
+			"total": {
+				"max": 8.446,
+				"median": 7.3,
+				"p95": 8.03
+			},
+			"tracking": {
+				"max": 2.973,
+				"median": 2.423,
+				"p95": 2.685
+			},
+			"upload": {
+				"max": 0.205,
+				"median": 0.089,
+				"p95": 0.14
+			}
+		}
+	],
+	"fixture": "Canonical head, 180 measured samples, 120 Hz physics stepped at 60 Hz. CPU stages only; no camera/inference/presentation."
+}

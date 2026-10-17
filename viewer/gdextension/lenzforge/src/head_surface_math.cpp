@@ -13,23 +13,24 @@ void HeadSurfaceMath::_bind_methods() {
 }
 PackedVector3Array HeadSurfaceMath::build(const PackedVector3Array &face, const PackedInt32Array &outline, int rings, double depth, double crown) const {
     if (face.size()!=478 || outline.size()!=36 || rings<2 || rings>32 || !std::isfinite(depth) || !std::isfinite(crown) || depth<0 || depth>2 || crown<0 || crown>1) return {};
-    for (int i=0;i<face.size();++i) if (!face[i].is_finite()) return {};
-    for (int i=0;i<outline.size();++i) if (outline[i]<0 || outline[i]>=468) return {};
-    Vector3 right=face[454]-face[234], down=face[152]-face[10];
+    const auto *fp=face.ptr(); const auto *op=outline.ptr();
+    for (int i=0;i<478;++i) if (!fp[i].is_finite()) return {};
+    for (int i=0;i<36;++i) if (op[i]<0 || op[i]>=468) return {};
+    Vector3 right=fp[454]-fp[234], down=fp[152]-fp[10];
     const double width=right.length();
     if (width<1e-5) return {};
     right/=width;
     down-=right*down.dot(right);
     if (down.length_squared()<1e-10) return {};
     down.normalize();
-    const Vector3 back=right.cross(down), center=(face[234]+face[454])*.5;
+    const Vector3 back=right.cross(down), center=(fp[234]+fp[454])*.5;
     PackedVector3Array result=face;
     result.resize(478+rings*36);
     auto *out=result.ptrw();
     for (int r=1;r<=rings;++r) {
         const double t=double(r)/rings, radial=std::cos(t*1.5707963267948966), reach=std::sin(t*1.5707963267948966);
         for (int c=0;c<36;++c) {
-            const Vector3 local=face[outline[c]]-center;
+            const Vector3 local=fp[op[c]]-center;
             const double upper=std::max(-local.dot(down)/width,0.0);
             out[478+(r-1)*36+c]=center+(right*local.dot(right)+down*local.dot(down))*radial
                 +back*(local.dot(back)*(1-reach)+depth*width*reach)
@@ -137,12 +138,14 @@ Dictionary HeadSurfaceMath::bind_nearest(const PackedVector3Array &vertices, con
     Dictionary result; result["indices"]=ids; result["weights"]=weights; return result;
 }
 PackedVector3Array HeadSurfaceMath::sample(const PackedVector3Array &vertices, const PackedInt32Array &indices, const PackedVector3Array &weights) const {
-    if (indices.size()!=weights.size()*3 || weights.size()>4096) return {};
-    PackedVector3Array result; result.resize(weights.size()); auto *out=result.ptrw();
-    for (int i=0;i<weights.size();++i) {
-        const int a=indices[i*3],b=indices[i*3+1],c=indices[i*3+2];
-        if (a<0 || b<0 || c<0 || a>=vertices.size() || b>=vertices.size() || c>=vertices.size() || !weights[i].is_finite()) return {};
-        out[i]=vertices[a]*weights[i].x+vertices[b]*weights[i].y+vertices[c]*weights[i].z;
+    const int count=weights.size(), vertex_count=vertices.size();
+    if (indices.size()!=count*3 || count>4096) return {};
+    const auto *vp=vertices.ptr(); const auto *ip=indices.ptr(); const auto *wp=weights.ptr();
+    PackedVector3Array result; result.resize(count); auto *out=result.ptrw();
+    for (int i=0;i<count;++i) {
+        const int a=ip[i*3],b=ip[i*3+1],c=ip[i*3+2];
+        if (a<0 || b<0 || c<0 || a>=vertex_count || b>=vertex_count || c>=vertex_count || !wp[i].is_finite()) return {};
+        out[i]=vp[a]*wp[i].x+vp[b]*wp[i].y+vp[c]*wp[i].z;
     }
     return result;
 }

@@ -76,6 +76,8 @@ var point_color: ColorPickerButton
 var quick_toolbar: PanelContainer
 var guides_check: CheckBox
 var occlusion_check: CheckBox
+var pacing_picker: OptionButton
+const PACING_MODES := ["responsive","display_sync","low_power"]
 
 func _ready() -> void:
 	DisplayServer.window_set_min_size(Vector2i(960, 640))
@@ -340,6 +342,16 @@ func _build_ui() -> void:
 	mirror_check.toggled.connect(_set_mirror)
 	right.add_child(mirror_check)
 	_set_mirror(mirror_check.button_pressed)
+	right.add_child(_label("PREVIEW PACING",10,MUTED))
+	pacing_picker = OptionButton.new()
+	for title in ["Responsive (up to 120 fps)","Display synchronized","Low power (up to 60 fps)"]: pacing_picker.add_item(title)
+	pacing_picker.fit_to_longest_item = false
+	pacing_picker.tooltip_text = "Responsive avoids VSync stalls and polls new camera frames quickly. Display synchronized prevents tearing. Low power reduces rendering work."
+	var saved_pacing := str(settings.get_value("view","pacing","responsive"))
+	pacing_picker.select(maxi(0,PACING_MODES.find(saved_pacing)))
+	pacing_picker.item_selected.connect(_set_pacing)
+	right.add_child(pacing_picker)
+	_set_pacing(pacing_picker.selected)
 	right.add_child(HSeparator.new())
 	var landmark_column := _tab_column("Landmarks")
 	guides_check = CheckBox.new()
@@ -565,7 +577,7 @@ func _on_poll(_result: int, code: int, _headers: PackedStringArray, body: Packed
 	var capture_fps := float(data.get("capture_timing", {}).get("fps", data.get("fps", 0.0)))
 	var preview_fps: int = video_reader.get_fps() if video_reader and video_reader.is_reading() else 0
 	metrics.text = "%d preview / %.1f capture fps    ·    %d landmarks    ·    %.1f ms inference" % [preview_fps, capture_fps, tracking.get("landmark_count", 0), tracking.get("last_inference_ms", 0.0)]
-	metrics.tooltip_text = "%s\nPreview counts new video frames displayed; capture measures camera delivery." % data.get("source", "No source")
+	metrics.tooltip_text = "%s\nRender: %d fps · Hair CPU: %.2f ms\nPreview counts new video frames displayed; capture measures camera delivery.\nPreview pacing: Look → Preview pacing." % [data.get("source","No source"),Engine.get_frames_per_second(),beard.update_ms]
 	if data.get("error"):
 		status.text = "CAPTURE ERROR"
 		message.text = str(data.error)
@@ -712,6 +724,13 @@ func _set_look(index: int) -> void:
 	material_video.set_shader_parameter("contrast", looks[index][1])
 	material_video.set_shader_parameter("warmth", looks[index][2])
 	settings.set_value("view", "look", index)
+	queue_settings_save()
+
+func _set_pacing(index: int) -> void:
+	index = clampi(index,0,PACING_MODES.size()-1)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if index == 1 else DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = 0 if index == 1 else 60 if index == 2 else 120
+	settings.set_value("view","pacing",PACING_MODES[index])
 	queue_settings_save()
 
 func _set_mirror(value: bool) -> void:

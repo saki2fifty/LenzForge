@@ -1,0 +1,209 @@
+{
+  "configuration": {
+    "utc": "2026-10-17T06:16:01.367807+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "tracking_backend": "cpu",
+    "warmup_s": 5.0,
+    "offscreen": false,
+    "vsync": "project",
+    "source": "public-domain portrait, synthetic 60 fps",
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 1024,
+    "beard_segments": 8
+  },
+  "viewer": {
+    "beard_frames": 1201,
+    "beard_update_ms": {
+      "max": 2.326,
+      "mean": 1.04381931723564,
+      "p50": 1.03,
+      "p95": 1.205,
+      "p99": 1.292
+    },
+    "displayed_fps": 60.0322364612311,
+    "elapsed_s": 20.005918,
+    "frame_age_ms": {
+      "max": 8.614,
+      "mean": 6.79601448792164,
+      "p50": 6.78220000076294,
+      "p95": 7.37579999923706,
+      "p99": 7.57270000076294
+    },
+    "frame_cap": 120,
+    "frames": 1201,
+    "gaps_over_50_ms": 0,
+    "interval_ms": {
+      "max": 18.178,
+      "mean": 16.666085,
+      "p50": 16.672,
+      "p95": 17.084,
+      "p99": 17.392
+    },
+    "landmark_age_ms": {
+      "max": 26.3417000007629,
+      "mean": 16.8324054166841,
+      "p50": 16.8372999992371,
+      "p95": 17.3617999992371,
+      "p99": 17.6077000007629
+    },
+    "landmark_frames": 1200,
+    "render_fps": 120.0,
+    "screen_refresh_hz": 60.0,
+    "upload_ms": {
+      "max": 1.1236,
+      "mean": 0.352515653621982,
+      "p50": 0.3093,
+      "p95": 0.6006,
+      "p99": 0.7573
+    },
+    "vsync": 0
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": -1,
+    "capture_format": "BGR",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 1.227,
+        "mean": 0.546,
+        "p95": 0.629
+      },
+      "fps": 60.0,
+      "interval_ms": {
+        "max": 17.222,
+        "mean": 16.668,
+        "p95": 17.018
+      },
+      "late_frames": 0,
+      "publish_ms": {
+        "max": 0.292,
+        "mean": 0.155,
+        "p95": 0.202
+      },
+      "read_ms": {
+        "max": 0.053,
+        "mean": 0.022,
+        "p95": 0.034
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.0,
+    "frames": 1551,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "Demo pattern",
+    "tracking": {
+      "active_backend": "cpu",
+      "applied_revision": 1,
+      "avg_inference_ms": 9.062471363912122,
+      "capture_to_landmarks_p95_ms": 11.573685,
+      "comparison": null,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "fallback_reason": null,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 60.01067282246904,
+      "frames_dropped": 3,
+      "frames_processed": 1547,
+      "inference_size": [
+        640,
+        360
+      ],
+      "landmark_count": 478,
+      "last_inference_ms": 9.838899999522255,
+      "library": {
+        "job": {
+          "state": "idle"
+        },
+        "models": [
+          {
+            "bytes": 3758596,
+            "id": "face_landmarker",
+            "installed": true,
+            "kind": "face",
+            "label": "Face \u00b7 standard",
+            "official": true,
+            "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+            "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          },
+          {
+            "bytes": 7819105,
+            "id": "hand_landmarker",
+            "installed": true,
+            "kind": "hand",
+            "label": "Hands \u00b7 full",
+            "official": true,
+            "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+            "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+          },
+          {
+            "bytes": 5777746,
+            "id": "pose_landmarker_lite",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Lite",
+            "official": true,
+            "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+          },
+          {
+            "bytes": 9398198,
+            "id": "pose_landmarker_full",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Full",
+            "official": true,
+            "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+          },
+          {
+            "bytes": 30664242,
+            "id": "pose_landmarker_heavy",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Heavy",
+            "official": true,
+            "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+          }
+        ]
+      },
+      "model_ms": 9.44829999934882,
+      "phase": "ready",
+      "processing_time": 9.838899999522255,
+      "queue_size": 0,
+      "renderer": null,
+      "requested_backend": "cpu",
+      "round_trip_p50_ms": 8.958449999227014,
+      "round_trip_p95_ms": 10.805330000312097,
+      "running": true,
+      "settings": {
+        "backend": "cpu",
+        "blendshapes": true,
+        "detection_confidence": 0.5,
+        "face_model": "face_landmarker",
+        "face_transform": true,
+        "hand_model": "hand_landmarker",
+        "max_width": 640,
+        "num_faces": 1,
+        "pose_model": "pose_landmarker_lite",
+        "presence_confidence": 0.5,
+        "tracking_confidence": 0.5
+      },
+      "settings_revision": 1
+    }
+  }
+}

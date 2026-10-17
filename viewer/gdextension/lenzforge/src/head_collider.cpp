@@ -45,17 +45,19 @@ bool crosses_box(const Vector3 &p,const Vector3 &delta,const Vector3 &low,const 
 }
 void HeadCollider::clear() { tree.clear(); faces.clear(); order.clear(); topology.clear(); }
 bool HeadCollider::update(const PackedVector3Array &vertices,const PackedInt32Array &indices) {
-    if(vertices.is_empty() && indices.is_empty()) { clear(); return true; }
-    if(vertices.size()>10000 || vertices.is_empty() || indices.is_empty() || indices.size()>100000 || indices.size()%3) return false;
-    for(int i=0;i<vertices.size();++i) if(!vertices[i].is_finite()) return false;
-    for(int i=0;i<indices.size();++i) if(indices[i]<0 || indices[i]>=vertices.size()) return false;
+    const int vertex_count=vertices.size(), index_count=indices.size();
+    if(!vertex_count && !index_count) { clear(); return true; }
+    if(vertex_count>10000 || !vertex_count || !index_count || index_count>100000 || index_count%3) return false;
+    const auto *vp=vertices.ptr(); const auto *ip=indices.ptr();
+    for(int i=0;i<vertex_count;++i) if(!vp[i].is_finite()) return false;
+    for(int i=0;i<index_count;++i) if(ip[i]<0 || ip[i]>=vertex_count) return false;
     const bool rebuild=tree.empty() || topology!=indices;
     topology=indices;
-    faces.resize(indices.size()/3);
+    faces.resize(index_count/3);
     for(int i=0;i<int(faces.size());++i) {
         auto &f=faces[i];
-        for(int j=0;j<3;++j) f.ids[j]=indices[i*3+j];
-        f.a=vertices[f.ids[0]]; f.b=vertices[f.ids[1]]; f.c=vertices[f.ids[2]];
+        for(int j=0;j<3;++j) f.ids[j]=ip[i*3+j];
+        f.a=vp[f.ids[0]]; f.b=vp[f.ids[1]]; f.c=vp[f.ids[2]];
         f.low=f.a.min(f.b).min(f.c); f.high=f.a.max(f.b).max(f.c);
         const Vector3 cross=(f.b-f.a).cross(f.c-f.a);
         const float area=cross.length();
