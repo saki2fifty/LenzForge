@@ -185,3 +185,16 @@ Measured October 16, 2026 on the same workstation with Godot 4.7.2. Baseline `80
 Collision adds work; this is a functionality improvement, not a speedup over having no head barrier. Directional triangle bins handle point contacts and short link sweeps; a refitted BVH handles sweeps crossing cube-face seams. Queries allocate no memory, catch-up remains capped, and each endpoint's depth fits in the existing 16-float segment buffer. The separate root-depth textures are no longer uploaded. Force-only edits still bypass rebuilding the groom (0.629 ms in this run).
 
 The maximum workload's combined CPU cost exceeds a 16.7 ms frame budget before camera/inference or presentation; use fewer strands/segments for that budget. These short headless CPU measurements exclude camera capture, AI inference, GPU completion and presentation and do not establish live FPS. [Raw before/after report](performance/head-collision.json).
+
+## Independent mustache forces and lower beard roots
+
+Measured October 17, 2026 against `393dcad` on the same workstation, using the existing synthetic yaw/pitch fixture (30 warmup, 240 measured samples). The comparison retains the original force values for both regions; the updated look enables the new lower virtual root distribution. Counts, guide density and segment resolution are unchanged.
+
+| Workload | Physics/upload median before → after | Physics/upload p95 before → after | Tracking callback median before → after |
+| --- | ---: | ---: | ---: |
+| 512 × 8 | 2.400 → 2.277 ms | 3.085 → 3.089 ms | 2.487 → 2.444 ms |
+| 2,048 × 16, all regions | 16.551 → 16.040 ms | 18.240 → 17.937 ms | 3.210 → 3.164 ms |
+
+These short runs show similar costs, not a demonstrated speedup. Force selection happens once per strand, and constant acceleration is computed before the joint loop. Lower beard roots reuse cached head-triangle bindings and the existing strand budget. Changing mustache wind at maximum density took **0.618 ms**, versus **116.577 ms** to rebuild maximum-density placement; force edits preserve positions and velocity.
+
+Maximum density still costs roughly 19.2 ms for these two CPU stages combined, exceeding a 60 fps frame budget before capture, inference or presentation. The 512-strand fixture is a comparison workload, not the current 1,024-facial-strand default. [Raw before/after report](performance/regional-hair.json).

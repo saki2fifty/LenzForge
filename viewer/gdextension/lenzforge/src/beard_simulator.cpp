@@ -13,17 +13,30 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_strand_points_3d", "strand"), &BeardSimulator::get_strand_points_3d);
     ClassDB::bind_method(D_METHOD("advance", "delta"), &BeardSimulator::advance);
     ClassDB::bind_method(D_METHOD("set_forces", "gravity", "wind", "turbulence", "damping"), &BeardSimulator::set_forces);
+    ClassDB::bind_method(D_METHOD("set_mustache_forces", "gravity", "wind", "turbulence", "damping", "collisions"), &BeardSimulator::set_mustache_forces);
     ClassDB::bind_method(D_METHOD("reset"), &BeardSimulator::reset);
     ClassDB::bind_method(D_METHOD("get_render_buffer"), &BeardSimulator::get_render_buffer);
     ClassDB::bind_method(D_METHOD("get_strand_points", "strand"), &BeardSimulator::get_strand_points);
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
 }
 
+static bool valid_forces(double g, double w, double t, double d) {
+    return std::isfinite(g) && std::isfinite(w) && std::isfinite(t) && std::isfinite(d) &&
+        g>=0 && g<=12 && w>=-10 && w<=10 && t>=0 && t<=5 && d>=0 && d<=.95;
+}
 bool BeardSimulator::set_forces(double g, double w, double t, double d) {
-    if (!std::isfinite(g) || !std::isfinite(w) || !std::isfinite(t) || !std::isfinite(d) ||
-        g<0 || g>12 || w<-10 || w>10 || t<0 || t>5 || d<0 || d>.95) return false;
+    if (!valid_forces(g,w,t,d)) return false;
     gravity=g; wind=w; turbulence=t; damping=d;
     return true;
+}
+bool BeardSimulator::set_mustache_forces(double g, double w, double t, double d, bool collision) {
+    if (!valid_forces(g,w,t,d)) return false;
+    mustache_gravity=g; mustache_wind=w; mustache_turbulence=t; mustache_damping=d;
+    mustache_collisions=collision;
+    return true;
+}
+bool BeardSimulator::head_collision(int s) const {
+    return attributes[s].mustache ? mustache_collisions : collisions;
 }
 
 bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps, const PackedFloat32Array &options) {
@@ -47,18 +60,24 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
         if (steps.size() != p_count * p_segments) return false;
         for (int i=0; i<steps.size(); ++i) if (!steps[i].is_finite() || steps[i].length() > 4) return false;
     }
+    const int option_stride=options.size()==p_count*4 ? 4 : 3;
     if (!options.is_empty()) {
-        if (options.size() != p_count*3) return false;
+        if (options.size() != p_count*option_stride) return false;
         for (int s=0; s<p_count; ++s) {
-            float mode=options[s*3], hold=options[s*3+1], collision=options[s*3+2];
+            float mode=options[s*option_stride], hold=options[s*option_stride+1], collision=options[s*option_stride+2];
             if (!std::isfinite(mode) || mode < 0 || mode > 2 || mode != std::floor(mode) ||
                 !std::isfinite(hold) || hold < 0 || hold > 1 || (collision != 0 && collision != 1)) return false;
+            if (option_stride==4 && options[s*4+3]!=0 && options[s*4+3]!=1) return false;
         }
     }
+    const double mg=double(settings.get("mustache_gravity",values[1])), mw=double(settings.get("mustache_wind",values[2]));
+    const double mt=double(settings.get("mustache_turbulence",values[3])), md=double(settings.get("mustache_damping",values[4]));
+    if (!valid_forces(mg,mw,mt,md)) return false;
     bool changed = count != p_count || segments != p_segments;
     count = p_count; segments = p_segments;
     length = values[0]; gravity = values[1]; wind = values[2]; turbulence = values[3]; damping = values[4]; stiffness = values[5];
     collisions = bool(settings.get("collisions", true));
+    set_mustache_forces(mg,mw,mt,md,bool(settings.get("mustache_collisions",collisions)));
     preserve_shape = bool(settings.get("preserve_shape", false));
     attributes.resize(count);
     roots.resize(count); positions.resize(count * (segments + 1)); previous.resize(positions.size());
@@ -67,9 +86,10 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     for (int s = 0; s < count; ++s) {
         auto &a = attributes[s]; const float *p = src + s * 12;
         a.length = p[0]; a.root_width = p[1]; a.tip_width = p[2]; a.curl = p[3];
-        a.mode=options.is_empty() ? (preserve_shape ? 1 : 0) : int(options[s*3]);
-        a.hold=options.is_empty() ? stiffness : options[s*3+1];
-        a.collision=options.is_empty() ? collisions : options[s*3+2] != 0;
+        a.mode=options.is_empty() ? (preserve_shape ? 1 : 0) : int(options[s*option_stride]);
+        a.hold=options.is_empty() ? stiffness : options[s*option_stride+1];
+        a.collision=options.is_empty() ? collisions : options[s*option_stride+2] != 0;
+        a.mustache=option_stride==4 && options[s*4+3]!=0;
         for (int c = 0; c < 4; ++c) { a.root[c] = p[4+c]; a.tip[c] = p[8+c]; }
         for (int j=1; j<=segments; ++j) {
             const int k=s*segments+j-1;
@@ -101,7 +121,7 @@ bool BeardSimulator::set_anchors_3d(const PackedVector3Array &p_roots, double p_
     mouth_radii = Vector2(std::max(1.0f, float(p_radii.x)), std::max(1.0f, float(p_radii.y)));
     for (int i = 0; i < count; ++i) {
         roots[i] = p_roots[i];
-        if(collisions && !head.empty()) {
+        if(head_collision(i) && !head.empty()) {
             Vector3 normal;
             head.project(roots[i],clearance(i,0),contact_hint[i*(segments+1)],normal);
         }
@@ -122,7 +142,7 @@ void BeardSimulator::reset() {
         for (int j = 1; j <= segments; ++j) {
             const Vector3 direction = attributes[s].mode != 0 ? rest_direction(s,j) : Vector3(0,1,0);
             positions[base+j] = previous[base+j] = positions[base+j-1] + direction * segment_length(s,j);
-            if(collisions && !head.empty()) collide_link(base+j,clearance(s,j));
+            if(head_collision(s) && !head.empty()) collide_link(base+j,clearance(s,j));
         }
     }
     previous = positions; initialized = count > 0; accumulator = 0;
@@ -143,23 +163,29 @@ void BeardSimulator::step(double dt, double root_fraction) {
         if (attributes[s].length < .00001) { for (int j=0; j<=segments; ++j) positions[base+j] = previous[base+j] = roots[s]; continue; }
         const Vector3 root = positions[base].lerp(roots[s], root_fraction);
         const auto &attribute=attributes[s];
+        const bool solid_head=head_collision(s) && !head.empty();
+        const bool mouth_collision=(attribute.mustache ? mustache_collisions : attribute.collision) && head.empty();
         if (attribute.mode == 2) {
             positions[base]=previous[base]=root;
             for (int j=1; j<=segments; ++j) {
                 positions[base+j]=positions[base+j-1]+rest_direction(s,j)*segment_length(s,j);
-                if(collisions && !head.empty()) collide_link(base+j,clearance(s,j));
+                if(solid_head) collide_link(base+j,clearance(s,j));
                 previous[base+j]=positions[base+j];
             }
             continue;
         }
+        // Select once per strand; no dictionary reads or allocations per joint.
+        const double g=attribute.mustache ? mustache_gravity : gravity, w=attribute.mustache ? mustache_wind : wind;
+        const double t=attribute.mustache ? mustache_turbulence : turbulence, d=attribute.mustache ? mustache_damping : damping;
+        const Vector3 acceleration(w*scale*dt*dt,g*scale*dt*dt,0);
         for (int j = 1; j <= segments; ++j) {
             const int k = base+j;
-            const Vector3 velocity = (positions[k] - previous[k]) * (1.0 - damping);
+            const Vector3 velocity = (positions[k] - previous[k]) * (1.0 - d);
             previous[k] = positions[k];
-            const double gust = wind != 0 && turbulence > 0 ? turbulence * std::sin(clock * 2.1 + s * .17 + j * .3) : 0;
-            positions[k] += velocity + Vector3((wind + gust) * scale, gravity * scale, 0) * (dt * dt);
+            const double gust = w != 0 && t > 0 ? t * std::sin(clock * 2.1 + s * .17 + j * .3)*scale*dt*dt : 0;
+            positions[k] += velocity + acceleration + Vector3(gust,0,0);
         }
-        if(collisions && !head.empty()) for(int j=1;j<=segments;++j) {
+        if(solid_head) for(int j=1;j<=segments;++j) {
             const int k=base+j;
             if(positions[k].distance_squared_to(previous[k])>scale*scale*.0025) collide_head(k,clearance(s,j),true);
         }
@@ -179,7 +205,7 @@ void BeardSimulator::step(double dt, double root_fraction) {
                     if (j == 1) positions[k] -= correction;
                     else { positions[k-1] += correction * .5; positions[k] -= correction * .5; }
                 }
-                if (attribute.collision && head.empty()) collide_mouth(k);
+                if (mouth_collision) collide_mouth(k);
             }
         }
         // Remove the small remaining stretch after the bounded solver passes.
@@ -189,8 +215,8 @@ void BeardSimulator::step(double dt, double root_fraction) {
             const Vector3 diff=positions[k]-positions[k-1];
             const double distance=diff.length();
             if (distance > 1e-8) positions[k]=positions[k-1]+diff*(segment_length(s,j)/distance);
-            if (attribute.collision && head.empty()) collide_mouth(k);
-            if(collisions && !head.empty()) collide_link(k,clearance(s,j));
+            if (mouth_collision) collide_mouth(k);
+            if(solid_head) collide_link(k,clearance(s,j));
         }
     }
 }

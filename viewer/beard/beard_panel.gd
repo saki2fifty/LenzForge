@@ -57,17 +57,20 @@ func setup(layer: Control, studio: Control) -> void:
 	shape.add_child(host._button("Regrow roots",func(): beard.set_setting("seed",randi_range(0,2147483647))))
 
 	var roots_page := _page("Roots")
-	host._section(roots_page,"Expanded coverage","Magenta marks generated roots; green marks measured landmarks. Offsets follow face size and rotation.")
+	host._section(roots_page,"Expanded coverage","Lower virtual roots wrap around the jaw. Turn off that mode to use custom offsets. Magenta marks generated roots when guides are visible.")
 	_config_check(roots_page,"show_generated_roots","Show generated roots")
 	_color(roots_page,"generated_root_color","Generated point color")
+	_config_check(roots_page,"beard_virtual_roots","Use lower virtual landmarks")
+	_spin(roots_page,"lower_root_depth","Under-jaw / side reach",.05,.7,.01)
+	controls.beard_virtual_roots.tooltip_text = "Spread the expanded root share under the jaw and around the lower sides of the shared head, even with guides hidden."
 	for row in [["chin_extension","Below chin",0,.8,.01],["jaw_expansion","Jaw expansion",0,.5,.01],
 		["ear_reach","Toward ears",0,.6,.01],["sideburn_height","Height around ears",0,1,.05],
 		["root_layers","Root layers",1,6,1],["coverage_fill","Expanded root share",0,1,.05]]:
 		_spin(roots_page,row[0],row[1],row[2],row[3],row[4])
 	roots_page.add_child(host._button("Fuller coverage",func():
-		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
+		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"beard_virtual_roots":true,"lower_root_depth":.35,"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
 		beard.set_enabled(true)))
-	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
+	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"beard_virtual_roots":true,"lower_root_depth":.35,"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
 	roots_page.add_child(host._button("Fit root surface…",func(): show_page("Root surface")))
 
 	var virtual_page := _page("Root surface")
@@ -85,7 +88,7 @@ func setup(layer: Control, studio: Control) -> void:
 		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
 	controls.crown_height.tooltip_text = "Spread roots from forehead toward crown. Roots stay attached to the skin."
 	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
-	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. General guide density is independent of hair count. Select a strand to attach it to any measured or virtual landmark.")
+	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. Lower beard coverage is set on Roots; disable Use lower virtual landmarks there to use the offset controls here. Select a strand to attach it to any measured or virtual landmark.")
 
 	var mustache := _page("Mustache")
 	_config_check(mustache,"mustache_enabled","Include mustache")
@@ -94,11 +97,18 @@ func setup(layer: Control, studio: Control) -> void:
 	for row in [["mustache_width","Coverage width",.4,2,.05],["mustache_thickness","Coverage thickness",.2,3,.05],
 		["mustache_density","Density / beard",0,3,.1],["mustache_length","Strand length",.005,.6,.005],
 		["mustache_lift","Lift above lip",-.08,.15,.01],["mustache_curl","Tip curl",0,1,.05],
-		["mustache_hold","Shape hold",0,1,.05],["mustache_root_width","Starting width",.1,12,.1],["mustache_tip_width","Ending width",0,12,.05]]:
+		["mustache_hold","Shape hold",0,1,.05],["mustache_variation","Length variation",0,.8,.01],
+		["mustache_root_width","Starting width",.1,12,.1],["mustache_tip_width","Ending width",0,12,.05]]:
 		_spin(mustache,row[0],row[1],row[2],row[3],row[4])
 	_color(mustache,"mustache_color","Root color")
 	_color(mustache,"mustache_tip_color","Tip color")
 	host._section(mustache,"Motion modes","Static follows the face without swinging. Styled reacts to motion while holding its shape. Free hangs under gravity.")
+	host._section(mustache,"Mustache physics","Independent from beard, eyebrows, and scalp hair. Changes save automatically.")
+	for row in [["mustache_gravity","Gravity",0,12,.1],["mustache_wind","Horizontal wind",-10,10,.1],
+		["mustache_turbulence","Wind variation",0,5,.05],["mustache_damping","Damping",0,.95,.005]]:
+		_spin(mustache,row[0],row[1],row[2],row[3],row[4])
+	_config_check(mustache,"mustache_collisions","Collide with head surface")
+	controls.mustache_turbulence.tooltip_text = "Adds gusts only while the mustache's horizontal wind is nonzero."
 
 	var brows := _page("Eyebrows")
 	_config_check(brows,"brow_enabled","Include eyebrows")
@@ -133,7 +143,7 @@ func setup(layer: Control, studio: Control) -> void:
 	controls.hawk_width.tooltip_text = "Controls the central root strip of the Mohawk."
 
 	var physics := _page("Physics")
-	host._section(physics,"Shared forces","Gravity, wind, and damping affect moving strands. Static regions keep their shape.")
+	host._section(physics,"Beard & hair forces","For beard, eyebrows, and scalp hair. Mustache has its own physics on the Mustache page. Static regions keep their shape.")
 	for row in [["gravity","Gravity",0,12,.1],["wind","Horizontal wind",-10,10,.1],
 		["turbulence","Wind variation",0,5,.05],["damping","Damping",0,.95,.005]]:
 		_spin(physics,row[0],row[1],row[2],row[3],row[4])
@@ -310,6 +320,10 @@ func _sync() -> void:
 	controls.stiffness.editable = beard.config.preserve_shape
 	for key in control_copies:
 		for control in control_copies[key]: control.set_value_no_signal(beard.config[key])
+	controls.lower_root_depth.editable = beard.config.beard_virtual_roots
+	for key in ["chin_extension","jaw_expansion","ear_reach","sideburn_height","chin_back","side_back"]:
+		controls[key].editable = not beard.config.beard_virtual_roots
+		for control in control_copies.get(key,[]): control.editable = not beard.config.beard_virtual_roots
 	selected_group.visible = beard.selected_strand >= 0
 	selected_label.text = "%s · %s" % [beard.attachment[beard.selected_strand].zone,beard.selected_key()] if beard.selected_strand >= 0 else "Click a strand root to edit it."
 	var edit: Dictionary = beard.overrides.get(beard.selected_key(), {})
@@ -348,7 +362,8 @@ func _create() -> void:
 	var chosen: String = Profile.STYLES[style.selected]
 	var updated := Profile.defaults(chosen)
 	for key in beard.config:
-		if key.begins_with("hair_") or key.begins_with("brow_") or key.begins_with("virtual_") or key.begins_with("crown_") or key in ["hawk_width","side_back","chin_back","show_virtual_landmarks"]: updated[key] = beard.config[key]
+		if key.begins_with("hair_") or key.begins_with("brow_") or key.begins_with("mustache_") or key.begins_with("virtual_") or key.begins_with("crown_") or key in ["hawk_width","side_back","chin_back","show_virtual_landmarks"]: updated[key] = beard.config[key]
+	if chosen == "Mustache": updated.mustache_enabled = true
 	var edits: Dictionary = beard.overrides.duplicate(true)
 	for id in edits.keys():
 		if id.is_valid_int(): edits.erase(id)

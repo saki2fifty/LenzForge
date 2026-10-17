@@ -10,6 +10,7 @@ The desktop saves after 350 ms without another edit and flushes remaining change
 - MediaPipe processing mode, input width, face count, all confidence thresholds, optional outputs, face/hand/pose model IDs, and tracking feature toggles.
 - Appearance preset, exposure, mirror, master landmark-guide visibility, measured landmark visibility/color/size, head occlusion, depth, and crown height.
 - All virtual landmark settings and colors, all hair/beard/mustache/eyebrow/scalp controls, gravity/wind/damping, per-strand edits, and the working look name.
+- Independent mustache forces, collision and length variation, plus automatic lower beard coverage and wrap depth. Older looks initialize missing mustache fields from their previously shared values; later edits remain separate.
 - Hair visibility, mannequin mode/rotation/zoom, strand edit mode, active panels, library selection, model controls, window size, and fullscreen/maximized mode.
 - Browser preview effect chains (including enabled state and parameter values), JPEG quality, preview frame rate, and preview scale.
 

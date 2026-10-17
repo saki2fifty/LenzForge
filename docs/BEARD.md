@@ -16,13 +16,17 @@ The default mustache is **Chevron**, using **Styled** motion, **2.0 coverage wid
 4. To use your face, uncheck the mannequin, start your webcam, and keep **Face + iris** enabled. **Show hair and beard** controls the complete overlay. Tracking loss hides it and pauses physics; reacquiring a face resumes it.
 5. Enable **Landmarks → Show landmark guides** (or the top toolbar's landmark button) to inspect guide dots. Measured dots also have the **L** toggle, roots have **Hair → Roots → Show generated roots**, and virtual guides have **Landmarks → Show virtual landmarks**. The master guide switch and generated roots start disabled.
 
-Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. **Physics → Collide with head surface** (enabled by default) keeps strands outside the shared face, chin, sides, crown and back of the head. This works with landmark guides or visual occlusion turned off. Hair can still be hidden when it is correctly behind the head.
+Strands hang straight down under gravity by default, even when your head is tilted. Head movement moves the roots while the rest of each strand retains momentum: faster turns produce larger swings. After you stop moving and turn wind off, damping settles the strands downward. **Collide with head surface**, on the **Physics** and **Mustache** pages, keeps the corresponding strands outside the shared face, chin, sides, crown and back of the head. Both switches default on and work with landmark guides or visual occlusion turned off. Hair can still be hidden when it is correctly behind the head.
 
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
 ## Hair root surface
 
 All roots now fit the same closed head mesh used by virtual landmarks and occlusion. **Hair → Root surface → Extend root coverage** distributes roots across scalp, chin and sides while preserving hairstyle, colors and strand budget. **Expand root coverage** selects that wider procedural distribution; roots always stay on the shared surface.
+
+**Roots → Use lower virtual landmarks** is enabled by default. It distributes the **Expanded root share** (45% by default) under the chin and around both lower sides, with the remaining beard roots on the measured face. **Under-jaw / side reach** controls how far backward those roots wrap (default 0.35), and **Root layers** distributes them across depth bands. This gives the beard depth at side views without adding strands. The bindings are cached on the shared head triangles, so hidden/disabled guide dots and changing guide density cannot detach the hair. Explicit per-strand landmark attachments take priority.
+
+Turn off **Use lower virtual landmarks** to use the older chin/jaw/ear offset controls; those controls are disabled while automatic lower coverage is selected. Goatee and Sideburns constrain the automatic distribution to their corresponding lower regions. The head-fit controls deform both placement modes together.
 
 **Scalp coverage**, **Scalp spread**, regional reach, and coverage controls change where roots lie. Fit the head itself with **Landmarks → Visibility → Head depth / Crown height**. The **Show shared landmarks…** button opens its orange guide controls. The separate hair-only grid has been retired; old look settings remain readable as distribution preferences.
 
@@ -34,15 +38,19 @@ The mannequin uses this same mesh and shared triangle bindings, so roots and ora
 
 | Root control | Effect |
 | --- | --- |
+| Use lower virtual landmarks | Default automatic placement on the lower shared head; preserves the existing strand count. |
+| Under-jaw / side reach | Backward coverage over the lower head, from 0.05 to 0.70. Available in automatic lower placement mode. |
 | Below chin | Extends roots beneath the chin by up to 0.80 face widths. |
 | Jaw expansion | Spreads the lower beard outward by up to 0.50 face widths. |
 | Toward ears | Extends side roots outward by up to 0.60 face widths. |
 | Height around ears | Moves the sideburn coverage from lower cheek toward the upper side of the tracked face. |
 | Root layers | 1–6 bands of generated roots across the extension, with small seeded variation. |
 | Expanded root share | Fraction of beard roots assigned to the extended regions. Remaining roots retain cheek/chin coverage. |
-| Fuller coverage | Applies moderate chin/jaw/ear offsets, raises sideburn coverage, and increases the facial budget to at least 512 strands. Reset coverage clears offsets; it keeps the chosen density. |
+| Fuller coverage | Enables lower virtual coverage with 0.35 backward reach and a 60% expanded share; increases the facial budget to at least 512 strands. Reset coverage restores automatic lower placement and clears custom offsets while keeping the chosen density. |
 
 **Mustache** provides Natural, Chevron, Handlebar, and Walrus rest shapes. Set coverage width/thickness, density relative to the beard, strand length, lift above the lip, curl, taper, color, and shape hold. Its density redistributes the facial strand budget, so increasing it does not create an unbounded extra simulation. Set **Motion** to Static for a fixed mustache, Styled for a flexible shape, or Free to hang under gravity.
+
+**Mustache → Mustache physics** has independent gravity, horizontal wind, wind variation, damping, and head collision. Its length variation is independent too. Editing the corresponding beard/hair controls no longer changes these mustache settings. Force edits update the native solver in place and preserve momentum. New looks start with gravity 12, wind/variation 0, damping 0.045, collision on, and length variation 0.14. Older looks copy their former shared values once on load, then save the independent values. Beard presets retain the mustache settings. Facial strand allocation and segment quality remain shared performance budgets; appearance and forces are regional.
 
 **Eyebrows** provides Natural, Straight, Arched, and Bushy styles, with 16–256 hairs across both brows. Set coverage width, thickness, arch, lift, growth angle, strand length, taper, color, and motion. Roots follow the tracked eyebrow contours. Static is the default.
 
@@ -66,13 +74,13 @@ All scalp styles support 32–768 hairs, scalp width, hairline offset, length, v
 - **Styled:** reacts to forces and movement while a shape-hold spring pulls toward the selected or imported guide. Set hold lower for a softer style.
 - **Static:** follows face position, scale, and roll without swinging. Gravity and wind do not deform it; integration and constraint work are skipped.
 
-The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache, eyebrows, and scalp have independent motion selectors. Gravity/wind/damping are shared. Head collision applies to beard, mustache, eyebrows and scalp, including static guides. Roots have a small clearance based on strand width; moving strands slide along the skin, and collision takes priority over small residual segment stretch.
+The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache, eyebrows, and scalp have independent motion selectors. The **Physics** page controls beard/brow/scalp forces and collision; **Mustache** controls its own forces and collision. Head collision also applies to static guides. Roots have a small clearance based on strand width; moving strands slide along the skin, and collision takes priority over small residual segment stretch.
 
 ## Beard and shared physics controls
 
 | Control | Behavior |
 | --- | --- |
-| Facial strands | 16–1,024 hairs shared by beard and mustache; default 256. Optional brows and scalp have separate budgets; total maximum is 2,048. |
+| Facial strands | 16–1,024 hairs shared by beard and mustache; default 1,024. Optional brows and scalp have separate budgets; total maximum is 2,048. |
 | Segments per strand | 2–16 joints along each hair; default 8. More segments allow finer bends and cost more CPU time. |
 | Beard length | Length relative to tracked face width, with region-specific factors. Mustache, brows, and scalp use their own length controls. |
 | Starting / ending width | Taper endpoints in pixels at a 300-pixel-wide face; widths follow face scale. Zero ending width gives a pointed tip. |
@@ -84,7 +92,7 @@ The beard uses **Physics → Preserve styled beard shape** to switch between Fre
 | Damping | Removes a fraction of velocity each physics step; default 0.045. It controls how long motion persists. Very high damping can make falling sluggish. |
 | Preserve styled beard shape | Off by default, including for files saved before this option existed. Enable it to hold beard curls or an imported rest shape against gravity. |
 | Beard shape stiffness | Used only with **Preserve styled beard shape**. Pulls toward the original curled or imported shape. |
-| Collide with head surface | Keeps all hair regions outside the shared 3D head, including the space between strand joints. Enabled by default; independent of visual occlusion. |
+| Collide with head surface | Keeps beard/brow/scalp strands outside the shared 3D head, including the space between strand joints. Mustache has its own collision toggle. Both default on and work independently of visual occlusion. |
 | Reset motion | Clears velocity and hangs the strands downward, or restores their rest shape when **Preserve styled shape** is enabled. |
 
 On **Strands**, enable **Select strands in preview**, then click a root in any region. **Attach root to landmark** places it on any measured or virtual guide; this binding autosaves and survives guide-density changes. **Restore root placement** clears only that binding. The selected strand is highlighted. Its length multiplier, starting/ending widths, curl, and colors can override its region settings. **Hide this strand** sets its length to zero; **Restore strand defaults** removes its overrides. Turn selection off to drag the mannequin again. Facial IDs retain their original numeric form; brows use `brow:N` and scalp uses `hair:N`. Hiding an optional region keeps its edits. Reducing a region's strand count removes edits outside the new count.

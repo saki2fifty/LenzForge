@@ -1,4 +1,4 @@
-[Changelog — daily changes and project history](CHANGELOG.md)
+[![What's new in LenzForge — explore the daily changelog](docs/images/changelog-banner.svg)](CHANGELOG.md)
 
 # LenzForge Studio
 
@@ -49,6 +49,7 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 - GPU NV12 color conversion, mirror, four desktop looks, exposure, and customizable landmark points. Video continues when tracking cannot detect a face; stale overlays disappear.
 - Independent [virtual landmarks](docs/LANDMARKS.md) around the entire face outline: extend above the head, below the chin, to either side, and forward/backward. A dedicated **Landmarks** tab controls orange reference points with hair on or off.
 - A [hair and beard editor](docs/BEARD.md): one shared head surface for measured/virtual attachments over the crown, under the chin, and around the sides. Existing face landmark depth drives its response to head turns. Separate mustache/eyebrow controls and Regular, Mohawk, and Afro presets support density, length, taper, curl, colors, forces, and static/styled/free motion. Save complete looks with thumbnails or exchange individual curves with Blender.
+- Fuller beard coverage uses lower virtual roots by default, wrapping under the jaw and around both sides without increasing strand count. Any hair region can attach to measured or virtual landmarks. Mustache gravity, wind, damping, collision, and length variation are independent; edit them on **Hair → Mustache**.
 - Responsive dark studio interfaces, measured frame/inference statistics, source controls, and a camera-free demo.
 - Browser preview effects and JPEG quality control. Preview effects are independent between the desktop and browser.
 - Source recording to playable MJPEG AVI with timestamped landmark JSONL in `recordings/`. Recording memory stays bounded; files grow with recording duration.

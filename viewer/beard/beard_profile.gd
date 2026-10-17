@@ -187,7 +187,8 @@ static func anchors(config: Dictionary) -> Array:
 			"synthetic":mustache and (not is_equal_approx(config.mustache_width,1) or not is_equal_approx(config.mustache_thickness,1) or config.mustache_lift != 0),
 			"offset":Vector2.ZERO,"side":-1.0 if triangle[1] in [98,61] else 1.0,
 			"indices": Vector3i(triangle[0], triangle[1], triangle[2]),
-			"weights": Vector3(1-u, u*(1-v), u*v), "noise":noise,"length": triangle[4] * (1.0 - float(config.variation)*noise)}
+			"weights": Vector3(1-u, u*(1-v), u*v), "noise":noise,
+			"length": triangle[4] * (1.0 - float(config.mustache_variation if mustache else config.variation)*noise)}
 		Groom.extend_beard(binding,config,extension_rng)
 		result.append(binding)
 	return result

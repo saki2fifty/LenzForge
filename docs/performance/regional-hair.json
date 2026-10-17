@@ -1,0 +1,84 @@
+{
+  "measured": "2026-10-17",
+  "baseline": "393dcad",
+  "notes": "Synthetic CPU measurements; no live FPS claim. Same strand budget, independent forces, lower virtual roots enabled after.",
+  "before": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 4.551,
+          "p50": 2.4,
+          "p95": 3.085
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 7.004,
+          "p50": 2.487,
+          "p95": 3.171
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 22.593,
+          "p50": 16.551,
+          "p95": 18.24
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 5.151,
+          "p50": 3.21,
+          "p95": 3.72
+        }
+      }
+    ],
+    "edit_costs": {
+      "maximum_force_ms": 0.851,
+      "maximum_placement_ms": 118.648
+    },
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  },
+  "after": {
+    "cases": [
+      {
+        "case": "default",
+        "guides": 288,
+        "physics_upload_cpu_ms": {
+          "max": 4.397,
+          "p50": 2.277,
+          "p95": 3.089
+        },
+        "strands": 512,
+        "tracking_result_cpu_ms": {
+          "max": 7.049,
+          "p50": 2.444,
+          "p95": 3.071
+        }
+      },
+      {
+        "case": "maximum",
+        "guides": 1728,
+        "physics_upload_cpu_ms": {
+          "max": 27.074,
+          "p50": 16.04,
+          "p95": 17.937
+        },
+        "strands": 2048,
+        "tracking_result_cpu_ms": {
+          "max": 7.0,
+          "p50": 3.164,
+          "p95": 3.921
+        }
+      }
+    ],
+    "edit_costs": {
+      "maximum_force_ms": 0.69,
+      "maximum_placement_ms": 116.577,
+      "mustache_force_ms": 0.618
+    },
+    "fixture": "Canonical face with synthetic yaw/pitch, 240 measured samples. CPU only; no camera, inference, GPU completion, or presentation."
+  }
+}

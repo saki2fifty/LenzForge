@@ -26,6 +26,7 @@ public:
     bool set_head_surface(const godot::PackedVector3Array &vertices, const godot::PackedInt32Array &triangles);
     void advance(double delta);
     bool set_forces(double gravity, double wind, double turbulence, double damping);
+    bool set_mustache_forces(double gravity, double wind, double turbulence, double damping, bool collisions);
     void reset();
     godot::PackedFloat32Array get_render_buffer() const;
     godot::PackedVector2Array get_strand_points(int strand) const;
@@ -34,9 +35,11 @@ public:
 protected:
     static void _bind_methods();
 private:
-    struct Strand { float length, root_width, tip_width, curl; float root[4], tip[4]; int mode; float hold; bool collision; };
+    struct Strand { float length, root_width, tip_width, curl; float root[4], tip[4]; int mode; float hold; bool collision, mustache; };
     int count = 0, segments = 0;
     double length = .45, gravity = 3, wind = 0, turbulence = 0, damping = .025, stiffness = .4;
+    double mustache_gravity = 12, mustache_wind = 0, mustache_turbulence = 0, mustache_damping = .045;
+    bool mustache_collisions = true;
     double scale = 300, accumulator = 0, clock = 0;
     bool initialized = false, collisions = true, preserve_shape = false;
     godot::Vector3 down = godot::Vector3(0, 1, 0), right = godot::Vector3(1, 0, 0);
@@ -50,6 +53,7 @@ private:
     godot::Vector3 rest_direction(int strand, int segment) const;
     double segment_length(int strand, int segment) const;
     float clearance(int strand, int segment) const;
+    bool head_collision(int strand) const;
     void collide_head(int point, float radius, bool swept);
     void collide_link(int point, float radius);
     void collide_mouth(int point);

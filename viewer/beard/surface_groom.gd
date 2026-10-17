@@ -25,7 +25,26 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 	for i in anchors.size():
 		var anchor: String = overrides.get(anchors[i].id,{}).get("anchor","")
 		var binding := Surface.binding(anchor)
+		if binding.is_empty() and anchors[i].has("lower_surface"):
+			binding = lower_binding(anchors[i].lower_surface)
 		if binding.is_empty(): continue
 		for j in 3: result.indices[i*3+j] = binding.indices[j]
 		result.weights[i] = binding.weights[0]
 	return result
+
+static func lower_binding(uv: Vector2) -> Dictionary:
+	# Reuse the shared head triangles directly. Guide density/visibility never
+	# changes these attachments, and no nearest search runs during tracking.
+	var column := int(uv.x)%36
+	var next := (column+1)%36
+	var along := uv.x-floorf(uv.x)
+	var depth := clampf(uv.y,0,.999)*Surface.RINGS
+	var ring := int(depth)
+	var back := depth-ring
+	var a: int = Surface.OUTLINE[column] if ring == 0 else 478+(ring-1)*36+column
+	var b: int = Surface.OUTLINE[next] if ring == 0 else 478+(ring-1)*36+next
+	var c := 478+ring*36+column
+	var d := 478+ring*36+next
+	if along+back <= 1:
+		return {"indices":PackedInt32Array([a,b,c]),"weights":PackedVector3Array([Vector3(1-along-back,along,back)])}
+	return {"indices":PackedInt32Array([b,d,c]),"weights":PackedVector3Array([Vector3(1-back,along+back-1,1-along)])}

@@ -144,9 +144,10 @@ func set_settings(values: Dictionary) -> void:
 	overrides = candidate.strands
 	var forces_only := simulator != null and not root_bindings.is_empty()
 	for key in values:
-		if key not in ["gravity","wind","turbulence","damping"]: forces_only = false
+		if key not in ["gravity","wind","turbulence","damping","mustache_gravity","mustache_wind","mustache_turbulence","mustache_damping"]: forces_only = false
 	if forces_only:
 		simulator.set_forces(config.gravity,config.wind,config.turbulence,config.damping)
+		simulator.set_mustache_forces(config.mustache_gravity,config.mustache_wind,config.mustache_turbulence,config.mustache_damping,config.mustache_collisions)
 		changed.emit()
 		return
 	_rebuild()
@@ -262,7 +263,7 @@ func _rebuild() -> void:
 		"brow_enabled","brow_count","brow_width","brow_thickness","brow_lift","brow_arch","brow_style",
 		"hair_style","hair_count","hawk_width","hair_width","hairline","crown_width","crown_height","crown_back",
 		"chin_extension","jaw_expansion","ear_reach","sideburn_height","root_layers","coverage_fill","chin_back","side_back",
-		"virtual_enabled","virtual_columns","virtual_rows"]: placement[key] = config[key]
+		"virtual_enabled","virtual_columns","virtual_rows","beard_virtual_roots","lower_root_depth"]: placement[key] = config[key]
 	var anchors_only := {}
 	for id in overrides:
 		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
@@ -285,7 +286,7 @@ func _rebuild() -> void:
 	var steps := PackedVector2Array()
 	var options := PackedFloat32Array()
 	attributes.resize(attachment.size() * 12)
-	options.resize(attachment.size()*3)
+	options.resize(attachment.size()*4)
 	for i in attachment.size():
 		var edit: Dictionary = overrides.get(attachment[i].id, {})
 		var regional := Groom.strand_settings(config,attachment[i])
@@ -296,9 +297,10 @@ func _rebuild() -> void:
 			root_color.r, root_color.g, root_color.b, root_color.a, tip_color.r, tip_color.g, tip_color.b, tip_color.a]
 		for j in 12: attributes[i*12+j] = values[j]
 		steps.append_array(Profile.strand_steps(config,overrides,i,attachment[i]))
-		options[i*3] = regional.mode
-		options[i*3+1] = regional.hold
-		options[i*3+2] = 1.0 if regional.collision else 0.0
+		options[i*4] = regional.mode
+		options[i*4+1] = regional.hold
+		options[i*4+2] = 1.0 if regional.collision else 0.0
+		options[i*4+3] = 1.0 if attachment[i].region == "mustache" else 0.0
 	var physics := config.duplicate()
 	physics.length = 1.0 # Attributes carry absolute lengths in face widths for every region.
 	if not simulator.configure(attachment.size(), int(config.segments), physics, attributes, steps, options):
@@ -334,7 +336,7 @@ func _attach() -> void:
 	var mouth := (face[0] + face[17]) * .5 * video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55 + width*.015)
-	if config.collisions: simulator.set_head_surface(surface.vertices,surface.topology())
+	if config.collisions or (config.mustache_enabled and config.mustache_collisions): simulator.set_head_surface(surface.vertices,surface.topology())
 	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
 	if not simulator.set_anchors_3d(positions, width, down, right, mouth, radii): clear_face(); return
 	drawing.material.set_shader_parameter("frame_width",video_size.x)
@@ -352,7 +354,7 @@ func _attach_mannequin() -> void:
 	var mouth := (face[0]+face[17])*.5*video_size
 	var radii := Vector2(((face[291]-face[61])*video_size).length()*.52,
 		((face[17]-face[0])*video_size).length()*.55+width*.015)
-	if config.collisions:
+	if config.collisions or (config.mustache_enabled and config.mustache_collisions):
 		var head: PackedVector3Array = mannequin_view.surface.vertices.duplicate()
 		for i in head.size():
 			var world: Vector3 = mannequin_view.world_point(head[i]*Vector3(1,-1,-1))

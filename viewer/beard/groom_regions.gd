@@ -6,6 +6,9 @@ const HAIR_STYLES := ["None", "Regular", "Mohawk", "Afro"]
 const MUSTACHE_STYLES := ["Natural", "Chevron", "Handlebar", "Walrus"]
 const BROW_STYLES := ["Natural", "Straight", "Arched", "Bushy"]
 const NUMBERS := {
+	"lower_root_depth":[.05,.7],
+	"mustache_gravity":[0,12], "mustache_wind":[-10,10], "mustache_turbulence":[0,5], "mustache_damping":[0,.95],
+	"mustache_variation":[0,.8],
 	"chin_extension":[0,.8], "jaw_expansion":[0,.5], "ear_reach":[0,.6], "sideburn_height":[0,1],
 	"virtual_columns":[8,48], "virtual_rows":[2,10], "crown_height":[0,.8], "crown_width":[.6,1.8],
 	"crown_back":[0,1], "side_back":[0,.8], "chin_back":[0,.5],
@@ -22,19 +25,21 @@ const NUMBERS := {
 	"brow_root_width":[.1,12], "brow_tip_width":[0,12], "hair_root_width":[.1,12], "hair_tip_width":[0,12]
 }
 const INTEGERS := ["root_layers", "brow_count", "hair_count", "virtual_columns", "virtual_rows"]
-const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots", "virtual_enabled", "show_virtual_landmarks"]
+const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots", "virtual_enabled", "show_virtual_landmarks", "mustache_collisions", "beard_virtual_roots"]
 const ENUMS := {"mustache_style":MUSTACHE_STYLES, "brow_style":BROW_STYLES, "hair_style":HAIR_STYLES,
 	"mustache_motion":MOTIONS, "brow_motion":MOTIONS, "hair_motion":MOTIONS}
 const COLORS := ["generated_root_color", "mustache_color", "mustache_tip_color", "brow_color", "hair_color", "hair_tip_color", "virtual_color"]
 
 static func defaults(style: String) -> Dictionary:
 	return {"virtual_enabled":false,"show_virtual_landmarks":true,"virtual_color":"ffbf69ff",
+		"beard_virtual_roots":true,"lower_root_depth":.35,
 		"virtual_columns":24,"virtual_rows":4,"crown_height":.42,"crown_width":1.08,"crown_back":.35,"side_back":.3,"chin_back":.05,
 		"beard_visible":true, "chin_extension":0.0, "jaw_expansion":0.0, "ear_reach":0.0,
 		"sideburn_height":0.0, "root_layers":3, "coverage_fill":.45, "show_generated_roots":false,
 		"generated_root_color":"ed8bffff", "mustache_enabled":style in ["Full beard","Mustache"],
 		"mustache_style":"Chevron", "mustache_width":2.0, "mustache_thickness":.85, "mustache_density":3.0,
 		"mustache_length":.15, "mustache_lift":0.0, "mustache_curl":.25, "mustache_motion":"Styled", "mustache_hold":.7,
+		"mustache_gravity":12.0,"mustache_wind":0.0,"mustache_turbulence":0.0,"mustache_damping":.045,"mustache_collisions":true,"mustache_variation":.14,
 		"mustache_root_width":2.4, "mustache_tip_width":.25, "mustache_color":"0645faff", "mustache_tip_color":"10acdbff",
 		"brow_enabled":false, "brow_style":"Natural", "brow_count":96, "brow_width":1.0, "brow_thickness":.025,
 		"brow_arch":.025, "brow_length":.045, "brow_lift":0.0, "brow_angle":.2, "brow_motion":"Static", "brow_hold":.8,
@@ -51,6 +56,10 @@ static func normalized(config: Dictionary) -> Dictionary:
 	for mapping in [["mustache_color","root_color"],["mustache_tip_color","tip_color"],
 		["mustache_root_width","root_width"],["mustache_tip_width","tip_width"],["mustache_curl","curl"],["mustache_hold","stiffness"]]:
 		if not config.has(mapping[0]) and config.has(mapping[1]): result[mapping[0]] = config[mapping[1]]
+	# Snapshot the previous shared physics once when opening an older look.
+	# Subsequent edits stay independent, including after saving/restarting.
+	for key in ["gravity","wind","turbulence","damping","collisions","variation"]:
+		if not config.has("mustache_"+key) and config.has(key): result["mustache_"+key] = config[key]
 	if not config.has("mustache_length"): result.mustache_length = float(config.get("length",.45))*.365
 	if not config.has("mustache_motion"): result.mustache_motion = "Styled" if config.get("preserve_shape",false) else "Free"
 	result.merge(config,true)
@@ -94,6 +103,17 @@ static func virtual_preset() -> Dictionary:
 static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNumberGenerator) -> void:
 	if binding.region == "mustache": return
 	if rng.randf() >= float(config.coverage_fill): return
+	if config.beard_virtual_roots:
+		# A separate deterministic stream keeps legacy offset placement stable.
+		var lower_rng := RandomNumberGenerator.new()
+		lower_rng.seed = int(config.seed)+int(binding.id)*7919+27011
+		var column := lower_rng.randf_range(9.0,27.0)
+		if config.style == "Goatee": column = lower_rng.randf_range(14.0,22.0)
+		elif config.style == "Sideburns": column = lower_rng.randf_range(8.0,11.0) if lower_rng.randf() < .5 else lower_rng.randf_range(25.0,28.0)
+		var band := (lower_rng.randi_range(0,int(config.root_layers)-1)+lower_rng.randf_range(.15,.85))/float(config.root_layers)
+		binding["lower_surface"] = Vector2(column,lerpf(.03,float(config.lower_root_depth),band))
+		binding.synthetic = true
+		binding.zone = "Virtual chin / jaw"
 	var reach := float(config.ear_reach)
 	var height := float(config.sideburn_height)
 	var chin := float(config.chin_extension)
@@ -220,7 +240,7 @@ static func strand_settings(config: Dictionary, binding: Dictionary) -> Dictiona
 	result.root_color = config[region+"_color"]
 	result.tip_color = config[region+"_tip_color"] if region in ["hair","mustache"] else result.root_color
 	result.length = float(config[region+"_length"])
-	result.collision = config.collisions if region == "mustache" else false
+	result.collision = config.mustache_collisions if region == "mustache" else false
 	result.curl = config.mustache_curl if region == "mustache" else config.hair_curl if region == "hair" else 0.0
 	if region == "mustache":
 		result.length *= float(binding.length)/.365
