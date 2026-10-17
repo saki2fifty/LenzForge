@@ -1,3 +1,5 @@
+[Changelog — daily changes and project history](CHANGELOG.md)
+
 # LenzForge Studio
 
 A local Windows camera and AR workspace with a Godot desktop viewer, browser controls, and MediaPipe face, iris, hand, and body tracking. Python owns capture and routes inference to native CPU models or a local browser GPU worker; a C++ GDExtension brings video and face landmarks into Godot through shared memory.
@@ -55,9 +57,9 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 
 **Recordings keep the original camera source**, without preview looks, mirror, or overlays. Virtual-camera output is not connected end to end; the earlier GOD1 writer is retained as a foundation. Background segmentation and face-specific effects remain experimental and are withheld from the new browser effect picker.
 
-Open the desktop **Landmarks** tab for general face/head extensions. Orange points are enabled by default: 72 points around the outline × 4 guide rows = 288 virtual landmarks, adjustable up to 1,728. Under **Regional contour**, choose **Forehead**, either side, or **Chin** to set its starting position, outward reach, backward reach, and wrap angle. **Round this region** curves its rows around the head. **Move up / down** still moves the whole set. These references use the existing tracked face and work with hair disabled; their settings persist independently of hairstyles. Enable **Try on mannequin** to preview without a camera, or start capture with **Face + iris**. See the [landmark guide](docs/LANDMARKS.md).
+Open the desktop **Landmarks** tab for general face/head extensions. The default layout has 72 points around the outline × 4 guide rows = 288 virtual landmarks, adjustable up to 1,728. Landmark guides and generated-root dots are hidden by default; enable **Show landmark guides** to inspect the reference points. Under **Regional contour**, choose **Forehead**, either side, or **Chin** to set its starting position, outward reach, backward reach, and wrap angle. **Round this region** curves its rows around the head. **Move up / down** still moves the whole set. These references use the existing tracked face and work with hair disabled; their settings persist independently of hairstyles. Enable **Try on mannequin** to preview without a camera, or start capture with **Face + iris**. See the [landmark guide](docs/LANDMARKS.md).
 
-Open **Hair** to edit beard, roots, mustache, eyebrows, scalp hair, physics, individual strands, and the library. **Root surface → Extend root coverage** distributes roots over the shared head surface. **Strands → Attach root to landmark** supports measured and virtual locations. **Try on mannequin** now opens a shaded 3D head with depth-tested landmarks and hair. Drag to rotate, scroll to zoom, or use **Front / Side / Back / Reset view**. Hair retains the fast planar physics solver; live overlays use estimated head self-occlusion. Restart the viewer to load these controls. A native rebuild is only needed when updating an older native extension.
+Open **Hair** to edit beard, roots, mustache, eyebrows, scalp hair, physics, individual strands, and the library. **Show hair and beard** defaults to enabled, with a **Chevron** mustache using **Styled** motion; saved preferences take precedence. **Root surface → Extend root coverage** distributes roots over the shared head surface. **Strands → Attach root to landmark** supports measured and virtual locations. **Try on mannequin** opens a shaded 3D head with depth-tested landmarks and hair. Drag to rotate, scroll to zoom, or use **Front / Side / Back / Reset view**. Native 3D strand physics collides with the shared head surface, including between joints, independently of guide visibility or visual occlusion. Live scalp/back geometry remains estimated. Restart the viewer after an update; rebuild with `Setup.ps1 -SkipInstall` when the native extension changes.
 
 ## Toolchain
 
@@ -87,6 +89,7 @@ viewer/              Active Godot project and C++ GDExtension
 tools/               Portable bootstrap and validation tools
 tests/               Backend, model, protocol, and recording regression tests
 docs/                Current architecture and API notes
+docs/changelog/      Timestamped daily change tables, indexed by CHANGELOG.md
 docs/archive/        Historical plans and analyses
 legacy/              Original setup and superseded backend components
 viewer/legacy/       Original Godot scenes/scripts, excluded by .gdignore
