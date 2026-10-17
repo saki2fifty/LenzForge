@@ -17,8 +17,6 @@ var face_width := 0.0
 var dots: Dictionary = {}
 var hair: MultiMeshInstance3D
 var hair_material := ShaderMaterial.new()
-var hair_texture: ImageTexture
-var hair_image: Image
 var root_positions := PackedVector3Array()
 var root_camera_positions := PackedVector3Array()
 var _built := false
@@ -60,7 +58,8 @@ func _build() -> void:
 	_built = true
 	camera = Camera3D.new()
 	pivot = Node3D.new()
-	hair = MultiMeshInstance3D.new()
+	hair = preload("res://beard/strand_mesh.gd").new()
+	hair_material = hair.shader_material
 	reference = HeadModel.reference_points()
 	surface.set_reference()
 	face_width = reference[454].distance_to(reference[234])
@@ -98,17 +97,8 @@ func _build() -> void:
 		drawing.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		viewport.add_child(drawing)
 		dots[key] = drawing
-	hair.multimesh = MultiMesh.new()
-	hair.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE
-	hair.multimesh.mesh = quad
-	hair_material.shader = preload("res://mannequin/strands_3d.gdshader")
 	hair_material.set_shader_parameter("units_per_pixel",1/pixels_per_unit())
 	hair_material.set_shader_parameter("camera_y",camera.position.y)
-	hair.material_override = hair_material
-	hair.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	hair.custom_aabb = AABB(Vector3(-100,-100,-100),Vector3(200,200,200))
 	viewport.add_child(hair)
 
 func _resize() -> void:
@@ -225,21 +215,7 @@ func update_hair(buffer: PackedFloat32Array, segments: int, shown: bool) -> void
 	if not _built: return
 	hair.visible = shown
 	if shown and not buffer.is_empty():
-		var count := buffer.size()/16
-		if hair.multimesh.instance_count != count:
-			hair.multimesh.instance_count = count
-			for i in count: hair.multimesh.set_instance_transform(i,Transform3D.IDENTITY)
-		# Reuse the native packed output directly; no per-segment GDScript conversion.
-		var rows := ceili(float(count)/64)
-		var packed := buffer
-		packed.resize(rows*64*16)
-		if hair_image == null: hair_image = Image.new()
-		hair_image.set_data(256,rows,false,Image.FORMAT_RGBAF,packed.to_byte_array())
-		if hair_texture == null or hair_texture.get_height() != rows:
-			hair_texture = ImageTexture.create_from_image(hair_image)
-			hair_material.set_shader_parameter("strand_data",hair_texture)
-		else: hair_texture.update(hair_image)
-		hair_material.set_shader_parameter("segments",segments)
+		hair.upload(buffer,segments,face_width*pixels_per_unit())
 	request_frame()
 
 func _draw() -> void:

@@ -152,7 +152,7 @@ func _run() -> void:
 	layer.set_face(Profile.mannequin(), Vector2(1280,720))
 	check(layer._face_live, "Live face attachment")
 	layer.clear_face()
-	check(not layer.is_processing() and not layer.drawing.visible, "Face loss pauses physics and hides beard")
+	check(not layer.is_processing() and not layer.live_view.visible, "Face loss pauses physics and hides beard")
 	layer.set_face(Profile.mannequin(), Vector2(1280,720))
 	layer.set_enabled(false)
 	check(not layer.is_processing(), "Hidden beard has no simulation work")

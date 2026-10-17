@@ -79,55 +79,112 @@ func render_layers(physics: RefCounted) -> void:
 	viewport.transparent_bg = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(viewport)
-	var drawing := MultiMeshInstance2D.new()
-	var mesh := MultiMesh.new()
-	mesh.transform_format = MultiMesh.TRANSFORM_2D
-	mesh.use_colors = true; mesh.use_custom_data = true
-	var quad := QuadMesh.new(); quad.size = Vector2.ONE
-	mesh.mesh = quad; mesh.instance_count = 4
-	mesh.buffer = physics.get_render_buffer()
-	drawing.multimesh = mesh
-	var material := ShaderMaterial.new()
-	material.shader = load("res://beard/strands.gdshader")
-	material.set_shader_parameter("frame_width",200.0)
-	material.set_shader_parameter("video_extent",Vector2(200,220))
-	var plane := Image.create(200,220,false,Image.FORMAT_RF); plane.fill(Color(0,0,0,1))
-	material.set_shader_parameter("head_depth",ImageTexture.create_from_image(plane))
-	drawing.material = material
-	viewport.add_child(drawing)
+	var live := preload("res://beard/live_strands.gd").new()
+	live.size = Vector2(200,220)
+	viewport.add_child(live)
+	live.show()
+	var mask := preload("res://tracking/head_occlusion.gd").new()
+	var plane := Image.create(200,220,false,Image.FORMAT_RF)
+	plane.fill(Color(0,0,0,1))
+	mask.texture = ImageTexture.create_from_image(plane)
+	mask.valid = true
+	mask.width = 1.0
 	for mirrored in [false,true]:
-		drawing.transform = Transform2D(Vector2(-1 if mirrored else 1,0),Vector2(0,1),Vector2(200 if mirrored else 0,0))
-		material.set_shader_parameter("occlusion_mirror",mirrored)
+		live.set_frame(Vector2(200,220),mirrored)
 		for occluded in [false,true]:
-			material.set_shader_parameter("occlusion_enabled",occluded)
-			await process_frame
-			await RenderingServer.frame_post_draw
-			var image := viewport.get_texture().get_image()
-			var color := image.get_pixel(130 if mirrored else 70,120)
-			check(color.b > .9 and color.r < .1 if occluded else color.r > .9 and color.b < .1,
-				"2D upper root overlaps lower; true head depth still wins (mirror %s, occlusion %s)"%[mirrored,occluded])
-			image.save_png(ProjectSettings.globalize_path("res://../artifacts/strand-layers-%s-%s.png"%[mirrored,occluded]))
+			mask.enabled = occluded
+			live.set_occlusion(mask)
+			for red_depth in [-20,0,20]:
+				physics.set_anchors_3d(PackedVector3Array([Vector3(70,60,red_depth),Vector3(70,80,0)]),300,Vector3.DOWN,Vector3.RIGHT,Vector2.ZERO,Vector2.ONE)
+				physics.reset()
+				live.update_hair(physics.get_render_buffer(),2,300)
+				await process_frame
+				await RenderingServer.frame_post_draw
+				var image := viewport.get_texture().get_image()
+				var color := image.get_pixel(129 if mirrored else 70,120)
+				check(color.b > .9 and color.r < .1 if red_depth > 0 else color.r > .9 and color.b < .1,
+					"Live nearest depth wins; upper root breaks ties (mirror %s, head mask %s, depth %s): %s"%[mirrored,occluded,red_depth,color])
+	# Isolated far-side fragments must disappear, not merely lose to nearer hair.
+	var hidden: PackedFloat32Array = physics.get_render_buffer()
+	for j in 4: hidden[j*16+14] = 20; hidden[j*16+15] = 20
+	live.set_frame(Vector2(200,220),false)
+	live.update_hair(hidden,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	check(viewport.get_texture().get_image().is_invisible(),"Head mask rejects all far-side hair in the depth and color passes")
+	# Opposing endpoint depths cross halfway down a segment: per-root sorting cannot pass this.
+	var crossed: PackedFloat32Array = physics.get_render_buffer()
+	for j in 4:
+		crossed[j*16+15] = 30 if j < 2 else -30
+		crossed[j*16+14] = -30 if j < 2 else 30
+	live.set_frame(Vector2(200,220),false)
+	live.set_occlusion(null)
+	live.update_hair(crossed,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var image := viewport.get_texture().get_image()
+	check(image.get_pixel(70,85).b > .9 and image.get_pixel(70,115).r > .9,"Crossing segments resolve depth per pixel")
+	image.save_png(ProjectSettings.globalize_path("res://../artifacts/strand-depth-crossing.png"))
+	# A fully transparent near strand must never hide a farther opaque one.
+	for j in range(2,4):
+		crossed[j*16+11] = 0
+		crossed[j*16+14] = -50
+		crossed[j*16+15] = -50
+	live.update_hair(crossed,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	check(viewport.get_texture().get_image().get_pixel(70,115).b > .9,"Transparent strands do not write depth")
+	# An opaque colored strand keeps the selected RGB values through the 3D composite.
+	for j in 2:
+		crossed[j*16+8] = .2; crossed[j*16+9] = .6; crossed[j*16+10] = .8
+	live.update_hair(crossed,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var selected_color := viewport.get_texture().get_image().get_pixel(70,115)
+	check(absf(selected_color.r-.2) < .02 and absf(selected_color.g-.6) < .02 and absf(selected_color.b-.8) < .02,"Live color fidelity: %s"%selected_color)
+	for j in range(2,4):
+		crossed[j*16+11] = 1
+		crossed[j*16+12] = .2; crossed[j*16+13] = .2
+	live.update_hair(crossed,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var outside_taper := viewport.get_texture().get_image().get_pixel(74,115)
+	check(outside_taper.g > .5,"Transparent space outside a narrow strand never blocks another strand")
+	var background := ColorRect.new()
+	background.size = Vector2(200,220); background.color = Color(.25,.1,.4)
+	viewport.add_child(background); viewport.move_child(background,0)
+	var reference_color := ColorRect.new()
+	reference_color.position = Vector2(130,100); reference_color.size = Vector2(20,40)
+	reference_color.color = Color(.2,.6,.8,.5)
+	viewport.add_child(reference_color)
+	for j in 4: crossed[j*16+11] = .5 if j < 2 else 0
+	live.update_hair(crossed,2,300)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	image = viewport.get_texture().get_image()
+	var composite := image.get_pixel(70,115)
+	var expected := image.get_pixel(140,115)
+	check(Vector3(composite.r,composite.g,composite.b).distance_to(Vector3(expected.r,expected.g,expected.b)) < .02,"Transparent live composite matches the selected alpha over video: %s vs %s"%[composite,expected])
 	viewport.free()
-	# The mannequin consumes the same ordered buffer. Keep its true depth test.
 	var mannequin := Mannequin.new()
 	mannequin.size = Vector2(640,360)
 	root.add_child(mannequin)
 	mannequin.set_active(true)
 	mannequin.pivot.hide()
-	physics.set_anchors_3d(PackedVector3Array([Vector3(640,200,0),Vector3(640,230,0)]),300,Vector3.DOWN,Vector3.RIGHT,Vector2.ZERO,Vector2.ONE)
-	physics.reset()
-	mannequin.update_hair(physics.get_render_buffer(),2,true)
-	await process_frame
-	await RenderingServer.frame_post_draw
-	var image := mannequin.viewport.get_texture().get_image()
-	var pixel := Vector2i(Vector2(image.get_size())*Vector2(.5,270.0/720))
-	var color := image.get_pixelv(pixel)
-	check(color.r > .9 and color.b < .1,"3D mannequin uses the same upper-over-lower layering")
+	for depth in [-20,0,20]:
+		physics.set_anchors_3d(PackedVector3Array([Vector3(640,200,depth),Vector3(640,230,0)]),300,Vector3.DOWN,Vector3.RIGHT,Vector2.ZERO,Vector2.ONE)
+		physics.reset()
+		mannequin.update_hair(physics.get_render_buffer(),2,true)
+		await process_frame
+		await RenderingServer.frame_post_draw
+		image = mannequin.viewport.get_texture().get_image()
+		var color := image.get_pixelv(Vector2i(Vector2(image.get_size())*Vector2(.5,270.0/720)))
+		check(color.b > .9 and color.r < .1 if depth > 0 else color.r > .9 and color.b < .1,"Mannequin nearest strand and root-height ties: %s"%depth)
 	mannequin.pivot.show()
 	mannequin.request_frame()
 	await process_frame
 	await RenderingServer.frame_post_draw
 	image = mannequin.viewport.get_texture().get_image()
-	color = image.get_pixelv(pixel)
-	check(not (color.r > .9 and color.b < .1),"Mannequin head still occludes hair behind it")
+	var color := image.get_pixelv(Vector2i(Vector2(image.get_size())*Vector2(.5,270.0/720)))
+	check(not (color.b > .9 and color.r < .1),"Mannequin head occludes far-side hair")
 	mannequin.free()

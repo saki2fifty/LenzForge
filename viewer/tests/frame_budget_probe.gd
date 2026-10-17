@@ -34,7 +34,7 @@ func _run() -> void:
 			var simulated := Time.get_ticks_usec()
 			var buffer: PackedFloat32Array = studio.beard.simulator.get_render_buffer()
 			var packed := Time.get_ticks_usec()
-			studio.beard.instances.buffer = buffer
+			studio.beard.live_view.update_hair(buffer,int(config.segments),studio.beard.surface.width)
 			var finished := Time.get_ticks_usec()
 			if frame >= 40:
 				for pair in [["tracking",attached-start],["simulation",simulated-attached],["packing",packed-simulated],["upload",finished-packed],["total",finished-start]]:

@@ -71,6 +71,7 @@ func _run() -> void:
 	layer.set_settings({"hair_style":"Regular","hair_count":32,"brow_enabled":true,"brow_count":16})
 	layer.set_enabled(true); layer.set_mannequin(true)
 	var lower := 0
+	var sideburns := Vector2i.ZERO
 	var beard_count := 0
 	var low_x := INF
 	var high_x := -INF
@@ -81,6 +82,14 @@ func _run() -> void:
 		representatives[a.region] = i
 		if a.region != "beard": continue
 		beard_count += 1
+		if a.has("sideburn_target"):
+			var side_id := Surface.id_for(layer.root_bindings,i)
+			var side_point: Vector3 = layer.mannequin_view.surface.resolve(side_id).position
+			check(side_point.distance_to(layer.mannequin_view.root_positions[i]*Vector3(1,-1,-1)) < .0001,"Sideburns bind to the shared head")
+			check(absf(side_point.x) > 5 and side_point.z < 2,"Sideburns sit along the ear-front sides: %s"%side_point)
+			check(a.sideburn_target.z <= .005+layer.config.sideburn_width,"Sideburn width limits backward wrap")
+			if side_point.x < 0: sideburns.x += 1
+			else: sideburns.y += 1
 		if not a.has("lower_surface"): continue
 		lower += 1
 		var id := Surface.id_for(layer.root_bindings,i)
@@ -89,7 +98,8 @@ func _run() -> void:
 		check(point.y > 0,"Lower roots stay below the cheek center")
 		low_x = minf(low_x,point.x); high_x = maxf(high_x,point.x)
 		depth_range.x = minf(depth_range.x,point.z); depth_range.y = maxf(depth_range.y,point.z)
-	check(lower > beard_count*.35 and lower < beard_count*.55,"Default coverage shares roots between measured face and lower virtual surface")
+	check(lower+sideburns.x+sideburns.y > beard_count*.35 and lower+sideburns.x+sideburns.y < beard_count*.55,"Default coverage shares roots between measured face and virtual surface")
+	check(sideburns.x > 12 and sideburns.y > 12,"Default sideburn coverage reaches both ears within the strand budget")
 	check(low_x < -3 and high_x > 3 and depth_range.y-depth_range.x > 2,"Virtual beard roots cover both sides and real depth")
 	var neutral_roots: PackedVector3Array = layer.mannequin_view.root_positions.duplicate()
 	layer.set_mannequin(false)
@@ -102,7 +112,7 @@ func _run() -> void:
 			face.append(Vector2(point.x/1280,point.y/720)); depth.append(point.z/1280)
 		layer.set_face(face,Vector2(1280,720),depth)
 		for i in layer.attachment.size():
-			if not layer.attachment[i].has("lower_surface"): continue
+			if not layer.attachment[i].has("lower_surface") and not layer.attachment[i].has("sideburn_target"): continue
 			var expected := rotation*(neutral_roots[i]*Vector3(1,-1,-1))*20+Vector3(640,360,0)
 			check(Vector3(layer.roots[i].x,layer.roots[i].y,layer.root_depth[i]*1280).distance_to(expected) < .003,"Automatic lower roots follow live head rotation")
 	layer.set_mannequin(true)

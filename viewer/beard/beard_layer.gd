@@ -24,8 +24,8 @@ var selected_strand := -1
 var mirror := true
 var video_size := Vector2(1280, 720)
 var simulator: RefCounted
-var instances := MultiMesh.new()
-var drawing := MultiMeshInstance2D.new()
+var live_view := preload("res://beard/live_strands.gd").new()
+var _video_transform := Transform2D.IDENTITY
 var root_markers := MultiMeshInstance2D.new()
 var virtual_markers := MultiMeshInstance2D.new()
 var virtual_anchors: Array = []
@@ -51,7 +51,8 @@ func _init() -> void:
 	mannequin_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(mannequin_view)
 	mannequin_view.pose_changed.connect(_set_demo_face)
-	add_child(drawing)
+	live_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(live_view)
 	add_child(root_markers)
 	add_child(virtual_markers)
 	selection.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -83,15 +84,6 @@ func _ready() -> void:
 	simulator = ClassDB.instantiate("BeardSimulator")
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
-	instances.transform_format = MultiMesh.TRANSFORM_2D
-	instances.use_colors = true
-	instances.use_custom_data = true
-	instances.mesh = quad
-	drawing.multimesh = instances
-	var shader := ShaderMaterial.new()
-	shader.shader = preload("res://beard/strands.gdshader")
-	drawing.material = shader
-	drawing.hide()
 	var marker_mesh := MultiMesh.new()
 	marker_mesh.transform_format = MultiMesh.TRANSFORM_2D
 	marker_mesh.use_custom_data = true
@@ -180,7 +172,7 @@ func selected_defaults() -> Dictionary:
 func set_enabled(value: bool) -> void:
 	enabled = value
 	set_process(enabled and simulator != null)
-	if not enabled: drawing.hide(); root_markers.hide(); virtual_markers.hide()
+	if not enabled: live_view.hide(); root_markers.hide(); virtual_markers.hide()
 	elif mannequin: _set_demo_face()
 	elif _face_live: _attach()
 	if mannequin:
@@ -233,7 +225,7 @@ func clear_face() -> void:
 	_face_live = false
 	if not external_surface: surface.clear()
 	face_seen_at = 0
-	drawing.hide()
+	live_view.hide()
 	root_markers.hide()
 	virtual_markers.hide()
 	virtual_points.clear()
@@ -264,7 +256,8 @@ func _rebuild() -> void:
 		"brow_enabled","brow_count","brow_width","brow_thickness","brow_lift","brow_arch","brow_style",
 		"hair_style","hair_count","hawk_width","hair_width","hairline","crown_width","crown_height","crown_back",
 		"chin_extension","jaw_expansion","ear_reach","sideburn_height","root_layers","coverage_fill","chin_back","side_back",
-		"virtual_enabled","virtual_columns","virtual_rows","beard_virtual_roots","lower_root_depth"]: placement[key] = config[key]
+		"virtual_enabled","virtual_columns","virtual_rows","beard_virtual_roots","lower_root_depth",
+		"beard_sideburns","sideburn_rise","sideburn_width"]: placement[key] = config[key]
 	var anchors_only := {}
 	for id in overrides:
 		if overrides[id].has("anchor"): anchors_only[id] = {"anchor":overrides[id].anchor}
@@ -314,8 +307,6 @@ func _rebuild() -> void:
 	last_error = ""
 	root_markers.material.set_shader_parameter("point_color",Color.html(config.generated_root_color))
 	virtual_markers.material.set_shader_parameter("point_color",Color.html(config.virtual_color))
-	var count := attachment.size() * int(config.segments)
-	if instances.instance_count != count: instances.instance_count = count
 	if _face_live: _attach()
 	queue_redraw()
 
@@ -344,8 +335,7 @@ func _attach() -> void:
 	if config.collisions or (config.mustache_enabled and config.mustache_collisions): simulator.set_head_surface(surface.vertices,surface.topology())
 	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
 	if not simulator.set_anchors_3d(positions, width, down, right, mouth, radii): clear_face(); return
-	drawing.material.set_shader_parameter("frame_width",video_size.x)
-	drawing.visible = enabled
+	live_view.visible = enabled
 	_update_root_markers()
 	_update_virtual_markers()
 
@@ -368,7 +358,7 @@ func _attach_mannequin() -> void:
 		simulator.set_head_surface(head,surface.topology())
 	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
 	if not simulator.set_anchors_3d(mannequin_view.root_camera_positions,width,down,right,mouth,radii): clear_face(); return
-	drawing.hide()
+	live_view.hide()
 	_update_root_markers()
 	_update_virtual_markers()
 
@@ -409,7 +399,7 @@ func _process(delta: float) -> void:
 	simulator.advance(delta)
 	var buffer: PackedFloat32Array = simulator.get_render_buffer()
 	if mannequin: mannequin_view.update_hair(buffer,int(config.segments),enabled)
-	else: instances.buffer = buffer
+	else: live_view.update_hair(buffer,int(config.segments),surface.width)
 	update_ms = (Time.get_ticks_usec() - started) / 1000.0
 	if edit_strands and selected_strand >= 0: selection.queue_redraw()
 
@@ -418,10 +408,11 @@ func _update_transform() -> void:
 	mannequin_toolbar.get_child(4).visible = size.x >= 540
 	var fit := minf(size.x / video_size.x, size.y / video_size.y)
 	var origin := (size - video_size*fit)*.5
-	drawing.transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
+	_video_transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
 		origin + Vector2(video_size.x*fit if mirror else 0.0, 0))
-	root_markers.transform = drawing.transform
-	virtual_markers.transform = drawing.transform
+	live_view.set_frame(video_size,mirror)
+	root_markers.transform = _video_transform
+	virtual_markers.transform = _video_transform
 	_apply_occlusion()
 	_update_root_markers()
 	_update_virtual_markers()
@@ -429,12 +420,13 @@ func _update_transform() -> void:
 	selection.queue_redraw()
 
 func _apply_occlusion() -> void:
+	live_view.set_occlusion(occlusion)
 	if occlusion == null: return
-	for item in [drawing,root_markers,virtual_markers]:
+	for item in [root_markers,virtual_markers]:
 		if item.material: occlusion.apply(item.material,self,video_size,mirror,mannequin)
 
 func _screen(point: Vector2) -> Vector2:
-	return drawing.transform * point
+	return _video_transform * point
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and edit_strands and _face_live:

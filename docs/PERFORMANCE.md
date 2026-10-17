@@ -58,6 +58,26 @@ The height-based beard/mustache ordering uses a cached permutation during native
 
 `tests/strand_layering.gd` checks stable root-height order, measured/virtual reassignment, indexed selection, invalid permutations and resizing. Run it with `--render` to additionally check actual overlap pixels in the 2D preview and 3D mannequin, mirroring and head occlusion.
 
+### Strand depth and sideburn follow-up
+
+The live hair overlay now uses a transparent 3D viewport and the same instanced GPU depth/color shader as the mannequin. This adds a depth pass and one composite; it avoids per-frame CPU sorting and retains the native packed buffer. Ear-front sideburns reuse the existing strand budget and cached surface bindings. Opaque strand intersections are resolved per pixel; head masking uses the original physical depths.
+
+Two sequential 20-second runs used the same portrait/CPU/1,024 × 8 workload on October 17:
+
+| Run | Distinct preview fps | Interval p95 | Gaps >50 ms | Hair physics/upload CPU median / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Initial depth renderer | 60.03 | 17.08 ms | 0 | 1.14 / 1.47 ms |
+| Final renderer, corrected alpha composite | 59.93 | 17.00 ms | 1 (50.23 ms) | 1.09 / 1.32 ms |
+
+The final blend correction prevents applying alpha twice at transparent hair edges. The preceding root-height-only run measured 59.97 fps and 1.30 / 1.84 ms. These runs show maintained throughput on this workstation, not a measured renderer speedup: they include desktop variation and changed root placement. The final run's single long interval was not isolated to a cause; its largest recorded hair update was 4.99 ms. This is not a stall-free guarantee. CPU timing excludes GPU completion; preview counters measure texture submissions rather than monitor scanout. No physical webcam was used. [Initial report](performance/2026-10-17-strand-depth.json), [final report](performance/2026-10-17-strand-depth-final.json).
+
+Rendered checks cover crossing endpoint depths, near/equal/far strands, mirrored live output, opaque head masking, transparent strands/taper space, color fidelity, and the mannequin. `tests/sideburn_render.gd` renders default front, ±60° and ±90° views and verifies that far-side sideburns produce no visible pixels behind the solid head. Placement tests check both ears, rotation, explicit attachment priority and saved controls. Reproduce the GPU checks with:
+
+```powershell
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --script res://tests/strand_layering.gd -- --render
+.\buildtools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe --path viewer --script res://tests/sideburn_render.gd
+```
+
 ## Earlier measurements
 
 The October 16 [CPU/GPU tracking comparison](GPU_TRACKING.md#measurements) covers the browser worker, CPU fallback/Auto selection, and the complete viewer with a 512-strand beard. The older camera measurements below describe the October 15 capture optimization and use a different input/test setup.

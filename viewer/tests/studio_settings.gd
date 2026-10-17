@@ -35,7 +35,8 @@ func _run() -> void:
 		studio.beard.set_setting("gravity", 4.1)
 		studio.beard.set_setting("wind", 0.0)
 		studio.beard.set_settings({"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,
-			"mustache_damping":.12,"mustache_variation":.32,"mustache_collisions":false,"lower_root_depth":.4})
+			"mustache_damping":.12,"mustache_variation":.32,"mustache_collisions":false,"lower_root_depth":.4,
+			"beard_sideburns":false,"sideburn_rise":.65,"sideburn_width":.09})
 		studio.beard.set_enabled(true)
 		studio.beard.set_mannequin(true)
 		studio.beard.selected_strand = 0
@@ -79,6 +80,7 @@ func _run() -> void:
 		for key in {"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}:
 			check(is_equal_approx(studio.beard.config[key],{"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}[key]),"Restore independent setting "+key)
 		check(not studio.beard.config.mustache_collisions,"Restore independent mustache collision")
+		check(not studio.beard.config.beard_sideburns and is_equal_approx(studio.beard.config.sideburn_rise,.65) and is_equal_approx(studio.beard.config.sideburn_width,.09),"Restore sideburn settings")
 		check(studio.beard.model_name == "Persistence look", "Restore working look name")
 		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")
 		check(studio.beard.overrides.get("0",{}).get("anchor","") == "virtual:1000:250000:250000", "Restore virtual attachment after restarting the app")

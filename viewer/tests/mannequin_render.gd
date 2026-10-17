@@ -62,7 +62,7 @@ func _run() -> void:
 	check(hair_pixels > 500,"Native strand buffer actually renders in the 3D viewport")
 	studio.beard.set_settings({"strands":1024,"brow_enabled":true,"brow_count":256,"hair_style":"Afro","hair_count":768,"segments":16})
 	await frame()
-	check(view.hair.multimesh.instance_count == 32768 and view.hair_texture.get_size() == Vector2(256,512),"Maximum groom fits a bounded GPU texture")
+	check(view.hair.multimesh.instance_count == 32768 and view.hair.data_texture.get_size() == Vector2(256,512),"Maximum groom fits a bounded GPU texture")
 	# Exercise the actual strand picker, including its virtual entries.
 	studio.beard.selected_strand = 0
 	studio.beard.strand_selected.emit(0)

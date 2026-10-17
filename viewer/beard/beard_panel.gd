@@ -62,15 +62,19 @@ func setup(layer: Control, studio: Control) -> void:
 	_color(roots_page,"generated_root_color","Generated point color")
 	_config_check(roots_page,"beard_virtual_roots","Use lower virtual landmarks")
 	_spin(roots_page,"lower_root_depth","Under-jaw / side reach",.05,.7,.01)
+	_config_check(roots_page,"beard_sideburns","Sideburns in front of ears")
+	_spin(roots_page,"sideburn_rise","Sideburn rise",0,1,.05)
+	_spin(roots_page,"sideburn_width","Sideburn wrap width",.02,.2,.01)
+	controls.beard_sideburns.tooltip_text = "Continue the full beard up both sides in front of the ears, using the existing facial strand count."
 	controls.beard_virtual_roots.tooltip_text = "Spread the expanded root share under the jaw and around the lower sides of the shared head, even with guides hidden."
 	for row in [["chin_extension","Below chin",0,.8,.01],["jaw_expansion","Jaw expansion",0,.5,.01],
 		["ear_reach","Toward ears",0,.6,.01],["sideburn_height","Height around ears",0,1,.05],
 		["root_layers","Root layers",1,6,1],["coverage_fill","Expanded root share",0,1,.05]]:
 		_spin(roots_page,row[0],row[1],row[2],row[3],row[4])
 	roots_page.add_child(host._button("Fuller coverage",func():
-		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"beard_virtual_roots":true,"lower_root_depth":.35,"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
+		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"beard_virtual_roots":true,"lower_root_depth":.35,"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
 		beard.set_enabled(true)))
-	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"beard_virtual_roots":true,"lower_root_depth":.35,"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
+	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"beard_virtual_roots":true,"lower_root_depth":.35,"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
 	roots_page.add_child(host._button("Fit root surface…",func(): show_page("Root surface")))
 
 	var virtual_page := _page("Root surface")
@@ -321,6 +325,9 @@ func _sync() -> void:
 	for key in control_copies:
 		for control in control_copies[key]: control.set_value_no_signal(beard.config[key])
 	controls.lower_root_depth.editable = beard.config.beard_virtual_roots
+	controls.beard_sideburns.disabled = not beard.config.beard_virtual_roots or beard.config.style not in ["Full beard","Sideburns"]
+	for key in ["sideburn_rise","sideburn_width"]:
+		controls[key].editable = not controls.beard_sideburns.disabled and beard.config.beard_sideburns
 	for key in ["chin_extension","jaw_expansion","ear_reach","sideburn_height","chin_back","side_back"]:
 		controls[key].editable = not beard.config.beard_virtual_roots
 		for control in control_copies.get(key,[]): control.editable = not beard.config.beard_virtual_roots

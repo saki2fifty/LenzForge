@@ -7,6 +7,7 @@ const MUSTACHE_STYLES := ["Natural", "Chevron", "Handlebar", "Walrus"]
 const BROW_STYLES := ["Natural", "Straight", "Arched", "Bushy"]
 const NUMBERS := {
 	"lower_root_depth":[.05,.7],
+	"sideburn_rise":[0,1], "sideburn_width":[.02,.2],
 	"mustache_gravity":[0,12], "mustache_wind":[-10,10], "mustache_turbulence":[0,5], "mustache_damping":[0,.95],
 	"mustache_variation":[0,.8],
 	"chin_extension":[0,.8], "jaw_expansion":[0,.5], "ear_reach":[0,.6], "sideburn_height":[0,1],
@@ -25,7 +26,7 @@ const NUMBERS := {
 	"brow_root_width":[.1,12], "brow_tip_width":[0,12], "hair_root_width":[.1,12], "hair_tip_width":[0,12]
 }
 const INTEGERS := ["root_layers", "brow_count", "hair_count", "virtual_columns", "virtual_rows"]
-const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots", "virtual_enabled", "show_virtual_landmarks", "mustache_collisions", "beard_virtual_roots"]
+const BOOLEANS := ["beard_visible", "mustache_enabled", "brow_enabled", "show_generated_roots", "virtual_enabled", "show_virtual_landmarks", "mustache_collisions", "beard_virtual_roots", "beard_sideburns"]
 const ENUMS := {"mustache_style":MUSTACHE_STYLES, "brow_style":BROW_STYLES, "hair_style":HAIR_STYLES,
 	"mustache_motion":MOTIONS, "brow_motion":MOTIONS, "hair_motion":MOTIONS}
 const COLORS := ["generated_root_color", "mustache_color", "mustache_tip_color", "brow_color", "hair_color", "hair_tip_color", "virtual_color"]
@@ -33,6 +34,7 @@ const COLORS := ["generated_root_color", "mustache_color", "mustache_tip_color",
 static func defaults(style: String) -> Dictionary:
 	return {"virtual_enabled":false,"show_virtual_landmarks":true,"virtual_color":"ffbf69ff",
 		"beard_virtual_roots":true,"lower_root_depth":.35,
+		"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,
 		"virtual_columns":24,"virtual_rows":4,"crown_height":.42,"crown_width":1.08,"crown_back":.35,"side_back":.3,"chin_back":.05,
 		"beard_visible":true, "chin_extension":0.0, "jaw_expansion":0.0, "ear_reach":0.0,
 		"sideburn_height":0.0, "root_layers":3, "coverage_fill":.45, "show_generated_roots":false,
@@ -107,6 +109,16 @@ static func extend_beard(binding: Dictionary, config: Dictionary, rng: RandomNum
 		# A separate deterministic stream keeps legacy offset placement stable.
 		var lower_rng := RandomNumberGenerator.new()
 		lower_rng.seed = int(config.seed)+int(binding.id)*7919+27011
+		if config.beard_sideburns and config.style in ["Full beard","Sideburns"] and (lower_rng.randf() < .25 or config.style == "Sideburns"):
+			# The face outline sits behind the ear front. Fit a narrow anterior
+			# strip to actual head triangles rather than wrapping behind the ear.
+			var up := lower_rng.randf()
+			var side := -1.0 if int(binding.id)%2 == 0 else 1.0
+			binding["sideburn_target"] = Vector3(side*.46,lerpf(.31,-.03-float(config.sideburn_rise)*.26,up),lower_rng.randf_range(.005,.005+float(config.sideburn_width)))
+			binding.length *= lerpf(.8,.12,up)
+			binding.synthetic = true
+			binding.zone = "Ear-front sideburn"
+			return
 		var column := lower_rng.randf_range(9.0,27.0)
 		if config.style == "Goatee": column = lower_rng.randf_range(14.0,22.0)
 		elif config.style == "Sideburns": column = lower_rng.randf_range(8.0,11.0) if lower_rng.randf() < .5 else lower_rng.randf_range(25.0,28.0)

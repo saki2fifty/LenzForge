@@ -61,7 +61,7 @@ func _run() -> void:
 	layer.set_enabled(true)
 	layer.set_face(Profile.mannequin(),Vector2(640,360))
 	layer._process(1.0/60)
-	check(layer.drawing.visible and layer.instances.buffer.size() == int(layer.config.strands)*int(layer.config.segments)*16,"Live video restores the original 2D batch")
+	check(layer.live_view.visible and layer.live_view.hair.multimesh.instance_count == int(layer.config.strands)*int(layer.config.segments),"Live video restores the depth-tested hair batch")
 	layer.set_enabled(false)
 	layer.set_mannequin(true)
 	check(not view.hair.visible,"Reopening a hairless preview cannot show stale strands")

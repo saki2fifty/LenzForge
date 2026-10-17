@@ -18,9 +18,12 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 	var positions := Groom.root_positions(config,anchors,face,FRAME,virtual_points)
 	var depths := Groom.root_depths(config,anchors,face,FRAME,depth,virtual_depth)
 	var targets := PackedVector3Array()
+	var reference := Surface.canonical_points()
+	var reference_width := reference[454].distance_to(reference[234])
 	for i in anchors.size():
 		var xy := (positions[i]-FRAME*.5)/20
 		targets.append(Vector3(xy.x,xy.y,depths[i]*FRAME.x/20))
+		if anchors[i].has("sideburn_target"): targets[i] = anchors[i].sideburn_target*reference_width
 	var result: Dictionary = surface.bind_nearest(targets)
 	for i in anchors.size():
 		var anchor: String = overrides.get(anchors[i].id,{}).get("anchor","")
