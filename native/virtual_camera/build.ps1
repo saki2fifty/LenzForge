@@ -15,10 +15,10 @@ $developer = Join-Path $vs 'Common7/Tools/Launch-VsDevShell.ps1'
 $flags = @('/nologo','/std:c++17','/O2','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0A00',"/I$PSScriptRoot")
 Push-Location $out
 try {
-    $source = @('activation.cpp','media_source.cpp','output.cpp') | ForEach-Object { Join-Path $PSScriptRoot $_ }
-    & cl.exe @flags /LD @source "/Fe$bin/LenzForgeCamera.dll" /link "/DEF:$PSScriptRoot/camera.def" mfplat.lib mf.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib uuid.lib /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT
+    $source = @('activation.cpp','media_source.cpp','output.cpp','gpu_transport.cpp') | ForEach-Object { Join-Path $PSScriptRoot $_ }
+    & cl.exe @flags /LD @source "/Fe$bin/LenzForgeCamera.dll" /link "/DEF:$PSScriptRoot/camera.def" d3d11.lib dxgi.lib opengl32.lib mfplat.lib mf.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib uuid.lib /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT
     if ($LASTEXITCODE) { throw 'Virtual camera build failed.' }
-    & cl.exe @flags (Join-Path $PSScriptRoot 'probe.cpp') (Join-Path $PSScriptRoot 'media_source.cpp') "/Fe$out/LenzForgeCameraProbe.exe" /link mfplat.lib mf.lib mfreadwrite.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib uuid.lib /INCREMENTAL:NO
+    & cl.exe @flags (Join-Path $PSScriptRoot 'probe.cpp') (Join-Path $PSScriptRoot 'media_source.cpp') (Join-Path $PSScriptRoot 'gpu_transport.cpp') "/Fe$out/LenzForgeCameraProbe.exe" /link d3d11.lib dxgi.lib opengl32.lib mfplat.lib mf.lib mfreadwrite.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib uuid.lib /INCREMENTAL:NO
     if ($LASTEXITCODE) { throw 'Virtual camera probe build failed.' }
     if ($Test) {
         & "$out/LenzForgeCameraProbe.exe" --self-test

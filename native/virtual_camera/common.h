@@ -17,6 +17,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cstdio>
+#include <memory>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::RuntimeClass;

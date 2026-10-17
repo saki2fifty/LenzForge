@@ -9,7 +9,7 @@ class HeadSurfaceMath : public godot::RefCounted {
 protected:
     static void _bind_methods();
 public:
-    godot::PackedVector3Array build(const godot::PackedVector3Array &face, const godot::PackedInt32Array &outline, int rings, double depth, double crown) const;
+    godot::PackedVector3Array build(const godot::PackedVector3Array &face, const godot::PackedInt32Array &outline, int rings, double depth, double crown, double sides = 1, double jaw = 1) const;
     godot::Dictionary bind_nearest(const godot::PackedVector3Array &vertices, const godot::PackedInt32Array &triangles, const godot::PackedVector3Array &targets) const;
     godot::PackedVector3Array sample(const godot::PackedVector3Array &vertices, const godot::PackedInt32Array &indices, const godot::PackedVector3Array &weights) const;
 };

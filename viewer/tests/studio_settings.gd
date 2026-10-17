@@ -47,8 +47,7 @@ func _run() -> void:
 		studio.beard_panel.name_field.text = "Persistence look"
 		studio.beard_panel.name_field.text_changed.emit("Persistence look")
 		studio.extensions.set_settings({"vertical_offset":-.23, "top":.61})
-		studio.occlusion.head_depth = .81
-		studio.occlusion.crown = .29
+		studio.apply_calibration({"version":1,"depth":.81,"crown":.29,"sides":1.14,"jaw":1.08,"views":5})
 		studio.occlusion.enabled = false
 		studio.sidebar_tabs.current_tab = 3
 		studio.tracking_panel.controls.backend.select(1)
@@ -87,6 +86,7 @@ func _run() -> void:
 		check(is_equal_approx(studio.beard.mannequin_view.yaw,35) and is_equal_approx(studio.beard.mannequin_view.zoom,1.2), "Restore 3D mannequin pose")
 		check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.23) and is_equal_approx(studio.extensions.model.config.top,.61), "Restore virtual landmark shape")
 		check(not studio.occlusion.enabled and is_equal_approx(studio.occlusion.head_depth,.81) and is_equal_approx(studio.occlusion.crown,.29), "Restore visibility settings")
+		check(is_equal_approx(studio.occlusion.surface.sides,1.14) and is_equal_approx(studio.occlusion.surface.jaw,1.08) and studio.calibration_profile.views==5,"Restore calibrated surface across processes")
 		check(studio.sidebar_tabs.current_tab == 3, "Restore active panel")
 		var config: Dictionary = studio.tracking_panel.values()
 		check(config.backend == "gpu" and config.detection_confidence == 0 and not config.blendshapes, "Restore offline MediaPipe edits")

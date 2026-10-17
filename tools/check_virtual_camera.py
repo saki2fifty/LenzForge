@@ -42,7 +42,7 @@ def main():
         # Reopen the camera in an independent Windows client to exercise service
         # teardown/reconnection as well as the initial stream.
         for attempt in range(2):
-            capture = subprocess.run([str(probe), str(artifacts/f'virtual-camera-received-{attempt}.nv12'), '180'],
+            capture = subprocess.run([str(probe), str(artifacts/f'virtual-camera-received-{attempt}.nv12'), '180']+(['--dxgi'] if attempt else []),
                                      capture_output=True, text=True, timeout=20)
             print(capture.stdout, capture.stderr)
             if capture.returncode:
@@ -62,6 +62,8 @@ def main():
         colored = (image[:,:,0] > 160) & (image[:,:,0] > image[:,:,2].astype(np.int16)+80)
         if int(colored.sum()) < 5000:
             raise RuntimeError('Camera output did not contain the composed hair')
+        if float(np.where(colored)[0].mean()) < image.shape[0]*.5:
+            raise RuntimeError('Camera output is vertically inverted')
     finally:
         run.with_suffix('.stop').touch()
         if viewer.poll() is None:

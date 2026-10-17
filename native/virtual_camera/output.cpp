@@ -1,5 +1,6 @@
 #include "common.h"
 #include "color.h"
+#include "gpu_transport.h"
 namespace lenzcam {
 // The main/render thread only hands off a frame. Conversion and publication run
 // in this worker, with one replaceable pending frame instead of a growing FIFO.
@@ -7,7 +8,9 @@ class Output : public Tracked {
     std::thread worker;
     std::mutex mutex;
     std::condition_variable changed;
-    bool quit = false, pending = false;
+    bool quit = false, pending = false, converting = false;
+    const std::wstring owner_sid = current_sid();
+    const bool force_cpu = GetEnvironmentVariableW(L"LENZFORGE_CAMERA_CPU",nullptr,0)!=0;
     std::vector<uint8_t> inbox, working;
     std::atomic<int> state{1}, error{0};
     std::atomic<bool> consumer{false};
@@ -17,6 +20,9 @@ class Output : public Tracked {
     HANDLE mapping = nullptr, exclusive = nullptr;
     ComPtr<IMFVirtualCamera> camera;
     GUID session{};
+    std::unique_ptr<GpuPublisher> gpu;
+    GUID gpu_session{};
+    std::atomic<bool> gpu_active{false};
     HRESULT initialize(const std::wstring& sid) {
         if (sid.empty()) return E_ACCESSDENIED;
         exclusive = CreateMutexW(nullptr, FALSE, (L"Local\\LenzForge.Camera.Writer." + sid).c_str());
@@ -44,6 +50,7 @@ class Output : public Tracked {
         slot.timestamp_ms = GetTickCount64();
         InterlockedExchange64(&slot.sequence, writing + 1);
         InterlockedExchange(&frames->published, index);
+        InterlockedExchange(&frames->gpu_published,-1);
         InterlockedExchange(&frames->producing, 1);
         ++sent;
         conversion_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
@@ -51,7 +58,7 @@ class Output : public Tracked {
     void run() {
         HRESULT co = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         HRESULT mf = SUCCEEDED(co) ? MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET) : co;
-        auto sid = current_sid();
+        const auto& sid = owner_sid;
         HRESULT hr = SUCCEEDED(mf) ? initialize(sid) : mf;
         error = hr;
         state = SUCCEEDED(hr) ? 2 : 3;
@@ -67,14 +74,15 @@ class Output : public Tracked {
                 auto now = GetTickCount64();
                 consumer = tick && tick <= now && now - tick < 250;
                 if (pending && consumer) {
-                    working.swap(inbox); pending = false;
-                    lock.unlock(); publish(working.data()); lock.lock();
+                    working.swap(inbox); pending = false; converting = true;
+                    lock.unlock(); publish(working.data()); lock.lock(); converting = false;
                 } else if (pending) pending = false;
                 changed.wait_for(lock, std::chrono::milliseconds(50), [&] { return quit || pending; });
             }
         }
         consumer = false;
-        if (frames) { InterlockedExchange(&frames->producing, 0); UnmapViewOfFile(frames); frames = nullptr; }
+        { std::lock_guard guard(mutex);
+          if (frames) { InterlockedExchange(&frames->producing, 0); UnmapViewOfFile(frames); frames = nullptr; } }
         if (mapping) { CloseHandle(mapping); mapping = nullptr; }
         if (camera) { camera->Stop(); camera->Shutdown(); camera.Reset(); }
         if (exclusive) { CloseHandle(exclusive); exclusive = nullptr; }
@@ -82,6 +90,30 @@ class Output : public Tracked {
         if (SUCCEEDED(co)) CoUninitialize();
     }
 public:
+    void reset_texture() { gpu.reset(); gpu_active=false; }
+    bool submit_texture(uint32_t texture) {
+        if (force_cpu) return false;
+        std::lock_guard guard(mutex);
+        if (quit || converting || state!=2 || !consumer || !frames || !InterlockedCompareExchange(&frames->gpu_ready,0,0)) {
+            gpu_active=false;
+            return false;
+        }
+        if (!gpu || gpu_session!=frames->gpu_session) { gpu=std::make_unique<GpuPublisher>(); gpu_session=frames->gpu_session; }
+        int submitted=gpu->submit(frames,owner_sid,texture);
+        gpu_active=submitted!=0;
+        if (gpu_active) {
+            pending=false;
+            if (submitted==1) {
+                // GPU timestamps reuse slot metadata; never let CPU fallback
+                // interpret an older NV12 payload as a fresh GPU publication.
+                InterlockedExchange(&frames->published,-1);
+                InterlockedExchange(&frames->producing,1); ++sent;
+            }
+            else ++replaced;
+            conversion_ms=0;
+        }
+        return gpu_active;
+    }
     Output() : inbox(pixels*4), working(pixels*4), worker() { worker = std::thread(&Output::run, this); }
     ~Output() {
         { std::lock_guard guard(mutex); quit = true; }
@@ -100,6 +132,8 @@ public:
         if (!out || out->size != sizeof(Status)) return;
         out->state = state; out->error = error; out->consumer = consumer;
         out->sent = sent; out->replaced = replaced; out->conversion_ms = conversion_ms;
+        out->gpu = gpu_active;
+        { std::lock_guard guard(mutex); out->gpu_error = frames ? frames->gpu_error : 0; }
     }
 };
 }
@@ -107,6 +141,12 @@ extern "C" __declspec(dllexport) void* __cdecl LFCameraStart() {
     try { return new lenzcam::Output(); } catch (...) { return nullptr; }
 }
 extern "C" __declspec(dllexport) void __cdecl LFCameraStop(void* output) { delete static_cast<lenzcam::Output*>(output); }
+extern "C" __declspec(dllexport) bool __cdecl LFCameraTexture(void* output,uint32_t texture) {
+    return output && static_cast<lenzcam::Output*>(output)->submit_texture(texture);
+}
+extern "C" __declspec(dllexport) void __cdecl LFCameraResetTexture(void* output) {
+    if (output) static_cast<lenzcam::Output*>(output)->reset_texture();
+}
 extern "C" __declspec(dllexport) bool __cdecl LFCameraSubmit(void* output, const uint8_t* rgba, uint32_t length) {
     return output && static_cast<lenzcam::Output*>(output)->submit(rgba, length);
 }

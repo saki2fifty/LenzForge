@@ -10,6 +10,8 @@ DOCS = {
     'api_reference': ('Studio API', 'docs/API.md'),
     'gpu_tracking': ('GPU tracking and performance', 'docs/GPU_TRACKING.md'),
     'models_visibility': ('Model library and head visibility', 'docs/MODELS_AND_VISIBILITY.md'),
+    'calibration': ('Guided head calibration', 'docs/CALIBRATION.md'),
+    'virtual_camera': ('Native virtual camera', 'docs/VIRTUAL_CAMERA.md'),
 }
 
 

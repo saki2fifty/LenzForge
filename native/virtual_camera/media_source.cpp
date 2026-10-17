@@ -37,6 +37,7 @@ HRESULT Stream::initialize(IMFMediaSource* source, const std::wstring& sid, cons
     LF_CHECK(descriptor->GetMediaTypeHandler(&handler));
     LF_CHECK(handler->SetCurrentMediaType(fast.Get()));
     owner_sid = sid;
+    allow_gpu = !local_test;
     transport_name = local_test ? L"Local\\LenzForge.Camera.Test." + std::to_wstring(GetCurrentProcessId()) : mapping_name(sid,session);
     wake = CreateEventW(nullptr,FALSE,FALSE,nullptr);
     if (!wake) return HRESULT_FROM_WIN32(GetLastError());
@@ -84,6 +85,17 @@ HRESULT Stream::GetStreamDescriptor(IMFStreamDescriptor** out) {
     std::lock_guard guard(mutex);
     return shutdown ? MF_E_SHUTDOWN : descriptor.CopyTo(out);
 }
+HRESULT Stream::set_device_manager(IUnknown* manager) {
+    std::lock_guard guard(mutex);
+    if (shutdown) return MF_E_SHUTDOWN;
+    if (state != MF_STREAM_STATE_STOPPED) return MF_E_INVALID_STATE_TRANSITION;
+    if (device_manager.Get() != manager) {
+        if (frames) InterlockedExchange(&frames->gpu_ready,0);
+        gpu.reset();
+        device_manager=manager;
+    }
+    return S_OK;
+}
 HRESULT Stream::start(IMFMediaType* type, bool event) {
     std::lock_guard guard(mutex);
     if (shutdown) return MF_E_SHUTDOWN;
@@ -103,7 +115,14 @@ HRESULT Stream::start(IMFMediaType* type, bool event) {
     } else {
         if (allocator) allocator->UninitializeSampleAllocator();
         LF_CHECK(MFCreateVideoSampleAllocatorEx(IID_PPV_ARGS(&allocator)));
+        if (device_manager) LF_CHECK(allocator->SetDirectXManager(device_manager.Get()));
         LF_CHECK(allocator->InitializeSampleAllocator(8, selected.Get()));
+        if (allow_gpu && !gpu) {
+            gpu = std::make_unique<GpuReceiver>();
+            HRESULT result=gpu->initialize(frames,owner_sid,device_manager.Get());
+            InterlockedExchange(&frames->gpu_error,result);
+            if (FAILED(result)) gpu.reset();
+        }
     }
     LF_CHECK(handler->SetCurrentMediaType(selected.Get()));
     duration = 10000000 / numerator;
@@ -138,6 +157,8 @@ HRESULT Stream::close() {
     if (worker.joinable()) worker.join();
     if (allocator) allocator->UninitializeSampleAllocator();
     allocator.Reset();
+    if (frames) InterlockedExchange(&frames->gpu_ready,0);
+    gpu.reset();
     if (frames) { UnmapViewOfFile(frames); frames = nullptr; }
     if (mapping) { CloseHandle(mapping); mapping = nullptr; }
     if (wake) { CloseHandle(wake); wake = nullptr; }
@@ -199,6 +220,16 @@ void Stream::run() {
 HRESULT Stream::deliver(IUnknown* token) {
     auto now = GetTickCount64();
     InterlockedExchange64(&frames->consumer_tick, static_cast<LONG64>(now));
+    ComPtr<IMFSample> sample;
+    LF_CHECK(allocator->AllocateSample(&sample));
+    HRESULT copied = gpu && InterlockedCompareExchange(&frames->producing,0,0) ? gpu->copy(frames,sample.Get()) : S_FALSE;
+    if (FAILED(copied)) {
+        InterlockedExchange(&frames->gpu_error,copied);
+        InterlockedExchange(&frames->gpu_ready,0); // Device loss falls back to CPU publication.
+        gpu.reset();
+    }
+    bool on_gpu = copied == S_OK;
+    if (!on_gpu) {
     bool fresh = false;
     if (InterlockedCompareExchange(&frames->producing, 0, 0)) {
         for (int retry = 0; retry < 2; ++retry) {
@@ -215,10 +246,8 @@ HRESULT Stream::deliver(IUnknown* token) {
         }
     }
     if (!fresh) { memset(snapshot.data(), 16, pixels); memset(snapshot.data() + pixels, 128, pixels / 2); }
-    ComPtr<IMFSample> sample;
     ComPtr<IMFMediaBuffer> buffer;
     ComPtr<IMF2DBuffer2> plane;
-    LF_CHECK(allocator->AllocateSample(&sample));
     LF_CHECK(sample->GetBufferByIndex(0, &buffer));
     LF_CHECK(buffer.As(&plane));
     BYTE* scan = nullptr; BYTE* start = nullptr; LONG stride = 0; DWORD length = 0;
@@ -228,6 +257,7 @@ HRESULT Stream::deliver(IUnknown* token) {
     else for (uint32_t y = 0; y < height * 3 / 2; ++y) memcpy(scan + y * stride, snapshot.data() + y * width, width);
     plane->Unlock2D();
     LF_CHECK(hr);
+    }
     LF_CHECK(sample->SetSampleTime(MFGetSystemTime()));
     LF_CHECK(sample->SetSampleDuration(duration));
     if (token) LF_CHECK(sample->SetUnknown(MFSampleExtension_Token, token));
@@ -317,6 +347,12 @@ HRESULT Source::GetStreamAttributes(DWORD id, IMFAttributes** out) {
     std::lock_guard guard(mutex);
     if (shutdown) return MF_E_SHUTDOWN;
     return id == 0 ? stream->attributes.CopyTo(out) : MF_E_INVALIDSTREAMNUMBER;
+}
+HRESULT Source::SetD3DManager(IUnknown* manager) {
+    std::lock_guard guard(mutex);
+    if (shutdown) return MF_E_SHUTDOWN;
+    if (!stream) return E_UNEXPECTED;
+    return stream->set_device_manager(manager);
 }
 HRESULT Source::GetAllocatorUsage(DWORD id, DWORD* input, MFSampleAllocatorUsage* usage) {
     if (!input || !usage) return E_POINTER;

@@ -29,7 +29,10 @@ struct alignas(64) SharedFrames {
     uint32_t signature, version, frame_width, frame_height;
     volatile LONG published, producing;
     volatile LONG64 consumer_tick;
-    uint8_t padding[32];
+    GUID gpu_session;
+    volatile LONG gpu_ready, gpu_published;
+    volatile LONG gpu_error;
+    uint8_t padding[4];
     Slot slots[3];
 };
 static_assert(offsetof(SharedFrames, slots) == 64);
@@ -60,6 +63,9 @@ inline bool valid(const SharedFrames* frames) {
     return frames && frames->signature == magic && frames->version == 1 &&
         frames->frame_width == width && frames->frame_height == height;
 }
+inline std::wstring texture_name(const std::wstring& sid, const GUID& session, int slot) {
+    return mapping_name(sid,session) + L".Texture." + std::to_wstring(slot);
+}
 
 // Stable C ABI: the Godot extension uses MinGW; the camera uses the Windows SDK.
 struct Status {
@@ -69,9 +75,13 @@ struct Status {
     uint32_t consumer = 0;
     uint64_t sent = 0, replaced = 0;
     double conversion_ms = 0;
+    int32_t gpu = 0;
+    int32_t gpu_error = 0;
 };
 using StartFn = void* (__cdecl*)();
 using StopFn = void (__cdecl*)(void*);
 using StatusFn = void (__cdecl*)(void*, Status*);
 using SubmitFn = bool (__cdecl*)(void*, const uint8_t*, uint32_t);
+using TextureFn = bool (__cdecl*)(void*, uint32_t);
+using ResetTextureFn = void (__cdecl*)(void*);
 }

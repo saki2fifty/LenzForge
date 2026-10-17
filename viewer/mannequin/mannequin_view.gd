@@ -113,10 +113,12 @@ func request_frame() -> void:
 		if not RenderingServer.frame_post_draw.is_connected(_frame_rendered):
 			RenderingServer.frame_post_draw.connect(_frame_rendered,CONNECT_ONE_SHOT)
 
-func set_surface_shape(depth: float, crown_height: float) -> void:
-	if is_equal_approx(surface.head_depth,depth) and is_equal_approx(surface.crown,crown_height): return
+func set_surface_shape(depth: float, crown_height: float, sides := 1.0, jaw := 1.0) -> void:
+	if surface.shape_signature() == Vector4(depth,crown_height,sides,jaw): return
 	surface.head_depth = depth
 	surface.crown = crown_height
+	surface.sides = sides
+	surface.jaw = jaw
 	if not _built: return
 	surface.set_reference()
 	pivot.get_child(0).free()

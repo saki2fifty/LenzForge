@@ -18,6 +18,13 @@ var screen_down := Vector2.DOWN
 var dimensions := Vector2.ONE
 var head_depth := .65
 var crown := .20
+var sides := 1.0
+var jaw := 1.0
+
+func shape_signature() -> Vector4: return Vector4(head_depth,crown,sides,jaw)
+
+func build_reference() -> PackedVector3Array:
+	return math.build(canonical_points(),PackedInt32Array(OUTLINE),RINGS,head_depth,crown,sides,jaw)
 
 static func topology() -> PackedInt32Array:
 	if not _topology.is_empty(): return _topology
@@ -55,7 +62,7 @@ func neutral_vertices() -> PackedVector3Array:
 	return _neutral
 
 func set_reference() -> void:
-	vertices = math.build(canonical_points(),PackedInt32Array(OUTLINE),RINGS,head_depth,crown)
+	vertices = build_reference()
 	measured_count = 478
 	width = vertices[234].distance_to(vertices[454])
 	updated.emit()
@@ -71,7 +78,7 @@ func update(face: PackedVector2Array, depth: PackedFloat32Array, frame_size: Vec
 	for i in measured_count:
 		measured[i] = Vector3(face[i].x*dimensions.x,face[i].y*dimensions.y,depth[i]*dimensions.x if i < depth.size() else 0.0)
 	for i in range(measured_count,478): measured[i] = measured[1]
-	vertices = math.build(measured,PackedInt32Array(OUTLINE),RINGS,head_depth,crown)
+	vertices = math.build(measured,PackedInt32Array(OUTLINE),RINGS,head_depth,crown,sides,jaw)
 	width = measured[234].distance_to(measured[454]) if not vertices.is_empty() else 0.0
 	if width > .00001:
 		var right := (measured[454]-measured[234])/width
