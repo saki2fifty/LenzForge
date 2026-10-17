@@ -47,7 +47,15 @@ func _run() -> void:
 		studio.beard_panel.name_field.text = "Persistence look"
 		studio.beard_panel.name_field.text_changed.emit("Persistence look")
 		studio.extensions.set_settings({"vertical_offset":-.23, "top":.61})
-		studio.apply_calibration({"version":1,"depth":.81,"crown":.29,"sides":1.14,"jaw":1.08,"views":5})
+		var profile := {"version":2,"depth":.81,"crown":.29,"sides":1.14,"jaw":1.08,"views":5,"crown_observed":true,"reference":[]}
+		var neutral := preload("res://tracking/head_surface.gd").canonical_points()
+		var center := (neutral[234]+neutral[454])*.5
+		var width := neutral[234].distance_to(neutral[454])
+		neutral[10].y -= .5
+		for p in neutral:
+			var q: Vector3 = (p-center)/width
+			profile.reference.append([q.x,q.y,q.z])
+		studio.apply_calibration(profile)
 		studio.occlusion.enabled = false
 		studio.sidebar_tabs.current_tab = 3
 		studio.tracking_panel.controls.backend.select(1)
@@ -87,6 +95,11 @@ func _run() -> void:
 		check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.23) and is_equal_approx(studio.extensions.model.config.top,.61), "Restore virtual landmark shape")
 		check(not studio.occlusion.enabled and is_equal_approx(studio.occlusion.head_depth,.81) and is_equal_approx(studio.occlusion.crown,.29), "Restore visibility settings")
 		check(is_equal_approx(studio.occlusion.surface.sides,1.14) and is_equal_approx(studio.occlusion.surface.jaw,1.08) and studio.calibration_profile.views==5,"Restore calibrated surface across processes")
+		var personal: PackedVector3Array = studio.occlusion.surface.personal_reference
+		check(personal.size()==478 and studio.calibration_profile.crown_observed,"Restore neutral reference and crown evidence")
+		check(absf(personal[10].y-preload("res://tracking/head_surface.gd").canonical_points()[10].y+.5)<.0001,"Personal geometry survives restart")
+		check(studio.beard.mannequin_view.surface.personal_reference==personal,"Mannequin uses restored personal reference")
+		check(studio.beard.mannequin_view.reference[10].distance_to(personal[10]*Vector3(1,-1,-1))<.0001,"Mannequin dots match the fitted face")
 		check(studio.sidebar_tabs.current_tab == 3, "Restore active panel")
 		var config: Dictionary = studio.tracking_panel.values()
 		check(config.backend == "gpu" and config.detection_confidence == 0 and not config.blendshapes, "Restore offline MediaPipe edits")

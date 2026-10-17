@@ -31,6 +31,14 @@ func _run() -> void:
 	var roots: PackedVector3Array = layer.mannequin_view.surface.sample(layer.root_bindings)
 	for i in layer.attachment.size():
 		if layer.attachment[i].region == "beard": check(roots[i].z <= 2.436,"Changing head depth alone preserves the measured rear boundary")
+	# Calibrated references move the ear plane independently of the four shape controls.
+	var personal := Surface.canonical_points().duplicate()
+	for i in personal.size(): personal[i].z -= 1.2
+	layer.mannequin_view.set_surface_shape(.8,.3,1.0,1.0,personal)
+	roots = layer.mannequin_view.surface.sample(layer.root_bindings)
+	var limit := maxf(personal[234].z,personal[454].z)
+	for i in layer.attachment.size():
+		if layer.attachment[i].region == "beard": check(roots[i].z <= limit+.0001,"Personal reference retains the ear-front beard boundary")
 	layer.selected_strand = 0
 	layer.set_strand_setting("anchor","virtual:2200:250000:250000")
 	check(layer.mannequin_view.root_positions[0].distance_to(layer.mannequin_view.surface.resolve("virtual:2200:250000:250000").position*Vector3(1,-1,-1)) < .0001,"Explicit landmark placement remains available")

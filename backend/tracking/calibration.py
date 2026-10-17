@@ -7,6 +7,7 @@ import urllib.request
 
 import cv2
 import numpy as np
+from .head_pose import align
 
 MODEL = 'selfie_multiclass_256x256.tflite'
 MODEL_SHA = 'c6748b1253a99067ef71f7e26ca71096cd449baefa8f101900ea23016507e0e0'
@@ -42,6 +43,60 @@ def shell(face, shape):
     return (center+xx[..., None]*right+yy[..., None]*down+zz[..., None]*back).reshape(-1, 3)
 
 
+def stable_shell(reference, face, shape):
+    rigid = align(reference,face)
+    result = shell(rigid,shape).reshape(20,36,3)
+    blend = np.maximum(1-np.arange(1,21)/3,0)**2
+    return (result+(face[OUTLINE]-rigid[OUTLINE])[None,:,:]*blend[:,None,None]).reshape(-1,3)
+
+
+def exposed_outline(rgb, masks, face, blocked):
+    """Connected skin outline, with a conservative forehead-color scalp extension.
+
+    Classifiers can label a bald scalp as an accessory. Only extend above the
+    nose bridge into skin-colored pixels; never infer the skull from a hair edge.
+    """
+    height,width=rgb.shape[:2]
+    span,_,down,_,center=frame_basis(face)
+    yy,xx=np.indices((height,width))
+    lab=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB).astype(float)
+    radius=max(2,round(span*.018))
+    patches=[]
+    for index in [10,151,9]:
+        x,y=np.round(face[index,:2]).astype(int)
+        patch=lab[max(0,y-radius):min(height,y+radius+1),max(0,x-radius):min(width,x+radius+1)]
+        if patch.size: patches.append(patch.reshape(-1,3))
+    skin=(masks[2]+masks[3])>.5
+    if patches:
+        color=np.median(np.concatenate(patches),axis=0)
+        distance=np.linalg.norm(lab[:,:,1:]-color[1:],axis=2)
+        upper=(xx-face[6,0])*down[0]+(yy-face[6,1])*down[1]<0
+        compatible=(distance<18)&(lab[:,:,0]>max(55,color[0]-75))
+        skin |= upper & compatible & (masks[0]<.5) & (masks[1]<.35)
+    roi=(xx>center[0]-span*1.1)&(xx<center[0]+span*1.1)&(yy>face[10,1]-span*.9)&(yy<face[152,1]+span*.08)
+    skin=(skin & roi & (blocked==0)).astype(np.uint8)
+    skin=cv2.morphologyEx(skin,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+    # Stay with the face component, excluding disconnected hands/background skin.
+    _,labels,stats,_=cv2.connectedComponentsWithStats(skin,8)
+    if len(stats)<2: return np.empty((0,2),dtype=int)
+    candidates=[]
+    for index in [10,6,4,117,346]:
+        x,y=np.round(face[index,:2]).astype(int)
+        if 0<=x<width and 0<=y<height and labels[y,x]>0: candidates.append(labels[y,x])
+    if not candidates: return np.empty((0,2),dtype=int)
+    chosen=max(set(candidates),key=lambda label:stats[label,cv2.CC_STAT_AREA])
+    region=(labels==chosen).astype(np.uint8)
+    contours,_=cv2.findContours(region,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+    if not contours: return np.empty((0,2),dtype=int)
+    points=max(contours,key=cv2.contourArea)[:,0]
+    # Omit artificial ROI/image/hand boundaries and skin/hair interfaces.
+    forbidden=cv2.dilate(((masks[1]>.25)|(blocked!=0)|~roi).astype(np.uint8),np.ones((9,9),np.uint8))
+    x,y=points.T
+    points=points[(x>3)&(x<width-4)&(y>3)&(y<height-4)&(forbidden[y,x]==0)]
+    # Sample by contour order (arc length), preserving the crown as well as sides.
+    return points[np.linspace(0,len(points)-1,min(144,len(points)),dtype=int)] if len(points) else points
+
+
 def fit_shape(observations, initial):
     """Fit only exposed silhouette evidence; retain priors for covered regions."""
     if not 2 <= len(observations) <= 12: raise ValueError('Capture at least two different views before fitting.')
@@ -60,14 +115,34 @@ def fit_shape(observations, initial):
         checked.append((face, contour, width))
     if all(np.dot(orientations[0], direction) > np.cos(np.radians(15)) for direction in orientations[1:]):
         raise ValueError('Capture different head angles, at least 15 degrees apart.')
+    # Freeze one neutral face in head-local coordinates. Use the same rigid
+    # reference and pose solver for fitting, review and subsequent live updates.
+    frontal=min(checked,key=lambda item: abs(frame_basis(item[0])[3][0])+abs(frame_basis(item[0])[3][1]))[0]
+    width,right,down,back,center=frame_basis(frontal)
+    reference=(frontal-center)@np.column_stack((right,down,back))/width
+    prepared=[]
+    crown_observed=False
+    for face,contour,width in checked:
+        rigid=align(reference,face)
+        _,_,down,_,_=frame_basis(rigid)
+        along=(contour-rigid[10,:2])@down[:2]
+        top=along < -width*.035
+        crown_observed |= int(top.sum())>=8
+        # Each exposed region gets a share instead of letting numerous cheek
+        # samples overwhelm a short but informative scalp arc.
+        groups=[mask for mask in [top,~top] if mask.sum()>=4]
+        blend=np.maximum(1-np.arange(1,21)/3,0)**2
+        seam=(face[OUTLINE]-rigid[OUTLINE])[None,:,:]*blend[:,None,None]
+        prepared.append((face,rigid,seam.reshape(-1,3),contour,width,groups))
     def cost(shape):
         errors = []
-        for face, contour, width in checked:
-            vertices = np.vstack((face[:468],shell(face,shape)))
+        for face, rigid, seam, contour, width, groups in prepared:
+            vertices = np.vstack((face[:468],shell(rigid,shape)+seam))
             hull = cv2.convexHull(vertices[:, :2].astype(np.float32))
             distances = np.array([cv2.pointPolygonTest(hull,(float(p[0]),float(p[1])),True) for p in contour])/width
             # Robust loss: a stray mask edge cannot pull the whole skull outward.
-            errors.append(np.mean(np.sqrt(distances**2+.01**2)-.01))
+            loss=np.sqrt(distances**2+.01**2)-.01
+            errors.append(np.mean([loss[group].mean() for group in groups]))
         return float(np.mean(errors)+.025*np.sum((shape-start)**2))
     value, best = start.copy(), cost(start)
     for scale in [1, .5, .25, .125, .0625]:
@@ -75,14 +150,15 @@ def fit_shape(observations, initial):
         for _ in range(3):
             changed = False
             for axis in range(4):
+                if axis==1 and not crown_observed: continue
                 for direction in [-1,1]:
                     candidate = value.copy()
                     candidate[axis] = np.clip(candidate[axis]+direction*steps[axis], *LIMITS[axis])
                     score = cost(candidate)
                     if score < best-1e-7: value, best, changed = candidate, score, True
             if not changed: break
-    return {'version':1,'depth':float(value[0]),'crown':float(value[1]),'sides':float(value[2]),'jaw':float(value[3]),
-            'views':len(checked),'fit_error':best,'estimated':True}
+    return {'version':2,'depth':float(value[0]),'crown':float(value[1]),'sides':float(value[2]),'jaw':float(value[3]),
+            'views':len(checked),'fit_error':best,'estimated':True,'reference':reference.tolist(),'crown_observed':crown_observed}
 
 
 class Analyzer:
@@ -169,13 +245,8 @@ class Analyzer:
             span,right,down,back,center=frame_basis(face)
             result.update(face=face.tolist(),yaw=float(np.degrees(np.arctan2(back[0],back[2]))),
                           pitch=float(np.degrees(np.arctan2(back[1],back[2]))))
-            # Keep the skin/background edge. Skin/hair interfaces are hairlines,
-            # not observations of the skull, and must not be fitted as its outline.
             segmentation=self.tasks[2].segment(image)
             masks=[cv2.resize(mask.numpy_view(),(width,height)) for mask in segmentation.confidence_masks]
-            skin=(masks[2]+masks[3])>.7
-            background=masks[0]>.7
-            edge=skin & (cv2.dilate(background.astype(np.uint8),np.ones((7,7),np.uint8))>0)
             blocked=np.zeros((height,width),np.uint8)
             hands=self.tasks[1].detect(image)
             for hand in hands.hand_landmarks:
@@ -183,11 +254,7 @@ class Analyzer:
                 lo=np.floor(points.min(0)-span*.15).astype(int); hi=np.ceil(points.max(0)+span*.15).astype(int)
                 cv2.rectangle(blocked,tuple(lo),tuple(hi),1,-1)
                 result['blocked'].append([int(lo[0]),int(lo[1]),int(hi[0]),int(hi[1])])
-            yy,xx=np.indices(edge.shape)
-            roi=(xx>center[0]-span*1.1)&(xx<center[0]+span*1.1)&(yy>face[10,1]-span*.75)&(yy<face[152,1]+span*.12)
-            edge &= roi & (blocked==0)
-            y,x=np.where(edge)
-            points=np.column_stack((x,y))[::max(1,len(x)//120+1)]
+            points=exposed_outline(rgb,masks,face,blocked)
             lo=np.maximum(np.floor(face[:468,:2].min(0)).astype(int),0)
             hi=np.minimum(np.ceil(face[:468,:2].max(0)).astype(int),[width,height])
             crop=rgb[lo[1]:hi[1],lo[0]:hi[0]]

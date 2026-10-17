@@ -1,5 +1,7 @@
 #include "head_surface_math.h"
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/quaternion.hpp>
+#include <godot_cpp/variant/transform3d.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -7,9 +9,100 @@
 using namespace godot;
 namespace lenzforge {
 void HeadSurfaceMath::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("set_reference", "face"), &HeadSurfaceMath::set_reference);
+    ClassDB::bind_method(D_METHOD("build_stable", "face", "outline", "rings", "depth", "crown", "sides", "jaw"), &HeadSurfaceMath::build_stable, DEFVAL(1.0), DEFVAL(1.0));
     ClassDB::bind_method(D_METHOD("build", "face", "outline", "rings", "depth", "crown", "sides", "jaw"), &HeadSurfaceMath::build, DEFVAL(1.0), DEFVAL(1.0));
     ClassDB::bind_method(D_METHOD("bind_nearest", "vertices", "triangles", "targets"), &HeadSurfaceMath::bind_nearest);
     ClassDB::bind_method(D_METHOD("sample", "vertices", "indices", "weights"), &HeadSurfaceMath::sample);
+}
+namespace {
+constexpr int pose_anchors[] = {4,5,6,122,127,195,197,234,351,356,454,117,119,121,198,346,348,350,420};
+constexpr int pose_count = sizeof(pose_anchors)/sizeof(int);
+
+bool align_head(const Vector3* reference, const Vector3* measured, Transform3D& pose) {
+    double weights[pose_count]; std::fill_n(weights,pose_count,1.0);
+    const double threshold=std::max(double(measured[234].distance_to(measured[454]))*.015,1e-6);
+    for (int iteration=0;iteration<3;++iteration) {
+        Vector3 ca,cb; double total=0;
+        for (int i=0;i<pose_count;++i) { ca+=reference[pose_anchors[i]]*weights[i]; cb+=measured[pose_anchors[i]]*weights[i]; total+=weights[i]; }
+        ca/=total; cb/=total;
+        double s[3][3]{},denominator=0;
+        for (int i=0;i<pose_count;++i) {
+            Vector3 a=reference[pose_anchors[i]]-ca,b=measured[pose_anchors[i]]-cb;
+            denominator+=weights[i]*a.length_squared();
+            for (int j=0;j<3;++j) for (int k=0;k<3;++k) s[j][k]+=weights[i]*a[j]*b[k];
+        }
+        if (denominator<1e-12) return false;
+        // Horn's symmetric quaternion system. Jacobi finds the largest algebraic
+        // eigenvalue, including at 180-degree turns (power iteration can fail).
+        double n[4][4] = {
+            {s[0][0]+s[1][1]+s[2][2],s[1][2]-s[2][1],s[2][0]-s[0][2],s[0][1]-s[1][0]},
+            {s[1][2]-s[2][1],s[0][0]-s[1][1]-s[2][2],s[0][1]+s[1][0],s[2][0]+s[0][2]},
+            {s[2][0]-s[0][2],s[0][1]+s[1][0],-s[0][0]+s[1][1]-s[2][2],s[1][2]+s[2][1]},
+            {s[0][1]-s[1][0],s[2][0]+s[0][2],s[1][2]+s[2][1],-s[0][0]-s[1][1]+s[2][2]}};
+        double v[4][4]{}; for (int i=0;i<4;++i) v[i][i]=1;
+        for (int sweep=0;sweep<32;++sweep) {
+            int p=0,q=1;
+            for (int j=0;j<4;++j) for (int k=j+1;k<4;++k) if (std::abs(n[j][k])>std::abs(n[p][q])) {p=j;q=k;}
+            if (std::abs(n[p][q])<denominator*1e-12) break;
+            const double angle=.5*std::atan2(2*n[p][q],n[q][q]-n[p][p]),c=std::cos(angle),sn=std::sin(angle);
+            const double pp=n[p][p],qq=n[q][q],pq=n[p][q];
+            for (int k=0;k<4;++k) if (k!=p && k!=q) {
+                const double kp=n[k][p],kq=n[k][q];
+                n[k][p]=n[p][k]=c*kp-sn*kq; n[k][q]=n[q][k]=sn*kp+c*kq;
+            }
+            n[p][p]=c*c*pp-2*c*sn*pq+sn*sn*qq;
+            n[q][q]=sn*sn*pp+2*c*sn*pq+c*c*qq; n[p][q]=n[q][p]=0;
+            for (int k=0;k<4;++k) {const double kp=v[k][p],kq=v[k][q];v[k][p]=c*kp-sn*kq;v[k][q]=sn*kp+c*kq;}
+        }
+        int best=0; for (int i=1;i<4;++i) if (n[i][i]>n[best][best]) best=i;
+        Basis rotation(Quaternion(v[1][best],v[2][best],v[3][best],v[0][best]).normalized());
+        double scale=0;
+        for (int i=0;i<pose_count;++i) scale+=weights[i]*(rotation.xform(reference[pose_anchors[i]]-ca)).dot(measured[pose_anchors[i]]-cb);
+        scale/=denominator;
+        if (!std::isfinite(scale) || scale<=1e-8) return false;
+        pose=Transform3D(rotation.scaled(Vector3(scale,scale,scale)),cb-rotation.xform(ca)*scale);
+        for (int i=0;i<pose_count;++i) weights[i]=std::min(1.0,threshold/std::max(double(pose.xform(reference[pose_anchors[i]]).distance_to(measured[pose_anchors[i]])),1e-9));
+    }
+    return true;
+}
+}
+bool HeadSurfaceMath::set_reference(const PackedVector3Array& face) {
+    if (!face.is_empty()) {
+        if (face.size()!=478) return false;
+        for (int i=0;i<478;++i) if (!face[i].is_finite()) return false;
+        const Vector3 right=face[454]-face[234],down=face[152]-face[10];
+        if (right.length_squared()<1e-10 || right.normalized().cross(down).length_squared()<1e-10) return false;
+        Transform3D pose; if (!align_head(face.ptr(),face.ptr(),pose)) return false;
+    }
+    reference=face; cached_shell.clear(); return true;
+}
+PackedVector3Array HeadSurfaceMath::build_stable(const PackedVector3Array& face,const PackedInt32Array& outline,int rings,double depth,double crown,double sides,double jaw) {
+    if (face.size()!=478) return {};
+    const auto* fp=face.ptr();
+    for (int i=0;i<478;++i) if (!fp[i].is_finite()) return {};
+    if (reference.is_empty() && !set_reference(face)) return {};
+    Transform3D pose;
+    if (!align_head(reference.ptr(),fp,pose)) return {};
+    if (cached_shell.is_empty() || cached_outline!=outline || cached_rings!=rings ||
+        cached_shape[0]!=depth || cached_shape[1]!=crown || cached_shape[2]!=sides || cached_shape[3]!=jaw) {
+        cached_shell=build(reference,outline,rings,depth,crown,sides,jaw);
+        cached_outline=outline; cached_rings=rings;
+        cached_shape[0]=depth; cached_shape[1]=crown; cached_shape[2]=sides; cached_shape[3]=jaw;
+    }
+    if (cached_shell.is_empty()) return {};
+    auto result=face; result.resize(cached_shell.size()); auto* out=result.ptrw();
+    const auto* shape=cached_shell.ptr(); const auto* rp=reference.ptr(); const auto* op=outline.ptr();
+    for (int c=0;c<36;++c) {
+        Vector3 delta=fp[op[c]]-pose.xform(rp[op[c]]);
+        for (int r=1;r<=rings;++r) {
+            const int i=478+(r-1)*36+c;
+            // A narrow seam follows skin deformation; the cranium stays rigid.
+            const double blend=r==1 ? 4.0/9 : (r==2 ? 1.0/9 : 0.0);
+            out[i]=pose.xform(shape[i])+delta*blend;
+        }
+    }
+    return result;
 }
 PackedVector3Array HeadSurfaceMath::build(const PackedVector3Array &face, const PackedInt32Array &outline, int rings, double depth, double crown, double sides, double jaw) const {
     if (!std::isfinite(sides) || !std::isfinite(jaw) || sides<.8 || sides>1.25 || jaw<.8 || jaw>1.2) return {};

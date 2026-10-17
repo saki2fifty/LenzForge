@@ -60,9 +60,7 @@ func _build() -> void:
 	pivot = Node3D.new()
 	hair = preload("res://beard/strand_mesh.gd").new()
 	hair_material = hair.shader_material
-	reference = HeadModel.reference_points()
-	surface.set_reference()
-	face_width = reference[454].distance_to(reference[234])
+	_refresh_reference()
 	viewport.add_child(pivot)
 	pivot.add_child(HeadModel.build(reference,surface))
 	viewport.add_child(camera)
@@ -113,14 +111,15 @@ func request_frame() -> void:
 		if not RenderingServer.frame_post_draw.is_connected(_frame_rendered):
 			RenderingServer.frame_post_draw.connect(_frame_rendered,CONNECT_ONE_SHOT)
 
-func set_surface_shape(depth: float, crown_height: float, sides := 1.0, jaw := 1.0) -> void:
-	if surface.shape_signature() == Vector4(depth,crown_height,sides,jaw): return
+func set_surface_shape(depth: float, crown_height: float, sides := 1.0, jaw := 1.0, personal := PackedVector3Array()) -> void:
+	if surface.shape_signature() == Vector4(depth,crown_height,sides,jaw) and surface.personal_reference == personal: return
+	surface.set_personal_reference(personal)
 	surface.head_depth = depth
 	surface.crown = crown_height
 	surface.sides = sides
 	surface.jaw = jaw
 	if not _built: return
-	surface.set_reference()
+	_refresh_reference()
 	pivot.get_child(0).free()
 	var bust := HeadModel.build(reference,surface)
 	pivot.add_child(bust)
@@ -128,6 +127,12 @@ func set_surface_shape(depth: float, crown_height: float, sides := 1.0, jaw := 1
 	_roots_dirty = true
 	pose_changed.emit()
 	request_frame()
+
+func _refresh_reference() -> void:
+	surface.set_reference()
+	reference = surface.vertices.slice(0,478)
+	for i in reference.size(): reference[i] *= Vector3(1,-1,-1)
+	face_width = reference[454].distance_to(reference[234])
 
 func _frame_rendered() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED

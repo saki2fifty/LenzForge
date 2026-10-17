@@ -383,6 +383,7 @@ func _build_ui() -> void:
 	occlusion.head_depth = clampf(float(settings.get_value("view", "head_depth", .65)),.25,1.0)
 	occlusion.crown = clampf(float(settings.get_value("view", "head_crown", .20)),0,.5)
 	calibration_profile = HeadProfile.validate(settings.get_value("calibration","profile",{}))
+	occlusion.surface.set_personal_reference(HeadProfile.reference_points(calibration_profile))
 	occlusion.surface.sides = calibration_profile.get("sides",1.0)
 	occlusion.surface.jaw = calibration_profile.get("jaw",1.0)
 	head_depth_slider = _slider(landmark_column, "Head depth", .25, 1.0, .005, occlusion.head_depth, func(value): occlusion.head_depth = value; _refresh_occlusion())
@@ -396,7 +397,7 @@ func _build_ui() -> void:
 	extensions.model.surface = occlusion.surface
 	extensions.model.external_surface = true
 	beard.extension_model = extensions.model
-	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw)
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw,occlusion.surface.personal_reference)
 	landmark_column.add_child(HSeparator.new())
 	_section(landmark_column, "Measured landmarks")
 	points_check = CheckBox.new()
@@ -737,7 +738,7 @@ func _on_landmarks(points: Array, frame_id: int, timestamp: int) -> void:
 	beard.set_face(normalized, overlay.video_size, depth)
 
 func _refresh_occlusion() -> void:
-	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw)
+	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw,occlusion.surface.personal_reference)
 	if beard.mannequin: return
 	occlusion.update(overlay.points,overlay.depth,overlay.video_size)
 	overlay.queue_redraw()
@@ -747,6 +748,7 @@ func _refresh_occlusion() -> void:
 
 func apply_calibration(profile: Dictionary) -> void:
 	calibration_profile = HeadProfile.validate(profile)
+	occlusion.surface.set_personal_reference(HeadProfile.reference_points(calibration_profile))
 	occlusion.surface.sides = calibration_profile.get("sides",1.0)
 	occlusion.surface.jaw = calibration_profile.get("jaw",1.0)
 	occlusion.head_depth = calibration_profile.get("depth",.65)

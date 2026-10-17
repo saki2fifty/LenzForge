@@ -244,7 +244,7 @@ func _completed(result: int, code: int, _headers: PackedStringArray, body: Packe
 		progress.hide()
 		heading.text = "Review your head fit"
 		instruction.text = "Compare the blue fit across your captured views and adjust if needed. Hidden scalp and jaw areas remain estimates; segmentation can miss facial hair or hands."
-		feedback.text = "%d views captured. Save applies this surface to virtual landmarks, roots, objects, occlusion and collisions." % observations.size()
+		feedback.text = "%d views captured. %s" % [observations.size(),"Crown edge observed. Save applies the fitted surface." if draft.get("crown_observed",false) else "Crown edge was not observed; crown height remains your prior estimate. Reveal the scalp or adjust it manually."]
 		save_button.disabled = false
 		begin_button.disabled = false
 		begin_button.text = "Recalibrate"
@@ -363,7 +363,8 @@ class Preview extends Control:
 		if profile.is_empty() or packet.get("face",[]).size() != 478: return
 		var face := PackedVector3Array()
 		for p in packet.face: face.append(Vector3(p[0],p[1],p[2]))
-		var head: PackedVector3Array = math.build(face,PackedInt32Array(preload("res://tracking/head_surface.gd").OUTLINE),20,profile.depth,profile.crown,profile.sides,profile.jaw)
+		math.set_reference(Profile.reference_points(profile))
+		var head: PackedVector3Array = math.build_stable(face,PackedInt32Array(preload("res://tracking/head_surface.gd").OUTLINE),20,profile.depth,profile.crown,profile.sides,profile.jaw)
 		var projected := PackedVector2Array()
 		for p in head: projected.append(origin+Vector2(p.x,p.y)*scale)
 		var hull := Geometry2D.convex_hull(projected)

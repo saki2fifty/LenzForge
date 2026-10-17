@@ -295,6 +295,21 @@ Success prints `LANDMARKS_RENDER_PASS` without engine/script errors. This check 
 
 ## Shared head surface
 
+### Crown stability follow-up — October 17
+
+Baseline `e00a5de`, same workstation and 240-sample synthetic yaw/pitch fixture. The new path solves a rigid pose from 19 expression-resistant anchors, transforms a cached skull and blends only the narrow skin seam. It adds no AI inference, temporal smoothing, queued frames or mesh vertices.
+
+| Workload | Tracking callback median before → after | Tracking callback p95 before → after | Physics/upload median before → after |
+| --- | ---: | ---: | ---: |
+| 512 strands × 8, 288 guides | 2.240 → 2.277 ms | 2.755 → 2.803 ms | 0.833 → 0.846 ms |
+| 2,048 strands × 16, 1,728 guides | 2.770 → 2.876 ms | 3.504 → 3.561 ms | 6.055 → 6.150 ms |
+
+These short CPU fixtures show a small added cost, not a speedup. The final 20-second synthetic portrait run with CPU tracking and 1,024 × 8 strands retained **59.94 matched preview fps**, 120 render fps, zero intervals over 50 ms and zero mismatched video/landmark presentations. Median hair update was 1.257 ms. This is a local synthetic workload, not a guarantee for every camera, GPU or head motion.
+
+The native regression independently deforms eyelids, forehead, mouth and chin while applying immediate yaw/pitch/roll/scale changes. Rigid crown positions differ from the expected transformed reference by at most 0.00016 pixel in that controlled fixture. This validates expression isolation and pose math, not real-world tracking accuracy. Calibration fitting uses cached per-view poses; segmentation and silhouette optimization remain on demand. [Raw reports](performance/crown-stability.json).
+
+### Original shared surface — October 16
+
 Measured October 16, 2026 using Godot 4.7.2 and the same Windows workstation. Baseline: `56fa98f`. The fixture rotates the canonical face through yaw/pitch, warms up for 30 updates, then records 240. It measures the actual studio callback (shared head construction, depth rasterization/upload preparation, virtual guides and hair attachment), followed by native strand simulation and upload preparation.
 
 | Workload | Landmark update median before → after | Landmark update p95 before → after | Physics/upload median before → after |

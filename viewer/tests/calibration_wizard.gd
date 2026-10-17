@@ -43,7 +43,10 @@ func _run() -> void:
 	assert(wizard.stage==0 and wizard.stable==0,"Wrong poses cannot be accepted")
 	var deadline := Time.get_ticks_msec()+20000
 	while wizard.save_button.disabled and Time.get_ticks_msec()<deadline: await process_frame
-	assert(not wizard.save_button.disabled,"Five steady poses complete the wizard")
+	if wizard.save_button.disabled:
+		push_error("Wizard timed out: stage=%d samples=%d stable=%d feedback=%s" % [wizard.stage,wizard.samples,wizard.stable,wizard.feedback.text])
+		quit(1)
+		return
 	assert(wizard.observations.size()==5 and wizard.captures.size()==5)
 	assert(studio.calibration_profile.is_empty(),"Review must not apply an unsaved draft")
 	wizard._save()
