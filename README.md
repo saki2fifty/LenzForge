@@ -15,6 +15,8 @@
 
 **Physics-based facial hair. Live AR in Godot. A demonstrated 60 FPS.**
 
+I built this locally a couple of years ago, and just revisited to update certain features as well as a bit of modernization.
+
 Build a look with beards and mustaches that react to gravity, wind, and head movement; sculpted 3D hairstyles; and background and facial effects. Shape facial strands on a rotatable mannequin, then send your composed camera feed to apps such as Discord.
 
 **Watch the live demo** · 8.9 seconds · 60 FPS
