@@ -1,4 +1,6 @@
 extends VBoxContainer
+const SceneRefs = preload("res://ui/scene_refs.gd")
+var ui_actions: Dictionary = {}
 ## Live model configuration with debounced automatic application and saving.
 signal settings_changed
 var host: Control
@@ -11,36 +13,29 @@ var synced_revision := -1
 var _syncing := false
 var model_status: Label
 var model_signature := ""
-var import_kind := OptionButton.new()
+var import_kind: OptionButton
 var import_dialog := FileDialog.new()
 var import_request := HTTPRequest.new()
-var model_group := VBoxContainer.new()
+var model_group: VBoxContainer
 
 func setup(studio: Control) -> void:
 	host = studio
-	add_theme_constant_override("separation", 8)
-	host._section(self, "MediaPipe", "Changes save and apply automatically. Video keeps playing during model changes.")
-	runtime = host._label("Waiting for backend…", 12, host.ACCENT)
-	runtime.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(runtime)
-	timings = host._label("", 11, host.MUTED)
-	timings.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(timings)
-	_picker("backend", "Processing", ["Auto · fastest measured", "GPU · browser worker", "CPU · native"], ["auto", "gpu", "cpu"])
-	_picker("max_width", "Tracking image width", ["320 px", "480 px", "640 px", "960 px", "Native resolution"], [320,480,640,960,0])
-	add_child(host._button("Models · select / download…", func(): model_group.visible = not model_group.visible))
-	model_group.add_theme_constant_override("separation",8)
-	model_group.hide()
-	add_child(model_group)
-	host._section(model_group, "Models", "Selections save automatically. Download a missing model to activate it.")
+	SceneRefs.bind(self)
+	# OptionButton item metadata is runtime-only; labels and layout are authored.
+	var option_values := {"backend":["auto","gpu","cpu"],"max_width":[320,480,640,960,0],
+		"face_model":["face_landmarker"],"hand_model":["hand_landmarker"],"pose_model":["pose_landmarker_lite"]}
+	for key in option_values:
+		for i in option_values[key].size(): controls[key].set_item_metadata(i,option_values[key][i])
+	for key in controls:
+		var control = controls[key]
+		if control is OptionButton: control.item_selected.connect(func(_v): _edited())
+		elif control is CheckBox: control.toggled.connect(func(_v): _edited())
+		else: control.value_changed.connect(func(_v): _edited())
+	SceneRefs.action(self,"Models · select / download…",func(): model_group.visible = not model_group.visible)
 	for kind in ["face", "hand", "pose"]:
-		var id: String = kind + "_landmarker" + ("_lite" if kind == "pose" else "")
-		_picker(kind+"_model", kind.capitalize()+" model", [id], [id], model_group)
-		model_group.add_child(host._button("Download selected " + kind + " model", func():
-			host._action("/api/tracking/models/download", {"id": controls[kind+"_model"].get_item_metadata(controls[kind+"_model"].selected)})))
-	for kind in ["face", "hand", "pose"]: import_kind.add_item(kind.capitalize())
-	model_group.add_child(import_kind)
-	model_group.add_child(host._button("Import compatible .task…", func(): import_dialog.popup_centered_ratio(.75)))
+		SceneRefs.action(self,"Download selected " + kind + " model",func():
+			host._action("/api/tracking/models/download", {"id":controls[kind+"_model"].get_item_metadata(controls[kind+"_model"].selected)}))
+	SceneRefs.action(self,"Import compatible .task…",func(): import_dialog.popup_centered_ratio(.75))
 	import_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	import_dialog.filters = PackedStringArray(["*.task ; MediaPipe Landmarker bundle"])
@@ -51,58 +46,14 @@ func setup(studio: Control) -> void:
 		var reply = JSON.parse_string(body.get_string_from_utf8())
 		host.message.text = "Validating model…" if code == 202 else str(reply.get("error", {}).get("message", "Import failed")) if reply is Dictionary else "Import failed")
 	add_child(import_request)
-	model_status = host._label("Face: one official bundle. Pose: Lite, Full, Heavy. Custom bundles must match the task and landmark layout.", 11, host.MUTED)
-	model_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	model_group.add_child(model_status)
-	host._section(self, "Detection", "Thresholds and optional outputs apply to the selected models.")
-	_spin("num_faces", "Maximum faces", 1, 4, 1)
-	_spin("detection_confidence", "Detection confidence", 0, 1, .05)
-	_spin("presence_confidence", "Presence confidence", 0, 1, .05)
-	_spin("tracking_confidence", "Tracking confidence", 0, 1, .05)
-	for entry in [["blendshapes", "Expression coefficients"], ["face_transform", "3D face transform"]]:
-		var check := CheckBox.new()
-		check.text = entry[1]
-		check.toggled.connect(func(_v): _edited())
-		controls[entry[0]] = check
-		add_child(check)
-	add_child(host._button("Apply tracking settings", _apply, true))
-	add_child(host._button("Restore tracking defaults", func():
+	SceneRefs.action(self,"Apply tracking settings",_apply)
+	SceneRefs.action(self,"Restore tracking defaults",func():
 		host.pending_settings.erase("/api/tracking/configure")
 		dirty = true
-		host._queue_backend_setting("/api/tracking/reset", {})))
-	explanation = host._label("Auto keeps CPU tracking live while GPU warms up, then compares latency. GPU errors fall back to CPU. Apply again to retry.\n\nOne face enables smoothing. With multiple faces, the desktop follows the first face; JSON includes the others.", 11, host.MUTED)
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(explanation)
+		host._queue_backend_setting("/api/tracking/reset", {}))
 	accept_config({"backend":"auto","max_width":640,"num_faces":1,
 		"detection_confidence":.5,"presence_confidence":.5,"tracking_confidence":.5,
 		"blendshapes":true,"face_transform":true}, -1)
-
-func _picker(key: String, title: String, labels: Array, values: Array, parent: Node = null) -> void:
-	if parent == null: parent = self
-	parent.add_child(host._label(title, 11, host.MUTED))
-	var picker := OptionButton.new()
-	picker.fit_to_longest_item = false
-	picker.clip_text = true
-	for i in labels.size():
-		picker.add_item(labels[i])
-		picker.set_item_metadata(i, values[i])
-	picker.item_selected.connect(func(_v): _edited())
-	controls[key] = picker
-	parent.add_child(picker)
-
-func _spin(key: String, title: String, low: float, high: float, increment: float) -> void:
-	var row := HBoxContainer.new()
-	add_child(row)
-	var label: Label = host._label(title, 11, host.MUTED)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(label)
-	var spin := SpinBox.new()
-	spin.min_value = low; spin.max_value = high; spin.step = increment
-	spin.custom_minimum_size.x = 80
-	spin.value_changed.connect(func(_v): _edited())
-	controls[key] = spin
-	row.add_child(spin)
 
 func _edited() -> void:
 	if not _syncing:

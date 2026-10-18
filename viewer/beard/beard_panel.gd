@@ -1,4 +1,6 @@
 extends VBoxContainer
+const SceneRefs = preload("res://ui/scene_refs.gd")
+var ui_actions: Dictionary = {}
 const Profile = preload("res://beard/beard_profile.gd")
 const Library = preload("res://beard/beard_library.gd")
 const Groom = preload("res://beard/groom_regions.gd")
@@ -30,191 +32,47 @@ var anchor_picker: OptionButton
 func setup(layer: Control, studio: Control) -> void:
 	beard = layer
 	host = studio
-	add_theme_constant_override("separation", 10)
-	host._section(self, "Hair & beard", "Design roots, facial hair, and scalp styles.")
-	enabled_check = _check("Show hair and beard", func(value): beard.set_enabled(value))
-	mannequin_check = _check("Try on mannequin", func(value): beard.set_mannequin(value))
-	mannequin_check.tooltip_text = "Rotate the 3D head by dragging; use the wheel to zoom. Camera capture can stay off."
-	page_picker = OptionButton.new()
-	for title in ["Beard","Roots","Root surface","Mustache","Eyebrows","Scalp hair","Physics","Strands","Library"]: page_picker.add_item(title)
-	add_child(page_picker)
+	SceneRefs.bind(self)
+	enabled_check.toggled.connect(func(value): beard.set_enabled(value))
+	mannequin_check.toggled.connect(func(value): beard.set_mannequin(value))
 	page_picker.item_selected.connect(func(index): show_page(page_picker.get_item_text(index)))
-	var shape := _page("Beard")
-	_config_check(shape,"beard_visible","Include beard")
-	style = OptionButton.new()
-	for title in Profile.STYLES: style.add_item(title)
-	shape.add_child(style)
-	shape.add_child(host._button("Apply beard preset", _create, true))
-	for row in [["strands","Facial strands",16,1024,16],["segments","Segments / strand",2,16,1],
-		["length","Beard length",.02,1.5,.01],["root_width","Starting width",.1,12,.1],
-		["tip_width","Ending width",0,12,.05],["curl","Curl",0,1,.01],["variation","Length variation",0,.8,.01]]:
-		_spin(shape,row[0],row[1],row[2],row[3],row[4])
-	controls.root_width.tooltip_text = "Pixels at a 300-pixel face width; follows face scale."
-	controls.tip_width.tooltip_text = controls.root_width.tooltip_text
-	controls.curl.tooltip_text = "Rest-shape curl; enable Preserve styled shape to hold it against gravity."
-	_color(shape,"root_color","Root color")
-	_color(shape,"tip_color","Tip color")
-	shape.add_child(host._button("Regrow roots",func(): beard.set_setting("seed",randi_range(0,2147483647))))
-
-	var roots_page := _page("Roots")
-	host._section(roots_page,"Expanded coverage","Lower virtual roots wrap around the jaw. Turn off that mode to use custom offsets. Magenta marks generated roots when guides are visible.")
-	_config_check(roots_page,"show_generated_roots","Show generated roots")
-	_color(roots_page,"generated_root_color","Generated point color")
-	_config_check(roots_page,"beard_virtual_roots","Use lower virtual landmarks")
-	_spin(roots_page,"lower_root_depth","Under-jaw / side reach",.05,.7,.01)
-	controls.lower_root_depth.tooltip_text = "Spread lower roots within the rear edge set by the measured landmarks nearest the ears. Automatic beard growth stops there."
-	_config_check(roots_page,"beard_sideburns","Sideburns in front of ears")
-	_spin(roots_page,"sideburn_rise","Sideburn rise",0,1,.05)
-	_spin(roots_page,"sideburn_width","Sideburn wrap width",.02,.2,.01)
-	controls.beard_sideburns.tooltip_text = "Continue the full beard up both sides in front of the ears, using the existing facial strand count."
-	controls.beard_virtual_roots.tooltip_text = "Spread the expanded root share under the jaw and around the lower sides of the shared head, even with guides hidden."
-	for row in [["chin_extension","Below chin",0,.8,.01],["jaw_expansion","Jaw expansion",0,.5,.01],
-		["ear_reach","Toward ears",0,.6,.01],["sideburn_height","Height around ears",0,1,.05],
-		["root_layers","Root layers",1,6,1],["coverage_fill","Expanded root share",0,1,.05]]:
-		_spin(roots_page,row[0],row[1],row[2],row[3],row[4])
-	roots_page.add_child(host._button("Fuller coverage",func():
+	for key in controls: _connect_control(key, controls[key])
+	for key in control_copies:
+		for control in control_copies[key]: _connect_control(key, control)
+	for key in strand_controls: _connect_control(key, strand_controls[key], true)
+	SceneRefs.action(self,"Apply beard preset",_create)
+	SceneRefs.action(self,"Regrow roots",func(): beard.set_setting("seed",randi_range(0,2147483647)))
+	SceneRefs.action(self,"Fuller coverage",func():
 		beard.set_settings({"strands":maxi(512,int(beard.config.strands)),"beard_virtual_roots":true,"lower_root_depth":.35,"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,"chin_extension":.1,"jaw_expansion":.08,"ear_reach":.08,"sideburn_height":.8,"coverage_fill":.6})
-		beard.set_enabled(true)))
-	roots_page.add_child(host._button("Reset coverage",func(): beard.set_settings({"beard_virtual_roots":true,"lower_root_depth":.35,"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0})))
-	roots_page.add_child(host._button("Fit root surface…",func(): show_page("Root surface")))
-
-	var virtual_page := _page("Root surface")
-	host._section(virtual_page,"Hair root surface","All roots attach to the same head surface as the landmarks. These controls distribute roots along that surface.")
-	_config_check(virtual_page,"virtual_enabled","Expand root coverage")
-	virtual_page.add_child(host._button("Show shared landmarks…",func(): host.sidebar_tabs.current_tab = 1))
-	virtual_page.add_child(host._button("Extend root coverage",func():
+		beard.set_enabled(true))
+	SceneRefs.action(self,"Reset coverage",func(): beard.set_settings({"beard_virtual_roots":true,"lower_root_depth":.35,"beard_sideburns":true,"sideburn_rise":.35,"sideburn_width":.06,"chin_extension":0.0,"jaw_expansion":0.0,"ear_reach":0.0,"sideburn_height":0.0}))
+	SceneRefs.action(self,"Fit root surface…",func(): show_page("Root surface"))
+	SceneRefs.action(self,"Show shared landmarks…",func(): host.sidebar_tabs.current_tab = 1)
+	SceneRefs.action(self,"Extend root coverage",func():
 		beard.set_settings(Groom.virtual_preset())
-		beard.set_enabled(true),true))
-	for row in [["crown_height","Scalp coverage",0,.8,.01],["crown_width","Scalp spread",.6,1.8,.02],
-		["crown_back","Crown back reach",0,1,.01],["chin_extension","Below chin",0,.8,.01],
-		["jaw_expansion","Jaw expansion",0,.5,.01],["chin_back","Under-chin depth",0,.5,.01],
-		["ear_reach","Toward ears",0,.6,.01],["side_back","Side / back reach",0,.8,.02],
-		["sideburn_height","Height around ears",0,1,.05]]:
-		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
-	controls.crown_height.tooltip_text = "Expand or contract the hair object's coverage boundary on the fitted head."
-	controls.crown_back.tooltip_text = "Extend the hair object toward the back of the scalp. The default 0.35 covers the full cap."
-	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
-	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. Lower beard coverage is set on Roots; disable Use lower virtual landmarks there to use the offset controls here. Select a strand to attach it to any measured or virtual landmark.")
-
-	var mustache := _page("Mustache")
-	_config_check(mustache,"mustache_enabled","Include mustache")
-	_enum(mustache,"mustache_style","Style",Groom.MUSTACHE_STYLES)
-	_enum(mustache,"mustache_motion","Motion",Groom.MOTIONS)
-	for row in [["mustache_width","Coverage width",.4,2,.05],["mustache_thickness","Coverage thickness",.2,3,.05],
-		["mustache_density","Density / beard",0,3,.1],["mustache_length","Strand length",.005,.6,.005],
-		["mustache_lift","Lift above lip",-.08,.15,.01],["mustache_curl","Tip curl",0,1,.05],
-		["mustache_hold","Shape hold",0,1,.05],["mustache_variation","Length variation",0,.8,.01],
-		["mustache_root_width","Starting width",.1,12,.1],["mustache_tip_width","Ending width",0,12,.05]]:
-		_spin(mustache,row[0],row[1],row[2],row[3],row[4])
-	_color(mustache,"mustache_color","Root color")
-	_color(mustache,"mustache_tip_color","Tip color")
-	host._section(mustache,"Motion modes","Static follows the face without swinging. Styled reacts to motion while holding its shape. Free hangs under gravity.")
-	host._section(mustache,"Mustache physics","Independent from beard, eyebrows, and scalp hair. Changes save automatically.")
-	for row in [["mustache_gravity","Gravity",0,12,.1],["mustache_wind","Horizontal wind",-10,10,.1],
-		["mustache_turbulence","Wind variation",0,5,.05],["mustache_damping","Damping",0,.95,.005]]:
-		_spin(mustache,row[0],row[1],row[2],row[3],row[4])
-	_config_check(mustache,"mustache_collisions","Collide with head surface")
-	controls.mustache_turbulence.tooltip_text = "Adds gusts only while the mustache's horizontal wind is nonzero."
-
-	var brows := _page("Eyebrows")
-	_config_check(brows,"brow_enabled","Include eyebrows")
-	_enum(brows,"brow_style","Style",Groom.BROW_STYLES)
-	_enum(brows,"brow_motion","Motion",Groom.MOTIONS)
-	for row in [["brow_count","Strands (both brows)",16,256,16],["brow_width","Coverage width",.5,1.6,.05],
-		["brow_thickness","Thickness",.005,.12,.005],["brow_arch","Arch",-.05,.15,.005],
-		["brow_length","Strand length",.01,.2,.005],["brow_lift","Lift",-.1,.15,.005],
-		["brow_angle","Growth angle",-1,1,.05],["brow_hold","Shape hold",0,1,.05],
-		["brow_root_width","Starting width",.1,12,.1],["brow_tip_width","Ending width",0,12,.05]]:
-		_spin(brows,row[0],row[1],row[2],row[3],row[4])
-	_color(brows,"brow_color","Color")
-
-	var hair := _page("Scalp hair")
-	host._section(hair,"3D hair objects","Try Side-swept, Center-parted or Long layered. Each sculpted style fits your head in the camera and mannequin.")
-	_enum(hair,"hair_style","Hairstyle",Groom.HAIR_STYLES)
-	for row in [["hair_length","Length / height",.02,1.5,.01],
-		["hair_width","Scalp coverage",.5,1.5,.05],["hair_volume","Volume",0,1,.05],
-		["hairline","Hairline offset",-.2,.25,.01],["hair_sweep","Sweep direction",-1,1,.05],
-		["hair_part","Part position",-.4,.4,.02],["hair_sides","Side volume",0,1,.05],
-		["hawk_width","Mohawk width",.04,.6,.02],["hair_curl","Surface curl",0,1,.05],
-		["hair_frizz","Afro texture",0,1,.05]]:
-		_spin(hair,row[0],row[1],row[2],row[3],row[4])
-	_color(hair,"hair_color","Base color")
-	_color(hair,"hair_tip_color","Highlight color")
-	for key in ["hair_sweep","hair_part","hair_sides"]: controls[key].tooltip_text = "Shapes the Regular hairstyle."
-	controls.hawk_width.tooltip_text = "Controls the width of the solid Mohawk crest."
-	host._section(hair,"Fit and finish","Changes save automatically. Mesh hair follows the head without strand simulation. Clippers trim beard, mustache and eyebrow strands.")
-
-	var physics := _page("Physics")
-	host._section(physics,"Facial hair forces","For beard and eyebrows. Mustache has its own physics on the Mustache page. Static regions keep their shape.")
-	for row in [["gravity","Gravity",0,12,.1],["wind","Horizontal wind",-10,10,.1],
-		["turbulence","Wind variation",0,5,.05],["damping","Damping",0,.95,.005]]:
-		_spin(physics,row[0],row[1],row[2],row[3],row[4])
-	controls.turbulence.tooltip_text = "Adds gusts only while horizontal wind is nonzero."
-	_config_check(physics,"preserve_shape","Preserve styled beard shape")
-	_spin(physics,"stiffness","Beard shape stiffness",0,1,.01)
-	_config_check(physics,"collisions","Collide with head surface")
-	physics.add_child(host._button("Reset motion",func():
-		if beard.simulator: beard.simulator.reset()))
-
-	var strands := _page("Strands")
-	host._section(strands,"Individual strands","Select a beard, mustache or eyebrow root to edit that strand.")
-	select_check = CheckBox.new()
-	select_check.text = "Select strands in preview"
+		beard.set_enabled(true))
+	SceneRefs.action(self,"Reset motion",func():
+		if beard.simulator: beard.simulator.reset())
 	select_check.toggled.connect(func(value): beard.set_edit_strands(value))
-	strands.add_child(select_check)
-	selected_label = host._label("Click a strand root to edit it.",12,host.MUTED)
-	selected_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	strands.add_child(selected_label)
-	selected_group = VBoxContainer.new()
-	selected_group.add_theme_constant_override("separation",8)
-	strands.add_child(selected_group)
-	_spin(selected_group,"length","Length multiplier",0,3,.05,true)
-	_spin(selected_group,"root_width","Starting width",.1,12,.1,true)
-	_spin(selected_group,"tip_width","Ending width",0,12,.05,true)
-	_spin(selected_group,"curl","Curl",0,1,.01,true)
-	_color(selected_group,"root_color","Root color",true)
-	_color(selected_group,"tip_color","Tip color",true)
-	selected_group.add_child(host._label("Attach root to landmark",12,host.MUTED))
-	anchor_picker = OptionButton.new()
-	anchor_picker.fit_to_longest_item = false
-	anchor_picker.clip_text = true
 	anchor_picker.get_popup().about_to_popup.connect(_fill_anchors)
 	anchor_picker.item_selected.connect(func(index):
 		var id: String = anchor_picker.get_item_metadata(index)
 		if not id.is_empty(): beard.set_strand_setting("anchor",id))
-	selected_group.add_child(anchor_picker)
-	selected_group.add_child(host._button("Restore root placement",func():
+	SceneRefs.action(self,"Restore root placement",func():
 		var id: String = beard.selected_key()
 		if beard.overrides.has(id):
 			beard.overrides[id].erase("anchor")
 			beard._rebuild()
-			beard.changed.emit()))
-	selected_group.add_child(host._button("Restore strand defaults",func(): beard.reset_selected()))
-	selected_group.add_child(host._button("Hide this strand",func(): beard.set_strand_setting("length",0.0)))
-
-	var saved := _page("Library")
-	host._section(saved,"Saved looks","Save beard, mustache, eyebrows, scalp hair, and all root settings together.")
-	name_field = LineEdit.new()
-	name_field.placeholder_text = "Look name"
-	name_field.max_length = 80
+			beard.changed.emit())
+	SceneRefs.action(self,"Restore strand defaults",func(): beard.reset_selected())
+	SceneRefs.action(self,"Hide this strand",func(): beard.set_strand_setting("length",0.0))
 	name_field.text_changed.connect(func(value): beard.model_name = value if not value.strip_edges().is_empty() else "My look")
-	saved.add_child(name_field)
-	models = OptionButton.new()
-	models.fit_to_longest_item = false
-	models.clip_text = true
-	saved.add_child(models)
-	for items in [[["Load",_load_selected],["Save",_save],["Copy",_save_copy]],
-		[["Import",func(): import_dialog.popup_centered_ratio(.7)],["Export",_export],["Delete",_ask_delete]]]:
-		var row := HBoxContainer.new()
-		saved.add_child(row)
-		for item in items:
-			var button: Button = host._button(item[0],item[1])
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(button)
-	host._section(saved,"Output","Desktop snapshots include hair. Source recordings and the browser preview do not include this overlay.")
-	stats = host._label("",11,host.MUTED)
-	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(stats)
+	SceneRefs.action(self,"Load",_load_selected)
+	SceneRefs.action(self,"Save",_save)
+	SceneRefs.action(self,"Copy",_save_copy)
+	SceneRefs.action(self,"Import",func(): import_dialog.popup_centered_ratio(.7))
+	SceneRefs.action(self,"Export",_export)
+	SceneRefs.action(self,"Delete",_ask_delete)
 	_setup_dialogs()
 	beard.changed.connect(_sync)
 	beard.strand_selected.connect(func(_index): _sync())
@@ -228,86 +86,37 @@ func setup(layer: Control, studio: Control) -> void:
 	show_page("Beard")
 	_sync()
 
-func _page(title: String) -> VBoxContainer:
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation",10)
-	pages[title] = page
-	add_child(page)
-	return page
+func _connect_control(key: String, control: Control, individual := false) -> void:
+	if control is CheckBox:
+		control.toggled.connect(func(value):
+			if _syncing: return
+			beard.set_setting(key,value)
+			if value and key in ["beard_visible","mustache_enabled","brow_enabled","virtual_enabled"]: beard.set_enabled(true))
+	elif control is OptionButton:
+		control.item_selected.connect(func(index):
+			if _syncing: return
+			var value: String = Groom.ENUMS[key][index]
+			if key == "hair_style":
+				beard.set_settings(Groom.hair_preset(value))
+				if value != "None": beard.set_enabled(true)
+			elif key == "mustache_style":
+				beard.set_settings({"mustache_style":value,"mustache_motion":"Free" if value == "Natural" else "Styled"})
+			else: beard.set_setting(key,value))
+	elif control is ColorPickerButton:
+		control.color_changed.connect(func(color):
+			if _syncing: return
+			if individual: beard.set_strand_setting(key,color.to_html())
+			else: beard.set_setting(key,color.to_html()))
+	else:
+		control.value_changed.connect(func(value):
+			if _syncing: return
+			if individual: beard.set_strand_setting(key,value)
+			else: beard.set_setting(key,int(value) if key in ["strands","segments"] or key in Groom.INTEGERS else value))
 
 func show_page(title: String) -> void:
 	for key in pages: pages[key].visible = key == title
 	for i in page_picker.item_count:
 		if page_picker.get_item_text(i) == title: page_picker.select(i)
-
-func _config_check(parent: Node, key: String, title: String) -> void:
-	var check := CheckBox.new()
-	check.text = title
-	parent.add_child(check)
-	controls[key] = check
-	check.toggled.connect(func(value):
-		if _syncing: return
-		beard.set_setting(key,value)
-		if value and key in ["beard_visible","mustache_enabled","brow_enabled","virtual_enabled"]: beard.set_enabled(true))
-
-func _enum(parent: Node, key: String, title: String, values: Array) -> void:
-	parent.add_child(host._label(title,12,host.MUTED))
-	var picker := OptionButton.new()
-	for value in values: picker.add_item(value)
-	parent.add_child(picker)
-	controls[key] = picker
-	picker.item_selected.connect(func(index):
-		if _syncing: return
-		var value: String = values[index]
-		if key == "hair_style":
-			beard.set_settings(Groom.hair_preset(value))
-			if value != "None": beard.set_enabled(true)
-		elif key == "mustache_style":
-			beard.set_settings({"mustache_style":value,"mustache_motion":"Free" if value == "Natural" else "Styled"})
-		else: beard.set_setting(key,value))
-
-func _check(title: String, action: Callable) -> CheckBox:
-	var check := CheckBox.new()
-	check.text = title
-	check.toggled.connect(action)
-	add_child(check)
-	return check
-
-func _spin(parent: Node, key: String, title: String, minimum: float, maximum: float, step: float, individual := false) -> void:
-	var row := HBoxContainer.new()
-	parent.add_child(row)
-	var label: Label = host._label(title, 12, host.MUTED)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-	var spin := SpinBox.new()
-	spin.min_value = minimum; spin.max_value = maximum; spin.step = step
-	spin.custom_minimum_size.x = 86
-	row.add_child(spin)
-	if individual: strand_controls[key] = spin
-	elif controls.has(key):
-		if not control_copies.has(key): control_copies[key] = []
-		control_copies[key].append(spin)
-	else: controls[key] = spin
-	spin.value_changed.connect(func(value):
-		if _syncing: return
-		if individual: beard.set_strand_setting(key, value)
-		else: beard.set_setting(key, int(value) if key in ["strands", "segments"] or key in Groom.INTEGERS else value))
-
-func _color(parent: Node, key: String, title: String, individual := false) -> void:
-	var row := HBoxContainer.new()
-	parent.add_child(row)
-	var label: Label = host._label(title, 12, host.MUTED)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(label)
-	var picker := ColorPickerButton.new()
-	if key in ["hair_color","hair_tip_color"]: picker.get_picker().edit_alpha = false
-	picker.custom_minimum_size = Vector2(86, 28)
-	row.add_child(picker)
-	(strand_controls if individual else controls)[key] = picker
-	picker.color_changed.connect(func(color):
-		if _syncing: return
-		if individual: beard.set_strand_setting(key, color.to_html())
-		else: beard.set_setting(key, color.to_html()))
 
 func _sync() -> void:
 	_syncing = true

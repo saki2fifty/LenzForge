@@ -1,0 +1,250 @@
+{
+  "configuration": {
+    "utc": "2026-10-18T16:38:56.501518+00:00",
+    "seconds": 20.0,
+    "requested_fps": 60,
+    "tracking_backend": "cpu",
+    "warmup_s": 5.0,
+    "offscreen": true,
+    "vsync": "project",
+    "virtual_camera": false,
+    "source": "public-domain portrait, synthetic 60 fps",
+    "overlay": true,
+    "beard": true,
+    "beard_strands": 1024,
+    "beard_segments": 8,
+    "hair_style": "None",
+    "background_blur": true,
+    "mask_rate": 60,
+    "mask_quality": "fast",
+    "room_cleanup": true,
+    "face_effects": true
+  },
+  "viewer": {
+    "background_blur": {
+      "enabled": true,
+      "frames_with_mask": 1199,
+      "inference_ms": {
+        "max": 10.3943996429443,
+        "mean": 6.14836671777592,
+        "p50": 6.01679992675781,
+        "p95": 7.87440013885498,
+        "p99": 9.25650024414063
+      },
+      "mask_age_ms": {
+        "max": 67.095,
+        "mean": 28.9452435362802,
+        "p50": 33.168,
+        "p95": 50.138,
+        "p99": 50.341
+      }
+    },
+    "beard_frames": 1199,
+    "beard_update_ms": {
+      "max": 2.66,
+      "mean": 1.20387155963303,
+      "p50": 1.169,
+      "p95": 1.498,
+      "p99": 1.829
+    },
+    "displayed_fps": 59.9375569631744,
+    "elapsed_s": 20.004152,
+    "facial_effects": {
+      "distinct_frames_with_effects": 1200,
+      "enabled": true
+    },
+    "frame_age_ms": {
+      "max": 39.3126000061035,
+      "mean": 15.5948034190988,
+      "p50": 14.1855,
+      "p95": 22.8356000061035,
+      "p99": 30.8313999938965
+    },
+    "frame_cap": 120,
+    "frames": 1199,
+    "gaps_over_50_ms": 0,
+    "interval_ms": {
+      "max": 33.455,
+      "mean": 16.6799207011686,
+      "p50": 16.676,
+      "p95": 25.038,
+      "p99": 25.285
+    },
+    "landmark_age_ms": {
+      "max": 42.222799987793,
+      "mean": 18.0400630524598,
+      "p50": 16.5561999816895,
+      "p95": 25.6301999969482,
+      "p99": 33.4901999969482
+    },
+    "landmark_frames": 1199,
+    "mismatched_presentations": 0,
+    "output_cpu_conversion_ms": {},
+    "output_handoff_ms": {},
+    "presented_pair_skew_ms": {
+      "max": 0.0,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0
+    },
+    "render_fps": 120.0,
+    "scalp_mesh_revisions": 3,
+    "scalp_mesh_triangles": 0,
+    "screen_refresh_hz": 60.0,
+    "upload_ms": {
+      "max": 1.0627,
+      "mean": 0.338244703919934,
+      "p50": 0.3167,
+      "p95": 0.4777,
+      "p99": 0.6262
+    },
+    "vsync": 0
+  },
+  "backend": {
+    "camera_active": true,
+    "camera_index": -1,
+    "capture_format": "BGR",
+    "capture_timing": {
+      "convert_ms": {
+        "max": 1.952,
+        "mean": 0.654,
+        "p95": 1.055
+      },
+      "fps": 60.0,
+      "interval_ms": {
+        "max": 18.505,
+        "mean": 16.666,
+        "p95": 17.039
+      },
+      "late_frames": 0,
+      "publish_ms": {
+        "max": 1.312,
+        "mean": 0.208,
+        "p95": 0.417
+      },
+      "read_ms": {
+        "max": 0.101,
+        "mean": 0.029,
+        "p95": 0.041
+      },
+      "sample_count": 240
+    },
+    "clients": 0,
+    "error": null,
+    "fps": 60.0,
+    "frames": 1590,
+    "recording": false,
+    "resolution": [
+      1280,
+      720
+    ],
+    "source": "Demo pattern",
+    "tracking": {
+      "active_backend": "cpu",
+      "applied_revision": 1,
+      "avg_inference_ms": 12.159117699059742,
+      "capture_to_landmarks_p95_ms": 14.506999999999998,
+      "comparison": null,
+      "enabled": true,
+      "error": null,
+      "face_detected": true,
+      "fallback_reason": null,
+      "features": {
+        "face": true,
+        "hands": false,
+        "iris": true,
+        "pose": false
+      },
+      "fps": 60.05169795188959,
+      "frames_dropped": 7,
+      "frames_processed": 1582,
+      "inference_size": [
+        640,
+        360
+      ],
+      "landmark_count": 478,
+      "last_inference_ms": 10.104000015417114,
+      "library": {
+        "job": {
+          "state": "idle"
+        },
+        "models": [
+          {
+            "bytes": 3758596,
+            "id": "face_landmarker",
+            "installed": true,
+            "kind": "face",
+            "label": "Face \u00b7 standard",
+            "official": true,
+            "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+            "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          },
+          {
+            "bytes": 7819105,
+            "id": "hand_landmarker",
+            "installed": true,
+            "kind": "hand",
+            "label": "Hands \u00b7 full",
+            "official": true,
+            "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+            "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+          },
+          {
+            "bytes": 5777746,
+            "id": "pose_landmarker_lite",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Lite",
+            "official": true,
+            "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+          },
+          {
+            "bytes": 9398198,
+            "id": "pose_landmarker_full",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Full",
+            "official": true,
+            "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+          },
+          {
+            "bytes": 30664242,
+            "id": "pose_landmarker_heavy",
+            "installed": true,
+            "kind": "pose",
+            "label": "Pose \u00b7 Heavy",
+            "official": true,
+            "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+            "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+          }
+        ]
+      },
+      "model_ms": 9.585499996319413,
+      "phase": "ready",
+      "processing_time": 10.104000015417114,
+      "queue_size": 0,
+      "renderer": null,
+      "requested_backend": "cpu",
+      "round_trip_p50_ms": 10.655249992851168,
+      "round_trip_p95_ms": 13.393249992805067,
+      "running": true,
+      "settings": {
+        "backend": "cpu",
+        "blendshapes": true,
+        "detection_confidence": 0.5,
+        "face_model": "face_landmarker",
+        "face_transform": true,
+        "hand_model": "hand_landmarker",
+        "max_width": 640,
+        "num_faces": 1,
+        "pose_model": "pose_landmarker_lite",
+        "presence_confidence": 0.5,
+        "tracking_confidence": 0.5
+      },
+      "settings_revision": 1
+    }
+  }
+}

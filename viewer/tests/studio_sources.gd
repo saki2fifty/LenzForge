@@ -10,7 +10,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	# Build controls without _ready(), timers, readers, or live HTTP requests.
-	var studio = load("res://studio.gd").new()
+	var studio = load("res://studio.tscn").instantiate()
 	studio._build_ui()
 	check(studio.connect_button.disabled, "Capture must wait for a real source selection")
 	var cameras := [

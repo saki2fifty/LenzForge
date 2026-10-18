@@ -61,6 +61,10 @@ Capture defaults to 1280×720 at 60 fps; cameras may negotiate a lower supported
 
 The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is available for browser-only development; change `BACKEND` in `viewer/studio.gd` if using a different desktop port.
 
+### Edit the layout in Godot
+
+Import `viewer/project.godot`, open `studio.tscn` from the FileSystem dock, and select **2D**. The saved scene contains the studio layout, toolbar, and all five settings tabs. Expand **LenzForgeStudio → Layout → Studio** to edit controls in the Inspector. If the scene was already open before updating, reload it from disk. See the [Godot editing guide](docs/EDITOR.md) for panel sizing, hidden pages, and runtime settings.
+
 ## Feature tour
 
 ### 3D mannequin and physics-based grooming

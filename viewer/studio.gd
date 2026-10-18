@@ -1,18 +1,14 @@
 extends Control
+const SceneRefs = preload("res://ui/scene_refs.gd")
+var ui_actions: Dictionary = {}
+var _wide_left_width := 206.0
+var _wide_right_width := 320.0
 ## Desktop studio: direct video display, bounded-age tracking, and real backend controls.
-const Overlay = preload("res://landmarks.gd")
-const ExtensionLayer = preload("res://tracking/extension_layer.gd")
-const LandmarksPanel = preload("res://tracking/landmarks_panel.gd")
-const TrackingPanel = preload("res://tracking/tracking_panel.gd")
 const HeadOcclusion = preload("res://tracking/head_occlusion.gd")
-const BeardLayer = preload("res://beard/beard_layer.gd")
-const BeardPanel = preload("res://beard/beard_panel.gd")
-const QuickToolbar = preload("res://ui/quick_toolbar.gd")
 const VirtualCamera = preload("res://output/virtual_camera.gd")
 const HeadProfile = preload("res://tracking/head_profile.gd")
 const CalibrationWizard = preload("res://tracking/calibration_wizard.gd")
 const PortraitEffects = preload("res://effects/portrait_effects.gd")
-const EffectsPanel = preload("res://effects/effects_panel.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -162,245 +158,59 @@ func _section(parent: VBoxContainer, title: String, description := "") -> void:
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		parent.add_child(label)
 
-func _card(parent: Node, width := 0) -> VBoxContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = width
-	panel.add_theme_stylebox_override("panel", _style(PANEL))
-	parent.add_child(panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(scroll)
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(column)
-	return column
-
-func _spacer(parent: Node) -> Control:
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(spacer)
-	return spacer
-
 func _build_ui() -> void:
-	var background := ColorRect.new()
-	background.color = BG
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 20)
-	add_child(margin)
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 16)
-	margin.add_child(root)
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 14)
-	root.add_child(header)
-	header.add_child(_label("LF", 30, ACCENT))
-	var brand := VBoxContainer.new()
-	brand.add_theme_constant_override("separation", 0)
-	header.add_child(brand)
-	brand.add_child(_label("LenzForge", 24))
-	brand.add_child(_label("REAL-TIME AR STUDIO", 10, MUTED))
-	_spacer(header)
-	status = _label("CONNECTING", 12, MUTED)
-	header.add_child(status)
-	header.add_child(_button("Browser controls  ↗", func(): OS.shell_open(backend_url)))
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 16)
-	root.add_child(body)
-	var left := _card(body, 206)
-	left_panel = left.get_parent().get_parent()
-	var compact_theme := Theme.new()
-	compact_theme.default_font_size = 12
-	left_panel.theme = compact_theme
-	_section(left, "01 / Capture", "Choose your webcam by name, then start capture.")
-	source_picker = OptionButton.new()
-	source_picker.add_item("Waiting for cameras…")
-	source_picker.set_item_disabled(0, true)
+	SceneRefs.bind(self)
+	_wide_left_width = left_panel.custom_minimum_size.x
+	_wide_right_width = right_panel.custom_minimum_size.x
+	material_video = video.material.duplicate()
+	video.material = material_video
+	SceneRefs.action(self, "Browser controls  ↗", func(): OS.shell_open(backend_url))
 	source_picker.item_selected.connect(_source_selected)
-	source_picker.custom_minimum_size.y = 38
-	source_picker.fit_to_longest_item = false
-	source_picker.clip_text = true
-	left.add_child(source_picker)
-	left.add_child(_button("Find cameras", _find_cameras))
-	left.add_child(_label("RESOLUTION", 10, MUTED))
-	resolution_picker = OptionButton.new()
-	for item in ["1280 × 720", "1920 × 1080", "640 × 360"]:
-		resolution_picker.add_item(item)
-	left.add_child(resolution_picker)
-	left.add_child(_label("FRAME RATE", 10, MUTED))
-	fps_picker = OptionButton.new()
-	for item in ["30 fps", "60 fps", "24 fps"]:
-		fps_picker.add_item(item)
+	SceneRefs.action(self, "Find cameras", _find_cameras)
+	SceneRefs.action(self, "Start capture", _start)
+	SceneRefs.action(self, "Stop capture", func(): _action("/api/camera/stop", {}))
+	SceneRefs.action(self, "Save snapshot", _snapshot)
+	SceneRefs.action(self, "●  Record source", _toggle_recording)
 	resolution_picker.select(clampi(int(settings.get_value("capture", "resolution", 0)),0,2))
 	fps_picker.select(clampi(int(settings.get_value("capture", "fps", 1)),0,2))
-	left.add_child(fps_picker)
-	connect_button = _button("Start capture", _start, true)
-	connect_button.disabled = true
-	left.add_child(connect_button)
-	left.add_child(_button("Stop capture", func(): _action("/api/camera/stop", {})))
-	left.add_child(HSeparator.new())
-	_section(left, "02 / Tracking", "One tracking worker serves both previews.")
-	for feature in ["face_mesh", "hands", "pose"]:
-		var check := CheckBox.new()
-		check.text = {"face_mesh": "Face + iris", "hands": "Hands", "pose": "Body pose"}[feature]
-		check.button_pressed = feature == "face_mesh"
-		tracking_checks["face" if feature == "face_mesh" else feature] = check
-		check.toggled.connect(func(value): _queue_backend_setting("/api/tracking/enable", {"face_mesh": value, "iris": value} if feature == "face_mesh" else {feature: value}))
-		left.add_child(check)
-	_spacer(left)
-	left.add_child(_label("LOCAL PROCESSING", 10, ACCENT))
-	var privacy := _label("Camera frames stay on this computer.", 12, MUTED)
-	privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	left.add_child(privacy)
-	var center := VBoxContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.add_theme_constant_override("separation", 12)
-	body.add_child(center)
-	var preview_header := HBoxContainer.new()
-	center.add_child(preview_header)
-	preview_header.add_child(_label("Preview", 18))
-	_spacer(preview_header)
-	preview_header.add_child(_label("LIVE WORKSPACE", 10, MUTED))
-	quick_toolbar = QuickToolbar.new()
-	center.add_child(quick_toolbar)
-	var preview := PanelContainer.new()
-	preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preview.add_theme_stylebox_override("panel", _style(Color("080d15"), 14))
-	center.add_child(preview)
-	var canvas := Control.new()
-	canvas.clip_contents = true
-	canvas.custom_minimum_size = Vector2(240, 240)
-	preview.add_child(canvas)
-	video = TextureRect.new()
-	video.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	video.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	video.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	video.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(video)
-	material_video = ShaderMaterial.new()
-	material_video.shader = preload("res://video.gdshader")
-	video.material = material_video
-	beard = BeardLayer.new()
-	beard.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	canvas.add_child(beard)
-	overlay = Overlay.new()
-	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(overlay)
-	extensions = ExtensionLayer.new()
-	extensions.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	canvas.add_child(extensions)
+	for feature in tracking_checks:
+		tracking_checks[feature].toggled.connect(func(value):
+			_queue_backend_setting("/api/tracking/enable", {"face_mesh":value,"iris":value} if feature=="face" else {feature:value}))
 	var saved_extensions = settings.get_value("landmarks", "extensions", {})
 	if saved_extensions is Dictionary and not saved_extensions.is_empty():
 		extensions.set_settings(extensions.model.for_saved_settings(saved_extensions))
 	beard.preview_face_changed.connect(_sync_preview_landmarks)
-	var empty_center := CenterContainer.new()
-	empty_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	empty_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	canvas.add_child(empty_center)
-	empty_state = VBoxContainer.new()
-	empty_state.add_theme_constant_override("separation", 14)
-	empty_center.add_child(empty_state)
-	for item in [["◎", 72, ACCENT], ["Make something expressive.", 23, INK], ["Start a camera to bring your workspace to life.", 13, MUTED], ["No camera? Choose Demo pattern.", 12, MUTED]]:
-		var label := _label(item[0], item[1], item[2])
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_state.add_child(label)
-	metrics = _label("— fps    ·    — landmarks    ·    Waiting for a source", 12, MUTED)
-	metrics.clip_text = true
-	center.add_child(metrics)
-	var actions := HFlowContainer.new()
-	actions.add_theme_constant_override("h_separation", 8)
-	actions.add_theme_constant_override("v_separation", 6)
-	center.add_child(actions)
-	actions.add_child(_button("Save snapshot", _snapshot))
-	record_button = _button("●  Record source", _toggle_recording)
-	actions.add_child(record_button)
-	shortcut_hint = _label("L  landmarks    M  mirror    F11  fullscreen", 10, MUTED)
-	actions.add_child(shortcut_hint)
-	right_panel = PanelContainer.new()
-	right_panel.custom_minimum_size.x = 320
-	right_panel.theme = compact_theme
-	var right_style := _style(PANEL)
-	right_style.content_margin_left = 12
-	right_style.content_margin_right = 12
-	right_panel.add_theme_stylebox_override("panel", right_style)
-	body.add_child(right_panel)
-	sidebar_tabs = TabContainer.new()
-	sidebar_tabs.clip_tabs = true
-	sidebar_tabs.add_theme_font_size_override("font_size", 12)
-	for state in ["tab_selected","tab_unselected","tab_hovered"]:
-		var tab_style := StyleBoxFlat.new()
-		tab_style.bg_color = PANEL if state=="tab_selected" else BG
-		tab_style.content_margin_left = 5
-		tab_style.content_margin_right = 5
-		tab_style.content_margin_top = 5
-		tab_style.content_margin_bottom = 5
-		sidebar_tabs.add_theme_stylebox_override(state,tab_style)
-	right_panel.add_child(sidebar_tabs)
-	var right := _tab_column("Look")
-	_section(right, "03 / Appearance", "Adjust the desktop preview. Recordings keep the original source.")
-	right.add_child(_label("LOOK", 10, MUTED))
-	preset_picker = OptionButton.new()
-	for item in ["Natural", "Monochrome", "Warm film", "Crisp"]:
-		preset_picker.add_item(item)
 	preset_picker.item_selected.connect(_set_look)
-	right.add_child(preset_picker)
 	preset_picker.select(int(settings.get_value("view", "look", 0)))
 	_set_look(preset_picker.selected)
-	exposure_slider = _slider(right, "Exposure", -0.3, 0.3, 0.01, float(settings.get_value("view", "exposure", 0.0)), func(value): material_video.set_shader_parameter("exposure", value))
+	exposure_slider.value = float(settings.get_value("view", "exposure", 0.0))
+	exposure_slider.value_changed.connect(func(value): material_video.set_shader_parameter("exposure",value))
 	material_video.set_shader_parameter("exposure", exposure_slider.value)
-	mirror_check = CheckBox.new()
-	mirror_check.text = "Mirror preview"
 	mirror_check.button_pressed = bool(settings.get_value("view", "mirror", true))
 	mirror_check.toggled.connect(_set_mirror)
-	right.add_child(mirror_check)
 	_set_mirror(mirror_check.button_pressed)
-	right.add_child(_label("PREVIEW PACING",10,MUTED))
-	pacing_picker = OptionButton.new()
-	for title in ["Responsive (up to 120 fps)","Display synchronized","Low power (up to 60 fps)"]: pacing_picker.add_item(title)
-	pacing_picker.fit_to_longest_item = false
-	pacing_picker.tooltip_text = "Responsive avoids VSync stalls and polls new camera frames quickly. Display synchronized prevents tearing. Low power reduces rendering work."
 	var saved_pacing := str(settings.get_value("view","pacing","responsive"))
 	pacing_picker.select(maxi(0,PACING_MODES.find(saved_pacing)))
 	pacing_picker.item_selected.connect(_set_pacing)
-	right.add_child(pacing_picker)
 	_set_pacing(pacing_picker.selected)
-	right.add_child(HSeparator.new())
-	var landmark_column := _tab_column("Landmarks")
-	guides_check = CheckBox.new()
-	guides_check.text = "Show landmark guides"
-	guides_check.tooltip_text = "Show / hide all guide dots while keeping tracking and individual visibility choices."
 	guides_check.button_pressed = bool(settings.get_value("view", "guides", false))
 	guides_check.toggled.connect(_set_guides)
-	landmark_column.add_child(guides_check)
 	_set_guides(guides_check.button_pressed)
-	landmarks_panel = LandmarksPanel.new()
-	landmark_column.add_child(landmarks_panel)
 	landmarks_panel.setup(self, extensions)
-	_section(landmark_column, "Visibility", "Hide landmarks and strands behind the fitted head. Uncheck to inspect hidden guides. Head shape is estimated; hands and room objects are not occluders.")
-	var hide_back := CheckBox.new()
-	occlusion_check = hide_back
-	hide_back.text = "Hide behind head"
 	occlusion.enabled = bool(settings.get_value("view", "occlusion", true))
-	hide_back.button_pressed = occlusion.enabled
-	hide_back.toggled.connect(func(value): occlusion.enabled = value; _refresh_occlusion())
-	landmark_column.add_child(hide_back)
+	occlusion_check.button_pressed = occlusion.enabled
+	occlusion_check.toggled.connect(func(value): occlusion.enabled = value; _refresh_occlusion())
 	occlusion.head_depth = clampf(float(settings.get_value("view", "head_depth", .65)),.25,1.0)
 	occlusion.crown = clampf(float(settings.get_value("view", "head_crown", .20)),0,.5)
 	calibration_profile = HeadProfile.validate(settings.get_value("calibration","profile",{}))
 	occlusion.surface.set_personal_reference(HeadProfile.reference_points(calibration_profile))
 	occlusion.surface.sides = calibration_profile.get("sides",1.0)
 	occlusion.surface.jaw = calibration_profile.get("jaw",1.0)
-	head_depth_slider = _slider(landmark_column, "Head depth", .25, 1.0, .005, occlusion.head_depth, func(value): occlusion.head_depth = value; _refresh_occlusion())
-	head_crown_slider = _slider(landmark_column, "Crown height", 0.0, .5, .005, occlusion.crown, func(value): occlusion.crown = value; _refresh_occlusion())
-	landmark_column.add_child(_button("Calibrate head…",func(): calibration.open()))
+	head_depth_slider.value = occlusion.head_depth
+	head_crown_slider.value = occlusion.crown
+	head_depth_slider.value_changed.connect(func(value): occlusion.head_depth = value; _refresh_occlusion())
+	head_crown_slider.value_changed.connect(func(value): occlusion.crown = value; _refresh_occlusion())
+	SceneRefs.action(self, "Calibrate head…",func(): calibration.open())
 	overlay.occlusion = occlusion
 	extensions.occlusion = occlusion
 	beard.occlusion = occlusion
@@ -410,31 +220,15 @@ func _build_ui() -> void:
 	extensions.model.external_surface = true
 	beard.extension_model = extensions.model
 	beard.mannequin_view.set_surface_shape(occlusion.head_depth,occlusion.crown,occlusion.surface.sides,occlusion.surface.jaw,occlusion.surface.personal_reference)
-	landmark_column.add_child(HSeparator.new())
-	_section(landmark_column, "Measured landmarks")
-	points_check = CheckBox.new()
-	points_check.text = "Show measured landmarks"
 	points_check.button_pressed = bool(settings.get_value("view", "points", true))
 	points_check.toggled.connect(_set_points)
-	landmark_column.add_child(points_check)
 	_set_points(points_check.button_pressed)
-	point_slider = _slider(landmark_column, "Point size", 1.0, 5.0, 0.25, float(settings.get_value("view", "point_size", 2.0)), func(value): overlay.point_size = value; overlay.queue_redraw())
+	point_slider.value = float(settings.get_value("view", "point_size", 2.0))
+	point_slider.value_changed.connect(func(value): overlay.point_size = value; overlay.queue_redraw())
 	overlay.point_size = point_slider.value
-	var color := ColorPickerButton.new()
-	point_color = color
-	color.color = settings.get_value("view", "point_color", ACCENT)
-	overlay.tint = color.color
-	color.custom_minimum_size.y = 32
-	color.color_changed.connect(func(value): overlay.tint = value; overlay.queue_redraw())
-	landmark_column.add_child(color)
-	_spacer(right)
-	right.add_child(_label("DESIGNED FOR LOW LATENCY", 10, ACCENT))
-	var note := _label("Video keeps moving when tracking pauses. Stale overlays clear automatically.", 12, MUTED)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	right.add_child(note)
-	var beard_column := _tab_column("Hair")
-	beard_panel = BeardPanel.new()
-	beard_column.add_child(beard_panel)
+	point_color.color = settings.get_value("view", "point_color", ACCENT)
+	overlay.tint = point_color.color
+	point_color.color_changed.connect(func(value): overlay.tint = value; overlay.queue_redraw())
 	beard_panel.setup(beard, self)
 	beard_panel.message.connect(func(text): message.text = text)
 	beard.changed.connect(func():
@@ -444,29 +238,18 @@ func _build_ui() -> void:
 			extensions.preview = false
 			_clear_tracking())
 	var saved_beard = settings.get_value("beard", "document", {})
-	if saved_beard is Dictionary and not saved_beard.is_empty():
-		beard.apply_document(saved_beard)
+	if saved_beard is Dictionary and not saved_beard.is_empty(): beard.apply_document(saved_beard)
 	beard.set_enabled(bool(settings.get_value("beard", "enabled", true)))
-	var tracking_column := _tab_column("Tracking")
-	tracking_panel = TrackingPanel.new()
-	tracking_column.add_child(tracking_panel)
 	tracking_panel.setup(self)
 	portrait_effects = PortraitEffects.new()
 	add_child(portrait_effects)
 	portrait_effects.setup(self,settings.get_value("effects","settings",{}))
 	portrait_effects.changed.connect(queue_settings_save)
-	var effects_column := _tab_column("Effects")
-	effects_panel = EffectsPanel.new()
-	effects_column.add_child(effects_panel)
 	effects_panel.setup(self,portrait_effects)
-	_compact_panel(right_panel)
 	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,4)
-	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
-	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(message)
 	virtual_camera = VirtualCamera.new()
 	add_child(virtual_camera)
-	virtual_camera.setup(self,canvas)
+	virtual_camera.setup(self,video.get_parent())
 	calibration = CalibrationWizard.new()
 	add_child(calibration)
 	calibration.setup(self)
@@ -474,37 +257,11 @@ func _build_ui() -> void:
 	resized.connect(_adapt_layout)
 	call_deferred("_adapt_layout")
 
-func _tab_column(title: String) -> VBoxContainer:
-	var scroll := ScrollContainer.new()
-	scroll.name = title
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	sidebar_tabs.add_child(scroll)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 8)
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(column)
-	return column
-
 func _adapt_layout() -> void:
 	right_panel.visible = true
-	right_panel.custom_minimum_size.x = 320 if size.x >= 1100 else 296
-	left_panel.custom_minimum_size.x = 206 if size.x >= 1100 else 188
+	right_panel.custom_minimum_size.x = _wide_right_width if size.x >= 1100 else minf(_wide_right_width,296)
+	left_panel.custom_minimum_size.x = _wide_left_width if size.x >= 1100 else minf(_wide_left_width,188)
 	shortcut_hint.visible = size.x >= 1280
-
-func _compact_panel(node: Node) -> void:
-	# Wrap row labels instead of letting their minimum width push the sidebar
-	# beyond the window. Menus use available width, not their longest option.
-	if node is Label and node.get_parent() is HBoxContainer:
-		node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if node is OptionButton:
-		node.fit_to_longest_item = false
-		node.clip_text = true
-	if node is Button:
-		node.add_theme_font_size_override("font_size", 12)
-	if node is SpinBox:
-		node.custom_minimum_size.x = 80
-	for child in node.get_children(): _compact_panel(child)
 
 func _slider(parent: Node, title: String, minimum: float, maximum: float, step: float, value: float, callback: Callable) -> HSlider:
 	parent.add_child(_label(title, 12, MUTED))

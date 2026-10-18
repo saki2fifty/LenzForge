@@ -85,7 +85,7 @@ func _run() -> void:
 	check(not studio.extensions.drawing.visible and studio.overlay.points.is_empty(),"Face loss clears both landmark layers")
 	# Exercise the real settings save/load path in memory, without touching studio.cfg.
 	studio._store_settings()
-	var restored = load("res://studio.gd").new()
+	var restored = load("res://studio.tscn").instantiate()
 	restored.persist_settings = false
 	check(restored.settings.parse(studio.settings.encode_to_text()) == OK,"Studio configuration round trip")
 	restored._build_ui()

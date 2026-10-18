@@ -28,6 +28,7 @@ def main():
                         ('settings-write', ['--script', 'res://tests/studio_settings.gd', '--', 'write']),
                         ('settings-read', ['--script', 'res://tests/studio_settings.gd', '--', 'read']),
                         ('layout', ['--script', 'res://tests/studio_layout.gd']),
+                        ('authored-layout', ['--script', 'res://tests/authored_layout.gd']),
                         ('quick-toolbar', ['--script', 'res://tests/quick_toolbar.gd']),
                         ('virtual-camera', ['--script', 'res://tests/virtual_camera.gd']),
                         ('calibration', ['--script', 'res://tests/calibration.gd']),
