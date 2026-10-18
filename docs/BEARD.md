@@ -1,6 +1,6 @@
 # Hair and beard editor
 
-The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays attached to face landmarks. It includes a native strand solver, tapered colored rendering, an offline mannequin, a saved-look library, and a Blender curve bridge.
+The desktop **Hair** tab creates beard, mustache, eyebrow, and scalp overlays attached to face landmarks. Facial hair uses a native strand solver; scalp hair uses fitted, generated 3D objects. Both appear in live capture and the offline mannequin, with a saved-look library and a Blender curve bridge for facial hair.
 
 The **Full beard** defaults are **1,024 facial strands**, **8 segments per strand**, **0.5 length**, **0.57 curl**, and **0.14 length variation**. Starting/ending widths are **7.4 / 3.05**, with root/tip colors **#0849f4 / #12aadf**. Physics defaults are **12.0 gravity**, **0.0 horizontal wind**, **0.0 wind variation**, and **0.045 damping**.
 
@@ -30,13 +30,13 @@ The C++ extension must be rebuilt after updating an older checkout: close viewer
 
 Switch to the **3D mannequin**, then click **Clippers** in the top toolbar. Its adjacent **▾** dropdown selects **Line** or **Buzz**; both controls are greyed out in camera mode. **Line** cuts when you release a drag from Start to Finish and pauses the hair while you aim. **Buzz** shows an image of electric clippers: hold the left mouse button to run them, move the teeth into hair to cut on contact, and release to stop. Hovering never cuts. Small/Medium/Large blade widths are available in the dropdown. Mode and width autosave; the tool starts disarmed after restart.
 
-Right-drag rotates the head, the wheel zooms, and **Esc** stops the current stroke or leaves the tool. **Undo cut** or **Ctrl+Z** restores up to twelve previous cuts; one held Buzz stroke is one undo step, even if it cuts many times. Other grooming edits clear this temporary history. Buzz follows the swept blade path between input samples, so fast mouse moves do not skip intervening strands. It leaves simulation running while you cut.
+Right-drag rotates the head, the wheel zooms, and **Esc** stops the current stroke or leaves the tool. **Undo cut** or **Ctrl+Z** restores up to twelve previous cuts; one held Buzz stroke is one undo step, even if it cuts many times. Facial grooming edits clear this temporary history; changing the scalp object preserves facial cuts and their undo history. Buzz follows the swept blade path between input samples, so fast mouse moves do not skip intervening strands. It leaves simulation running while you cut.
 
 ![Clippers line across the mannequin's beard](images/clippers.png)
 
 ![Buzz clippers running on contact](images/clippers-buzz.png)
 
-Each stroke cuts the nearest visible strands it crosses from the current view. Hair hidden by other strands or the solid mannequin stays intact; rotate the head or make another pass to reach it. The root-connected part remains attached, with its own shorter length and the **same segment count**. Cutting across an angled line therefore leaves different strand lengths. The cut tip keeps the width and color at the cut point.
+Clippers trim beard, mustache and eyebrow strands. The generated scalp object is shaped with its hairstyle controls. Each stroke cuts the nearest visible strands it crosses from the current view. Hair hidden by other strands, the scalp object or the solid mannequin stays intact; rotate the head or make another pass to reach it. The root-connected part remains attached, with its own shorter length and the **same segment count**. Cutting across an angled line therefore leaves different strand lengths. The cut tip keeps the width and color at the cut point.
 
 Detached ends retain momentum, fall under their region's gravity/wind/damping, and can collide with the head. They fade and are removed after 2.5 seconds of simulation, with a bounded pool and one render batch. Turning the head does not carry detached hair with it. Changing the groom or leaving the mannequin clears loose pieces immediately.
 
@@ -44,7 +44,7 @@ Cuts autosave as ordinary per-strand length, taper, color and guide overrides. T
 
 ## Hair root surface
 
-All roots now fit the same closed head mesh used by virtual landmarks and occlusion. **Hair → Root surface → Extend root coverage** distributes roots across scalp, chin and sides while preserving hairstyle, colors and strand budget. **Expand root coverage** selects that wider procedural distribution; roots always stay on the shared surface.
+Facial roots and the scalp object fit the same closed head mesh used by virtual landmarks and occlusion. **Hair → Root surface → Extend root coverage** expands facial root distribution and scalp-object coverage while preserving hairstyle, colors and strand budget. **Expand root coverage** selects that wider procedural distribution; roots always stay on the shared surface.
 
 **Roots → Use lower virtual landmarks** is enabled by default. It distributes the **Expanded root share** (45% by default) under the chin and around both lower sides, with the remaining beard roots on the measured face. Full beard assigns about a quarter of that expanded share to ear-front sideburns. **Under-jaw / side reach** controls how far backward those roots wrap within the measured ear-side boundary (default 0.35), and **Root layers** distributes them across depth bands. This gives the beard depth at side views without adding strands. The bindings are cached on the shared head triangles, so hidden/disabled guide dots and changing guide density cannot detach the hair. Explicit per-strand landmark attachments take priority.
 
@@ -54,7 +54,7 @@ Automatic beard roots stop at the rear edge defined by the **measured landmarks 
 
 Turn off **Use lower virtual landmarks** to use the older chin/jaw/ear offset controls; those controls are disabled while automatic lower coverage is selected. Goatee and Sideburns constrain the automatic distribution to their corresponding lower regions. The head-fit controls deform both placement modes together.
 
-**Scalp coverage**, **Scalp spread**, regional reach, and coverage controls change where roots lie. Fit the head itself with **Landmarks → Visibility → Head depth / Crown height**. The **Show shared landmarks…** button opens its orange guide controls. The separate hair-only grid has been retired; old look settings remain readable as distribution preferences.
+**Scalp coverage**, **Scalp spread** and **Crown back reach** shape the scalp object’s boundary. Facial coverage controls change where strand roots lie. Fit the head itself with **Landmarks → Visibility → Head depth / Crown height**. The **Show shared landmarks…** button opens its orange guide controls. The separate hair-only grid has been retired; old look settings remain readable as distribution preferences.
 
 The mannequin uses this same mesh and shared triangle bindings, so roots and orange points follow the rendered contour at front, side and rear views. Live capture uses measured face depth to deform the same topology. Unmeasured scalp/back geometry is an estimate, not a reconstruction of the user's head. See [the landmark guide](LANDMARKS.md) for fitting and the common attachment API.
 
@@ -82,25 +82,28 @@ The mannequin uses this same mesh and shared triangle bindings, so roots and ora
 
 **Eyebrows** provides Natural, Straight, Arched, and Bushy styles, with 16–256 hairs across both brows. Set coverage width, thickness, arch, lift, growth angle, strand length, taper, color, and motion. Roots follow the tracked eyebrow contours. Static is the default.
 
-**Scalp hair** provides these procedural starting points:
+### Generated 3D scalp hair
+
+Open **Hair → Scalp hair → Hairstyle** to choose a solid, generated mesh:
 
 | Style | Shape and useful controls |
 | --- | --- |
-| Regular | Swept top and shorter sides; sweep direction, part position, side length. |
-| Mohawk | Narrow central root strip and raised strands; strip width, length, volume. |
-| Afro | Rounded root coverage with coiled outward guides; curl, coil frequency, volume, frizz. |
+| Regular | Swept cap around the crown, temples and back; sweep direction, part position and side volume. |
+| Mohawk | Raised solid crest running from forehead toward the back; width, length/height and volume. |
+| Afro | Rounded, textured volume around the scalp; length/height, volume, surface curl and texture. |
 
-All scalp styles support 32–768 hairs, scalp width, hairline offset, length, volume, curl, clumping, frizz, length variation, taper, root/tip colors, motion, and shape hold. Selecting a preset applies its shape settings and Styled motion. Density, colors, hairline fitting, and custom per-strand guides remain editable. **None** hides scalp hair while retaining its individual edits. Coil frequency is limited to one coil per four segments to avoid undersampling; more segments allow finer curls at higher cost.
+Every style supports scalp coverage, hairline offset, base color and highlight color. The panel shows the controls relevant to the selected style. **None** removes the object. Styles and all shape/color changes autosave and restore after restarting; named library looks retain them too. Selecting a style applies its shape preset and preserves colors.
 
-Scalp roots now cover the fitted **crown, temples, sides and back**, with area-weighted distribution across actual head triangles. The hairline stays high at the front and descends around the ears and back. Regular uses curved 3D guides fitted around the surface; Mohawk follows a narrow front-to-back strip; Afro grows outward in three dimensions. **Scalp width** adjusts lateral coverage, **Hairline offset** raises/lowers the boundary, and **Side length** shortens Regular hair at the sides/back. Saved explicit root attachments still take priority. No virtual-guide visibility switch or separate expansion step is needed for scalp coverage. The existing strand budget is spread over this larger area; use count and widths to adjust visible fullness.
+These are opaque 3D meshes with a closed scalp-facing shell and rim. They use the fitted head shape, stay attached through head turns, and share depth testing with facial hair. Live **Occlusion** hides geometry behind the head; the mannequin always uses its solid head. Hidden landmark guides do not affect fitting. Unmeasured scalp/back geometry remains an anatomical estimate.
 
-![Regular scalp coverage from the side](images/scalp-side.png)
+Meshes are generated when their shape or head fit changes. During tracking, a single transform follows the rigid skull frame, outside its expression-sensitive seam. Blinks and mouth movements do not deform the hair. Color changes reuse geometry, and changing a hairstyle does not reset beard or mustache physics. Scalp hair consumes no simulated strands or segment budget and has no gravity, wind or strand-motion controls.
 
-The shared head fit remains an anatomical estimate, including when calibrated. These styles follow its shape and the shared head collision settings. Cuts and Blender round-trips preserve spatial guides, including depth.
+Older looks retain their chosen style, colors and compatible shape controls. Obsolete scalp strand counts, widths, motion and `hair:N` edits remain readable but do not affect the generated object. Clippers and Blender curve editing apply to facial strands; they do not sculpt the scalp mesh. The exported look still preserves the mesh hairstyle settings.
 
-![Regular swept hairstyle](images/groom-regular.png)
-![Mohawk hairstyle](images/groom-mohawk.png)
-![Afro hairstyle](images/groom-afro.png)
+![Regular scalp object from the side](images/scalp-side.png)
+![Regular swept object](images/groom-regular.png)
+![Mohawk object](images/groom-mohawk.png)
+![Afro object](images/groom-afro.png)
 
 ### Motion modes
 
@@ -108,15 +111,15 @@ The shared head fit remains an anatomical estimate, including when calibrated. T
 - **Styled:** reacts to forces and movement while a shape-hold spring pulls toward the selected or imported guide. Set hold lower for a softer style.
 - **Static:** follows face position, scale, and roll without swinging. Gravity and wind do not deform it; integration and constraint work are skipped.
 
-The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache, eyebrows, and scalp have independent motion selectors. The **Physics** page controls beard/brow/scalp forces and collision; **Mustache** controls its own forces and collision. Head collision also applies to static guides. Roots have a small clearance based on strand width; moving strands slide along the skin, and collision takes priority over small residual segment stretch.
+The beard uses **Physics → Preserve styled beard shape** to switch between Free and Styled. Mustache and eyebrows have independent motion selectors. The **Physics** page controls beard/brow forces and collision; **Mustache** controls its own forces and collision. Head collision also applies to static guides. Roots have a small clearance based on strand width; moving strands slide along the skin, and collision takes priority over small residual segment stretch.
 
 ## Beard and shared physics controls
 
 | Control | Behavior |
 | --- | --- |
-| Facial strands | 16–1,024 hairs shared by beard and mustache; default 1,024. Optional brows and scalp have separate budgets; total maximum is 2,048. |
+| Facial strands | 16–1,024 hairs shared by beard and mustache; default 1,024. Optional brows add up to 256 strands; total maximum is 1,280. Scalp meshes use no strands. |
 | Segments per strand | 2–16 joints along each hair; default 8. More segments allow finer bends and cost more CPU time. |
-| Beard length | Length relative to tracked face width, with region-specific factors. Mustache, brows, and scalp use their own length controls. |
+| Beard length | Length relative to tracked face width, with region-specific factors. Mustache and brows use their own strand-length controls. |
 | Starting / ending width | Taper endpoints in pixels at a 300-pixel-wide face; widths follow face scale. Zero ending width gives a pointed tip. |
 | Curl / length variation | Rest-shape curl and seeded variation between strands. |
 | Root / tip color | RGBA endpoint colors interpolated along the strand. |
@@ -126,10 +129,10 @@ The beard uses **Physics → Preserve styled beard shape** to switch between Fre
 | Damping | Removes a fraction of velocity each physics step; default 0.045. It controls how long motion persists. Very high damping can make falling sluggish. |
 | Preserve styled beard shape | Off by default, including for files saved before this option existed. Enable it to hold beard curls or an imported rest shape against gravity. |
 | Beard shape stiffness | Used only with **Preserve styled beard shape**. Pulls toward the original curled or imported shape. |
-| Collide with head surface | Keeps beard/brow/scalp strands outside the shared 3D head, including the space between strand joints. Mustache has its own collision toggle. Both default on and work independently of visual occlusion. |
+| Collide with head surface | Keeps beard/brow strands outside the shared 3D head, including the space between strand joints. Mustache has its own collision toggle. Both default on and work independently of visual occlusion. |
 | Reset motion | Clears velocity and hangs the strands downward, or restores their rest shape when **Preserve styled shape** is enabled. |
 
-On **Strands**, enable **Select strands in preview**, then click a root in any region. **Attach root to landmark** places it on any measured or virtual guide; this binding autosaves and survives guide-density changes. **Restore root placement** clears only that binding. The selected strand is highlighted. Its length multiplier, starting/ending widths, curl, and colors can override its region settings. **Hide this strand** sets its length to zero; **Restore strand defaults** removes its overrides. Turn selection off to drag the mannequin again. Facial IDs retain their original numeric form; brows use `brow:N` and scalp uses `hair:N`. Hiding an optional region keeps its edits. Reducing a region's strand count removes edits outside the new count.
+On **Strands**, enable **Select strands in preview**, then click a beard, mustache or eyebrow root. **Attach root to landmark** places it on any measured or virtual guide; this binding autosaves and survives guide-density changes. **Restore root placement** clears only that binding. The selected strand is highlighted. Its length multiplier, starting/ending widths, curl, and colors can override its region settings. **Hide this strand** sets its length to zero; **Restore strand defaults** removes its overrides. Turn selection off to drag the mannequin again. Facial IDs retain their original numeric form; brows use `brow:N`. Hiding an optional region keeps its edits. Reducing a region's strand count removes edits outside the new count.
 
 ## Save and exchange designs
 
@@ -137,7 +140,7 @@ Open **Library**, enter a name, and click **Save**. Each look includes all regio
 
 The library is in Godot's `user://beards`, normally `%APPDATA%\Godot\app_userdata\LenzForge Studio\beards` on Windows. Files use generated IDs so names can contain ordinary punctuation. JSON saves use a temporary file followed by replacement. Thumbnails show a neutral mannequin; no live camera image is stored in them.
 
-**Export** writes a version 2 `.json` file with settings, per-strand overrides, and neutral curve geometry. Version 1 beard files still load, with optional scalp/brow regions disabled. **Import** validates and opens a file; click Save to add it to the library. File size is limited to 16 MB, strand counts and numeric ranges are bounded, and invalid files leave the current look unchanged. The maximum combined export with 65-point custom guides was tested at about 10.2 MB.
+**Export** writes a version 2 `.json` file with settings, per-strand overrides, and neutral facial curve geometry. Generated scalp settings are retained without converting the mesh into curves. Version 1 beard files still load, with optional scalp/brow regions disabled. **Import** validates and opens a file; click Save to add it to the library. File size is limited to 16 MB, strand counts and numeric ranges are bounded, and invalid files leave the current look unchanged. Dense 65-point custom facial guides are included in the bounded export regression.
 
 ### Blender workflow
 
@@ -157,19 +160,19 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 Live-camera hair uses a transparent, depth-tested 3D layer composited over the video. Virtual attachment uses relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. The shared head-depth map clips far-side roots and strand fragments; turn it off under Landmarks → Visibility to inspect hidden guides.
 
-The live preview and mannequin use native 3D strand dynamics. Each segment carries its own endpoint depths into rendering, so collision can move hair around the head without flattening it to the root depth. The collider follows the shared head mesh, uses a directional triangle lookup for point contacts, and sweeps links to prevent intersections between joints. Head updates refit the lookup; there are no per-strand scene nodes, rigid bodies or GPU readbacks. The solid outer envelope closes small tracking degeneracies. Live scalp/back shape is still estimated; this does not add hair-to-hair, shoulder, hand or room-object collision. Blender exports retain editable rest guides with all three coordinates at the shared 3D roots, rather than exporting the current simulated pose.
+Facial hair in the live preview and mannequin uses native 3D strand dynamics. Each segment carries its own endpoint depths into rendering, so collision can move hair around the head without flattening it to the root depth. The collider follows the shared head mesh, uses a directional triangle lookup for point contacts, and sweeps links to prevent intersections between joints. Head updates refit the lookup; there are no per-strand scene nodes, rigid bodies or GPU readbacks. The solid outer envelope closes small tracking degeneracies. Live scalp/back shape is still estimated; this does not add hair-to-hair, shoulder, hand or room-object collision. Blender exports retain editable rest guides with all three coordinates at the shared 3D roots, rather than exporting the current simulated pose.
 
-The mannequin builds its mesh only when first opened. Root fitting is cached between setting changes, and hair uses one instanced batch with the native packed buffer uploaded directly to a bounded texture. Both previews share that uploader and spatial shader. The live layer uses GPU depth and color passes, followed by a single video-overlay composite; there is no CPU sorting during movement or GPU readback. The viewports follow the displayed preview resolution, capped at 720 pixels high, and stop rendering when inactive. With hair disabled, it renders only when the pose, fitting, visibility, or size changes. Library thumbnails use the same head at thumbnail resolution.
+The mannequin builds its mesh only when first opened. Root fitting is cached between setting changes, and facial hair uses one instanced batch with the native packed buffer uploaded directly to a bounded texture. Both previews share that uploader and spatial shader. Scalp hair adds one generated mesh object to the same depth-tested viewport. The live layer uses GPU depth and color passes, followed by a single video-overlay composite; there is no CPU sorting during movement or GPU readback. The viewports follow the displayed preview resolution, capped at 720 pixels high, and stop rendering when inactive. With hair disabled, it renders only when the pose, fitting, visibility, or size changes. Library thumbnails use the same head at thumbnail resolution.
 
 Physics runs in the C++ GDExtension at a fixed 120 Hz, with at most four catch-up steps. Roots interpolate between tracking updates; free points retain world-space momentum. Neighboring free points share tension corrections, followed by a length correction pass. Strand points use contiguous arrays; rest directions are prepared only when a design changes. One instanced GPU batch draws all segments with taper and edge antialiasing. There is no scene node or rigid body per strand. Disabled or untracked beards stop simulation. The camera, shared-memory readers, and inference worker stay independent.
 
 On the development Ryzen 5 5500 / RX 7900 XTX machine, the corrected free-hanging solver at the then-default 256 × 8 size averaged **0.57 ms** for physics plus packed upload preparation. The 20-second webcam run reported 60 FPS rendering and about 60 FPS capture. These costs exclude landmark attachment, GPU completion, and presentation; see [measurements and limits](PERFORMANCE.md#beard-physics), including the earlier solver's maximum-density run.
 
-The expanded 864 × 8 combined look averaged **2.77 ms including root attachment, generated markers, physics, and upload preparation** in an offline animated-face test. The maximum 2,048 × 16 setting averaged 10.76 ms with markers. These synthetic timings exclude camera/inference and GPU completion; see the [combined measurements](PERFORMANCE.md#combined-hair-regions). All regions share one native solver and one hair draw batch.
+Before scalp objects replaced scalp strands, the expanded 864 × 8 combined look averaged **2.77 ms including root attachment, generated markers, physics, and upload preparation** in an offline animated-face test. The maximum 2,048 × 16 setting averaged 10.76 ms with markers. These synthetic timings exclude camera/inference and GPU completion; see the [combined measurements](PERFORMANCE.md#combined-hair-regions). Those figures describe the retired all-strand implementation. Current generated-object measurements are in [Performance](PERFORMANCE.md#generated-scalp-objects).
 
 ## Design references
 
-The presets translate recognizable styling features into inexpensive 2D guides; they are not reconstructions of particular people's hair. The Regular preset uses a swept part and shorter sides informed by [Wahl's side-part guide](https://wahlusa.com/how-to/haircutting/mens-haircuts/side-part). The raised Mohawk strip follows the central, upward styling idea illustrated in [Wahl's home haircutting guide](https://wahlusa.com/media/wahl-home-haircutting.pdf). The rounded Afro silhouette and coil controls draw on [Afrocenchix's discussion of natural Afro styles](https://afrocenchix.com/blogs/afrohair/love-your-fro-celebrating-afro-hair-on-world-afro-day).
+The presets translate recognizable styling features into generated 3D meshes and facial-hair guides; they are not reconstructions of particular people's hair. The Regular preset uses a swept part and shorter sides informed by [Wahl's side-part guide](https://wahlusa.com/how-to/haircutting/mens-haircuts/side-part). The raised Mohawk strip follows the central, upward styling idea illustrated in [Wahl's home haircutting guide](https://wahlusa.com/media/wahl-home-haircutting.pdf). The rounded Afro silhouette and surface texture draw on [Afrocenchix's discussion of natural Afro styles](https://afrocenchix.com/blogs/afrohair/love-your-fro-celebrating-afro-hair-on-world-afro-day).
 
 Guide-based clumping and seeded strand variation are informed by Blender's [Clump Hair Curves](https://docs.blender.org/manual/en/4.4/modeling/geometry_nodes/hair/guides/clump_hair_curves.html) and [Frizz Hair Curves](https://docs.blender.org/manual/en/4.0/modeling/geometry_nodes/hair/deformation/frizz_hair_curves.html) controls. The root system uses the existing [MediaPipe Face Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker); no extra detection model is needed.
 
@@ -192,4 +195,6 @@ Additional checks requiring a graphics context or Blender:
 .\buildtools\python-3.15.0\python.exe -B tools\check_blender.py --blender 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe'
 ```
 
-The rendered checks exercise pixels, generated-marker colors, presets, visibility, strand selection, controls, and library thumbnails using a mannequin. `viewer/tests/mannequin_probe.gd` is part of `tools/check.py`; it verifies true 3D projection, profile/rear attachment, orbit, zoom, mirroring, and the return to live rendering. Run `viewer/tests/mannequin_render.gd` with the same Godot command pattern above to check front/side/rear screenshots, depth occlusion, actual 3D hair pixels, maximum GPU allocation, and idle viewport shutdown. The Blender check exports all regions from Godot, edits real curves, exports them, then runs the returned guides through native physics. Checks write synthetic artifacts under `artifacts/`. The rendered editor, capture, and performance probes disable settings persistence to preserve the user's working design.
+The rendered checks exercise pixels, generated-marker colors, presets, visibility, strand selection, controls, and library thumbnails using a mannequin. `viewer/tests/mannequin_probe.gd` is part of `tools/check.py`; it verifies true 3D projection, profile/rear attachment, orbit, zoom, mirroring, and the return to live rendering. Run `viewer/tests/mannequin_render.gd` with the same Godot command pattern above to check front/side/rear screenshots, depth occlusion, actual 3D hair pixels, maximum GPU allocation, and idle viewport shutdown. The Blender check exports facial regions from Godot, edits real curves, exports them, then runs the returned guides through native physics while preserving scalp-object settings. Checks write synthetic artifacts under `artifacts/`. The rendered editor, capture, and performance probes disable settings persistence to preserve the user's working design.
+
+`viewer/tests/scalp_mesh.gd` checks closed mesh topology, crown/side/back coverage, bounded geometry, expression-independent pose, caching, settings restoration and isolation from facial physics. `viewer/tests/scalp_mesh_render.gd` checks live projection, shared mesh/strand depth and the head-occlusion toggle with a graphics context.

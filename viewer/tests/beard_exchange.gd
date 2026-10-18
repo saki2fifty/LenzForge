@@ -11,7 +11,7 @@ func _run() -> void:
 	var library := Library.new()
 	if args[0] == "export":
 		var config := Profile.defaults()
-		config.strands = 256 # Fixed interchange fixture: 256 facial + 96 brow + 512 scalp.
+		config.strands = 256 # Fixed interchange fixture: 256 facial + 96 brow; scalp style stays in settings.
 		config.merge(Groom.virtual_preset(),true)
 		config.hair_style = "Afro"; config.brow_enabled = true; config.chin_extension = .1
 		config.mustache_motion = "Static"
@@ -24,12 +24,12 @@ func _run() -> void:
 		if not loaded.error.is_empty(): print(loaded.error); quit(1); return
 		if not loaded.data.strands["0"].has("guide") or not is_equal_approx(float(loaded.data.strands["0"].root_width),3.2):
 			print("Blender edits were not preserved"); quit(1); return
-		if not loaded.data.strands.has("hair:0") or not loaded.data.strands.has("brow:0") or loaded.data.settings.mustache_motion != "Static":
+		if not loaded.data.strands.has("brow:0") or loaded.data.settings.hair_style != "Afro" or loaded.data.settings.mustache_motion != "Static":
 			print("Regional hair edits or motion settings were lost"); quit(1); return
 		if not loaded.data.settings.virtual_enabled or not is_equal_approx(float(loaded.data.settings.crown_height),.42):
 			print("Virtual head fitting was lost"); quit(1); return
-		if not is_equal_approx(float(loaded.data.strands["hair:0"].root_width),4.5):
-			print("Scalp curve edit was not preserved"); quit(1); return
+		if not is_equal_approx(float(loaded.data.strands["brow:0"].root_width),4.5):
+			print("Eyebrow curve edit was not preserved"); quit(1); return
 		var layer = load("res://beard/beard_layer.gd").new()
 		root.add_child(layer)
 		layer.apply_document(loaded.data)

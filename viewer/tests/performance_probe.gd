@@ -38,12 +38,16 @@ func _run() -> void:
 	if args.size() > 10 and args[10] != "project":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if args[10] == "on" else DisplayServer.VSYNC_DISABLED)
 	studio.set_process_unhandled_key_input(false)
-	studio.beard.set_enabled(args.size() > 6 and args[6] == "1")
+	var facial := args.size()>6 and args[6]=="1"
+	var scalp_style := args[12] if args.size()>12 else "None"
+	studio.beard.set_enabled(facial or scalp_style!="None")
 	if studio.beard.enabled:
 		var profile = load("res://beard/beard_profile.gd")
 		studio.beard.apply_document(profile.document("Benchmark",profile.defaults(),{}))
 		studio.beard.set_setting("strands",int(args[7]))
 		studio.beard.set_setting("segments",int(args[8]))
+		if not facial: studio.beard.set_settings({"beard_visible":false,"mustache_enabled":false,"brow_enabled":false})
+	if scalp_style!="None": studio.beard.set_settings(preload("res://beard/groom_regions.gd").hair_preset(scalp_style))
 	if args.size() > 4:
 		studio.fps_picker.select({30: 0, 60: 1, 24: 2}[int(args[4])])
 	if args.size() > 5:
@@ -130,6 +134,7 @@ func _run() -> void:
 		"landmark_age_ms": distribution(landmark_ages), "landmark_frames": landmark_ages.size(),
 		"presented_pair_skew_ms":distribution(pair_skews),"mismatched_presentations":pair_mismatches,
 		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size(),
+		"scalp_mesh_triangles":studio.beard.live_view.scalp.triangle_count,"scalp_mesh_revisions":studio.beard.live_view.scalp.revision,
 		"output_handoff_ms":distribution(output_readbacks),"output_cpu_conversion_ms":distribution(output_conversions)}
 	if studio.virtual_camera.active: result["virtual_camera"] = studio.virtual_camera.writer.get_status()
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))

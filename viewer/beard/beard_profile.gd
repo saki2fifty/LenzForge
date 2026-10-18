@@ -131,7 +131,7 @@ static func with_geometry(data: Dictionary) -> Dictionary:
 	surface.set_reference()
 	var fitted := preload("res://beard/surface_groom.gd").build(surface,config,bindings,data.get("strands",{}))
 	var roots := surface.sample(fitted)
-	var spatial := preload("res://beard/scalp_groom.gd").guides(surface,config,bindings,fitted,data.get("strands",{}))
+	var spatial := preload("res://beard/strand_guides.gd").guides(config,bindings,data.get("strands",{}))
 	var guides: Array = []
 	for i in bindings.size():
 		var a: Dictionary = bindings[i]

@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--beard', action='store_true', help='Enable the default physics beard')
     parser.add_argument('--beard-strands', type=int, default=256)
     parser.add_argument('--beard-segments', type=int, default=8)
+    parser.add_argument('--hair-style', choices=['None', 'Regular', 'Mohawk', 'Afro'], default='None', help='Include a generated 3D scalp hair object')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--tracking-backend', choices=['auto', 'gpu', 'cpu'], default='auto')
     parser.add_argument('--warmup', type=float, default=8)
@@ -78,6 +79,7 @@ def main():
     command.append(str(args.warmup))
     command.append(args.vsync)
     command.append('1' if args.virtual_camera else '0')
+    command.append(args.hair_style)
     if args.offscreen:
         command[1:1] = ['--position', '-3000,0']
     try:
@@ -97,7 +99,7 @@ def main():
                   'virtual_camera': args.virtual_camera,
                   'source': f'public-domain portrait, synthetic {args.fps} fps' if args.portrait else 'camera' if args.camera >= 0 else 'demo',
                   'overlay': not args.no_overlay, 'beard': args.beard, 'beard_strands': args.beard_strands,
-                  'beard_segments': args.beard_segments},
+                  'beard_segments': args.beard_segments, 'hair_style': args.hair_style},
                   'viewer': json.loads(lines[-1].split(' ', 1)[1]), 'backend': status}
         # Mapping names identify only this transient session and add no value to reports.
         report['backend'].pop('buffers', None)

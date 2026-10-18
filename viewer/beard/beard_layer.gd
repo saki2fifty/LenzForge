@@ -3,6 +3,7 @@ const Profile = preload("res://beard/beard_profile.gd")
 const Groom = preload("res://beard/groom_regions.gd")
 const MannequinView = preload("res://mannequin/mannequin_view.gd")
 const SurfaceGroom = preload("res://beard/surface_groom.gd")
+const ScalpMesh = preload("res://beard/scalp_mesh.gd")
 var surface := preload("res://tracking/head_surface.gd").new()
 var external_surface := false
 var extension_model: RefCounted
@@ -141,6 +142,11 @@ func set_settings(values: Dictionary) -> void:
 	if not Profile.validate(candidate).is_empty(): return
 	config = candidate.settings
 	overrides = candidate.strands
+	# Scalp objects never reset or reconfigure facial strand physics.
+	if values.keys().all(func(key): return key in ScalpMesh.EDIT_KEYS):
+		_update_scalp()
+		changed.emit()
+		return
 	var forces_only := simulator != null and not root_bindings.is_empty()
 	for key in values:
 		if key not in ["gravity","wind","turbulence","damping","mustache_gravity","mustache_wind","mustache_turbulence","mustache_damping"]: forces_only = false
@@ -184,6 +190,7 @@ func set_enabled(value: bool) -> void:
 	elif _face_live: _attach()
 	if mannequin:
 		mannequin_view.update_hair(PackedFloat32Array(),int(config.segments),enabled)
+		mannequin_view.update_scalp(config,enabled)
 		_update_root_markers()
 		_update_virtual_markers()
 	queue_redraw()
@@ -236,6 +243,7 @@ func clear_face() -> void:
 	if not external_surface: surface.clear()
 	face_seen_at = 0
 	live_view.hide()
+	live_view.scalp.invalidate_fit()
 	root_markers.hide()
 	virtual_markers.hide()
 	virtual_points.clear()
@@ -267,7 +275,7 @@ func _rebuild(preserve_cut_history := false) -> void:
 	var placement := {}
 	for key in ["style","strands","seed","mustache_enabled","mustache_density","mustache_width","mustache_thickness","mustache_lift",
 		"brow_enabled","brow_count","brow_width","brow_thickness","brow_lift","brow_arch","brow_style",
-		"hair_style","hair_count","hawk_width","hair_width","hairline","crown_width","crown_height","crown_back",
+		"crown_width","crown_height","crown_back",
 		"chin_extension","jaw_expansion","ear_reach","sideburn_height","root_layers","coverage_fill","chin_back","side_back",
 		"virtual_enabled","virtual_columns","virtual_rows","beard_virtual_roots","lower_root_depth",
 		"beard_sideburns","sideburn_rise","sideburn_width"]: placement[key] = config[key]
@@ -294,7 +302,7 @@ func _rebuild(preserve_cut_history := false) -> void:
 	var steps := PackedVector2Array()
 	var options := PackedFloat32Array()
 	var spatial := PackedVector3Array()
-	var guides := preload("res://beard/scalp_groom.gd").guides(source,config,attachment,root_bindings,overrides) if config.hair_style != "None" or overrides.values().any(func(edit): return edit.has("guide3d")) else {}
+	var guides := preload("res://beard/strand_guides.gd").guides(config,attachment,overrides) if overrides.values().any(func(edit): return edit.has("guide3d")) else {}
 	attributes.resize(attachment.size() * 12)
 	options.resize(attachment.size()*4)
 	for i in attachment.size():
@@ -325,6 +333,7 @@ func _rebuild(preserve_cut_history := false) -> void:
 		last_error = "The strand layering could not be applied."
 		return
 	last_error = ""
+	_update_scalp()
 	root_markers.material.set_shader_parameter("point_color",Color.html(config.generated_root_color))
 	virtual_markers.material.set_shader_parameter("point_color",Color.html(config.virtual_color))
 	if _face_live: _attach()
@@ -357,6 +366,7 @@ func _attach() -> void:
 	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
 	if not simulator.set_anchors_3d(positions, width, down, right, mouth, radii): clear_face(); return
 	live_view.visible = enabled
+	live_view.update_scalp(surface,config,enabled)
 	_update_root_markers()
 	_update_virtual_markers()
 
@@ -381,8 +391,13 @@ func _attach_mannequin() -> void:
 	else: simulator.set_head_surface(PackedVector3Array(),PackedInt32Array())
 	if not simulator.set_anchors_3d(mannequin_view.root_camera_positions,width,down,right,mouth,radii): clear_face(); return
 	live_view.hide()
+	mannequin_view.update_scalp(config,enabled)
 	_update_root_markers()
 	_update_virtual_markers()
+
+func _update_scalp() -> void:
+	if mannequin: mannequin_view.update_scalp(config,enabled)
+	else: live_view.update_scalp(surface,config,enabled)
 
 func _fit_bindings(source: RefCounted) -> void:
 	root_bindings = SurfaceGroom.build(source,config,attachment,_binding_overrides)

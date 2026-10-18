@@ -84,6 +84,7 @@ static func validate(config: Dictionary) -> String:
 	return ""
 
 static func valid_id(id: String, config: Dictionary) -> bool:
+	# Retain old hair:N overrides in saved looks; mesh hair never simulates them.
 	if id.is_valid_int(): return id == str(int(id)) and int(id) >= 0 and int(id) < int(config.strands)
 	var pieces := id.split(":")
 	if pieces.size() != 2 or not pieces[1].is_valid_int() or str(int(pieces[1])) != pieces[1]: return false
@@ -92,9 +93,9 @@ static func valid_id(id: String, config: Dictionary) -> bool:
 
 static func hair_preset(style: String) -> Dictionary:
 	match style:
-		"Mohawk": return {"hair_style":style,"hair_length":.4,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.03,"hair_frizz":.05,"hair_clump":.7,"hair_sides":0.0,"hair_hold":.85,"hair_motion":"Styled"}
-		"Afro": return {"hair_style":style,"hair_length":.45,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.9,"hair_coils":1.75,"hair_frizz":.15,"hair_clump":.15,"hair_sides":1.0,"hair_hold":.9,"hair_motion":"Styled"}
-		"Regular": return {"hair_style":style,"hair_length":.32,"hair_volume":.35,"hair_sweep":.65,"hair_curl":.08,"hair_frizz":.08,"hair_clump":.35,"hair_sides":.4,"hair_hold":.65,"hair_motion":"Styled"}
+		"Mohawk": return {"hair_style":style,"hair_length":.4,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.03,"hair_frizz":.05,"hair_sides":0.0}
+		"Afro": return {"hair_style":style,"hair_length":.45,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.9,"hair_frizz":.15,"hair_sides":1.0}
+		"Regular": return {"hair_style":style,"hair_length":.32,"hair_volume":.35,"hair_sweep":.65,"hair_curl":.08,"hair_frizz":.08,"hair_sides":.4}
 	return {"hair_style":"None"}
 
 static func virtual_preset() -> Dictionary:
@@ -169,35 +170,7 @@ static func append_regions(config: Dictionary, bindings: Array) -> void:
 			bindings.append({"id":"brow:%d"%i,"region":"brow","zone":"Eyebrow","synthetic":true,
 				"indices":Vector3i(path[segment],path[segment+1],path[segment]),"weights":Vector3(1-fmod(t*4,1),fmod(t*4,1),0),
 				"offset":Vector2.ZERO,"side":side,"u":t,"v":rng.randf()-.5,"length":1.0,"noise":rng.randf()})
-	if config.hair_style != "None":
-		for i in int(config.hair_count):
-			var u := rng.randf()*2-1
-			var v := rng.randf()
-			var offset := Vector2.ZERO
-			var direction := Vector2.UP
-			if config.hair_style == "Mohawk":
-				offset = Vector2(u*float(config.hawk_width)*.5,.08-v*.2)
-				direction = Vector2(u*.35,-1).normalized()
-			elif config.hair_style == "Afro":
-				var angle := -.12+(u+1)*(PI+.24)*.5
-				var radius := lerpf(.3,1.0,v)
-				offset = Vector2(cos(angle)*.48*radius,.2-sin(angle)*.48*radius)
-				direction = Vector2(cos(angle),-sin(angle)).normalized()
-			else:
-				offset = Vector2(u*.49,lerpf(-.25*sqrt(1-u*u),.04,v)+u*u*.22)
-				direction = Vector2(float(config.hair_sweep)*.8+signf(u-float(config.hair_part))*.25,-.7).normalized()
-			offset.x *= float(config.hair_width)
-			offset.y += float(config.hairline)
-			var binding := {"id":"hair:%d"%i,"region":"hair","zone":"Scalp (estimated)","synthetic":true,
-				"indices":Vector3i(10,10,10),"weights":Vector3(1,0,0),"offset":offset,"direction":direction,
-				"u":u,"v":v,"side":signf(u),"length":1.0,"noise":rng.randf()}
-			if config.virtual_enabled:
-				var across := u
-				if config.hair_style == "Mohawk": across = u*float(config.hawk_width)/float(config.crown_width)
-				elif config.hair_style == "Afro": across = cos(-.12+(u+1)*(PI+.24)*.5)
-				binding.virtual_across = across
-				Head.bind_root(binding,"scalp",Vector2((across+1)*.5,v),config)
-			bindings.append(binding)
+	# Scalp hair is a generated mesh; only facial regions allocate physics strands.
 
 static func root_positions(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2, virtual_points: PackedVector2Array = PackedVector2Array()) -> PackedVector2Array:
 	var horizontal := (face[454]-face[234])*dimensions
@@ -213,9 +186,6 @@ static func root_positions(config: Dictionary, bindings: Array, face: PackedVect
 		var b: Dictionary = bindings[i]
 		if b.has("virtual_cell") and not virtual_points.is_empty():
 			result[i] = Head.interpolate(b,virtual_points)
-			if b.region == "hair":
-				result[i] += down*float(config.hairline)*width
-				result[i] += right*width*float(b.virtual_across)*.5*float(config.crown_width)*(float(config.hair_width)-1)
 			continue
 		var ids: Vector3i = b.indices
 		var w: Vector3 = b.weights
@@ -250,16 +220,13 @@ static func strand_settings(config: Dictionary, binding: Dictionary) -> Dictiona
 	result.root_width = config[region+"_root_width"]
 	result.tip_width = config[region+"_tip_width"]
 	result.root_color = config[region+"_color"]
-	result.tip_color = config[region+"_tip_color"] if region in ["hair","mustache"] else result.root_color
+	result.tip_color = config[region+"_tip_color"] if region == "mustache" else result.root_color
 	result.length = float(config[region+"_length"])
-	result.collision = config.mustache_collisions if region == "mustache" else config.collisions if region == "hair" else false
-	result.curl = config.mustache_curl if region == "mustache" else config.hair_curl if region == "hair" else 0.0
+	result.collision = config.mustache_collisions if region == "mustache" else false
+	result.curl = config.mustache_curl if region == "mustache" else 0.0
 	if region == "mustache":
 		result.length *= float(binding.length)/.365
 		if not config.mustache_enabled or float(config.mustache_density) <= 0: result.length = 0.0
-	elif region == "hair":
-		result.length *= (0.65+float(config.hair_volume)*.7)*(1-float(config.hair_variation)*float(binding.noise))
-		if config.hair_style == "Regular": result.length *= lerpf(1.0,float(config.hair_sides),float(binding.get("scalp_side",pow(absf(float(binding.u)),3))))
 	return result
 
 static func root_depths(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array, virtual_depth: PackedFloat32Array) -> PackedFloat32Array:
@@ -273,7 +240,6 @@ static func root_depths(config: Dictionary, bindings: Array, face: PackedVector2
 			var c: Vector4i = b.virtual_cell
 			var w: Vector4 = b.virtual_weights
 			result[i] = virtual_depth[c.x]*w.x+virtual_depth[c.y]*w.y+virtual_depth[c.z]*w.z+virtual_depth[c.w]*w.w
-			if b.region == "hair": result[i] += float(basis.down3.z)*float(config.hairline)*scale + float(basis.right3.z)*scale*float(b.virtual_across)*.5*float(config.crown_width)*(float(config.hair_width)-1)
 		elif b.region == "mustache": result[i] -= float(basis.down3.z)*float(config.mustache_lift)*scale
 		elif b.region == "brow": result[i] += float(basis.down3.z)*(float(b.v)*float(config.brow_thickness)-float(config.brow_lift)-sin(float(b.u)*PI)*float(config.brow_arch))*scale
 	return result
@@ -287,23 +253,7 @@ static func procedural_steps(config: Dictionary, b: Dictionary, index: int, curl
 	for j in range(1,n+1):
 		var t := float(j)/n
 		var point := Vector2(0,t)
-		if region == "hair":
-			var direction: Vector2 = b.direction
-			var normal := Vector2(-direction.y,direction.x)
-			var phase := float(b.noise)*TAU
-			# At least four samples per coil prevents aliases at low segment counts.
-			var frequency := minf(float(config.hair_coils),n*.25)
-			var angle := t*frequency*TAU+phase
-			var coil := sin(angle)-sin(phase)
-			var frizz := sin(j*2.399+phase)*float(config.hair_frizz)*.04*t
-			var clump := snappedf(float(b.u),.2)-float(b.u)
-			point = direction*t+normal*(coil*curl*.13*t+frizz)+Vector2(clump*float(config.hair_clump)*t*t,0)
-			if config.hair_style == "Afro":
-				# Coils wind around a short outward guide instead of opening into a fan.
-				point = direction*(t*.5+(cos(phase)-cos(angle))*curl*.09)+normal*(coil*curl*.1+frizz)
-				point += normal*clump*float(config.hair_clump)*t*t
-			if config.hair_style == "Regular": point += Vector2(float(config.hair_sweep)*.35*t*t,.25*t*t)
-		elif region == "brow":
+		if region == "brow":
 			point = Vector2(float(b.side)*t,-(.3+float(config.brow_angle))*t)
 			if config.brow_style == "Arched": point.y -= sin(t*PI)*.3
 		elif region == "mustache":

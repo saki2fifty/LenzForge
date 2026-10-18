@@ -85,29 +85,9 @@ func _run() -> void:
 	layer.set_settings({"hair_style":"Regular","hair_count":512,"hair_motion":"Static","brow_enabled":false})
 	layer.set_process(false)
 	layer.simulator.reset()
-	var vertices: PackedVector3Array = layer.mannequin_view.surface.build_reference()
-	var roots: PackedVector3Array = layer.mannequin_view.surface.math.sample(vertices,layer.root_bindings.indices,layer.root_bindings.weights)
-	var center := (vertices[234]+vertices[454])*.5
-	var width := vertices[234].distance_to(vertices[454])
-	var coverage := {"left":0,"right":0,"back":0,"crown":0}
-	var spatial := 0
-	for i in layer.attachment.size():
-		if layer.attachment[i].region!="hair": continue
-		var p := (roots[i]-center)/width
-		if p.x<-.35: coverage.left+=1
-		if p.x>.35: coverage.right+=1
-		if p.z>.4: coverage.back+=1
-		if p.y<-.55: coverage.crown+=1
-		if p.z<-.3: check(p.y<-.42,"Scalp roots stay above the frontal hairline")
-		var points: PackedVector3Array = layer.simulator.get_strand_points_3d(i)
-		if absf(points[-1].z-points[0].z)>.5: spatial+=1
-		check(points.size()==9,"Scalp uses the selected segment budget")
-	for region in coverage: check(coverage[region]>8,"Scalp coverage includes "+region)
-	check(spatial>100,"Styled scalp guides bend in depth rather than a frontal plane")
-	var exported := Profile.with_geometry(layer.get_document())
-	var g: Array = exported.geometry.guides[-1].points
-	check(absf(g[0][2]-g[-1][2])>.0001,"Exports retain spatial scalp guides")
+	check(layer.mannequin_view.scalp.mesh is ArrayMesh,"Scalp is a generated 3D object beside the facial strand batch")
+	check(layer.attachment.size()==int(layer.config.strands),"Scalp does not allocate simulated strands")
 	layer.set_mannequin(false)
 	check(not tool.buzzing and not tool.active and studio.quick_toolbar.clipper_menu.disabled,"Leaving the mannequin disarms Buzz")
-	print("BUZZ_SCALP coverage=",coverage," spatial=",spatial," failures=",failures)
+	print("BUZZ_SCALP failures=",failures)
 	quit(0 if failures.is_empty() else 1)

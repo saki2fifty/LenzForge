@@ -277,7 +277,28 @@ The small default-count difference is ordinary run variation, not a speedup clai
 
 ## Mannequin Clippers — October 17
 
+### Generated scalp objects
+
+The scalp now uses one generated 3D object instead of simulated strands. Regular, Mohawk and Afro geometry is built on shape/head-fit changes; ordinary tracking updates one rigid transform. Color/detail edits reuse the mesh, and scalp-only edits preserve facial physics. The default mannequin meshes contain 22,172 triangles for Regular/Afro and 7,308 for Mohawk, in one surface each. Live fitted topology can produce a different triangle count.
+
+The same headless mannequin/Buzz fixture used for the prior report gives this comparison against `e2ace41`. Facial counts and segment quality remain the same; the scalp strand workload is deliberately removed:
+
+| Configuration before → after | Idle physics/upload median | Active Buzz + physics/upload median |
+| --- | ---: | ---: |
+| 1,024 facial + 512 scalp × 8 → 1,024 facial × 8 + Regular mesh | 2.593 → 1.257 ms | 3.693 → 3.142 ms |
+| 1,024 facial + 256 brow + 768 scalp × 16 → 1,280 facial × 16 + Regular mesh | 6.365 → 3.298 ms | 7.423 → 5.397 ms |
+
+The mesh is also a clipper occluder, so facial strands hidden by it remain intact. Its extra triangles increase Buzz query medians from 0.771 / 0.995 ms to 1.165 / 1.431 ms, while total active-cutting cost still decreases. The fixture excludes GPU completion, capture and inference; it does not measure live FPS. Initial combined look edits took 99.529 / 59.546 ms in this run. Mesh shape edits remain configuration-time work, not part of ordinary tracking.
+
+The isolated 180-pose test measured a **0.007 ms median / 0.016 ms p95** scalp configure/transform update. Geometry was reused through turns, scale changes, blinks and jaw motion; maximum deviation from the known rigid pose was 0.000275 pixel. This verifies attachment math, not real-world tracking accuracy. One-time mesh generation measured 55.446 ms Regular, 24.537 ms Mohawk and 50.172 ms Afro in that run.
+
+A 20-second rendered synthetic portrait run with **Regular mesh enabled**, CPU tracking and 1,024 facial strands × 8 maintained **60.02 matched preview fps**, 120 render fps, zero intervals over 50 ms and zero mismatched presentations. Median facial physics/upload preparation was 1.038 ms. This is a local RX 7900 XTX fixture, not a guarantee for every camera or GPU.
+
+Reproduce mesh attachment tests with `res://tests/scalp_mesh.gd`, CPU cutting with `res://tests/buzz_performance.gd`, and the rendered preview with `tools/benchmark.py --portrait --beard --beard-strands 1024 --hair-style Regular --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen`. [Raw results](performance/scalp-mesh.json).
+
 ### Buzz and wrapped scalp follow-up
+
+This historical report describes the strand-based scalp implementation before generated objects replaced it.
 
 Buzz samples a swept contact footprint at most 60 times per second while held. Native depth selection uses a bounded local tile; the normal preview has no active cutter loop. Scalp roots and curved guides are fitted when grooming/head-fit settings change and reuse the existing physics/render batches during movement.
 

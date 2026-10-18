@@ -16,9 +16,12 @@ var mirror := true
 var face_width := 0.0
 var dots: Dictionary = {}
 var hair: MultiMeshInstance3D
+var scalp := preload("res://beard/scalp_mesh.gd").new()
 var clippings: MultiMeshInstance3D
 var cut_vertices := PackedVector3Array()
 var cut_triangles := PackedInt32Array()
+var _cut_scalp_revision := -1
+var _cut_scalp_visible := false
 var hair_material := ShaderMaterial.new()
 var root_positions := PackedVector3Array()
 var root_camera_positions := PackedVector3Array()
@@ -34,6 +37,7 @@ func _init() -> void:
 	viewport.own_world_3d = true
 	viewport.msaa_3d = Viewport.MSAA_2X
 	add_child(viewport)
+	viewport.add_child(scalp)
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -68,6 +72,7 @@ func _build() -> void:
 	_refresh_reference()
 	viewport.add_child(pivot)
 	pivot.add_child(HeadModel.build(reference,surface))
+	scalp.reparent(pivot)
 	_cache_cut_mesh()
 	viewport.add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -146,7 +151,9 @@ func _cache_cut_mesh() -> void:
 	# Cache the complete rendered bust only when its geometry changes.
 	cut_vertices.clear()
 	cut_triangles.clear()
-	for node in pivot.get_child(0).get_children():
+	var meshes := pivot.get_child(0).get_children()
+	if scalp.visible and scalp.mesh != null: meshes.append(scalp)
+	for node in meshes:
 		if not node is MeshInstance3D: continue
 		for section in node.mesh.get_surface_count():
 			var arrays: Array = node.mesh.surface_get_arrays(section)
@@ -162,6 +169,17 @@ func _cache_cut_mesh() -> void:
 func world_to_pixels() -> Transform3D:
 	var unit := pixels_per_unit()
 	return Transform3D(Basis.from_scale(Vector3(unit,-unit,-unit)),Vector3(FRAME.x*.5,FRAME.y*.5+camera.position.y*unit,0))
+
+func update_scalp(config: Dictionary, enabled: bool) -> void:
+	if not _built: return
+	scalp.configure(surface,config)
+	scalp.follow(surface)
+	scalp.visible = enabled and scalp.mesh != null
+	if _cut_scalp_revision != scalp.revision or _cut_scalp_visible != scalp.visible:
+		_cut_scalp_revision = scalp.revision
+		_cut_scalp_visible = scalp.visible
+		_cache_cut_mesh()
+	request_frame()
 
 func update_clippings(buffer: PackedFloat32Array) -> void:
 	if not _built: return

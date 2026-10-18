@@ -1,0 +1,157 @@
+{
+  "description": "October 17, 2026 generated 3D scalp objects; same workstation and existing synthetic workloads. Prior scalp strands are replaced by meshes, so simulated counts intentionally decrease.",
+  "baseline_commit": "e2ace41c4438f9b5f43a11d5fcf3d3e019fbfee6",
+  "mesh": {
+    "failures": [],
+    "fixture": "Generated 3D scalp objects, headless CPU. Mesh construction on edits; 180 stable-pose updates. Excludes GPU completion and tracking inference.",
+    "pose_error_pixels": 0.000274658203125,
+    "pose_update_ms": {
+      "p50": 0.007,
+      "p95": 0.016
+    },
+    "styles": [
+      {
+        "build_ms": 55.446,
+        "style": "Regular",
+        "triangles": 22172,
+        "vertices": 11088
+      },
+      {
+        "build_ms": 24.537,
+        "style": "Mohawk",
+        "triangles": 7308,
+        "vertices": 3656
+      },
+      {
+        "build_ms": 50.172,
+        "style": "Afro",
+        "triangles": 22172,
+        "vertices": 11088
+      }
+    ]
+  },
+  "cutting": {
+    "cases": [
+      {
+        "buzz_frame_cpu_ms": {
+          "max": 4.57,
+          "p50": 3.142,
+          "p95": 4.071
+        },
+        "buzz_query_ms": {
+          "max": 2.735,
+          "p50": 1.165,
+          "p95": 2.403
+        },
+        "cuts": 664,
+        "idle_frame_cpu_ms": {
+          "max": 1.795,
+          "p50": 1.257,
+          "p95": 1.644
+        },
+        "scalp_edit_ms": 99.529,
+        "segments": 8,
+        "strands": 1024
+      },
+      {
+        "buzz_frame_cpu_ms": {
+          "max": 7.376,
+          "p50": 5.397,
+          "p95": 6.764
+        },
+        "buzz_query_ms": {
+          "max": 3.218,
+          "p50": 1.431,
+          "p95": 2.774
+        },
+        "cuts": 524,
+        "idle_frame_cpu_ms": {
+          "max": 4.115,
+          "p50": 3.298,
+          "p95": 4.069
+        },
+        "scalp_edit_ms": 59.546,
+        "segments": 16,
+        "strands": 1280
+      }
+    ],
+    "fixture": "Headless native mannequin; Regular scalp, collisions on. 60 idle and 120 held-Buzz samples at 60 Hz. Includes physics and upload preparation, excludes GPU completion, camera and tracking."
+  },
+  "preview": {
+    "configuration": {
+      "utc": "2026-10-18T01:05:21.937228+00:00",
+      "seconds": 20.0,
+      "requested_fps": 60,
+      "tracking_backend": "cpu",
+      "warmup_s": 5.0,
+      "offscreen": true,
+      "vsync": "project",
+      "virtual_camera": false,
+      "source": "public-domain portrait, synthetic 60 fps",
+      "overlay": true,
+      "beard": true,
+      "beard_strands": 1024,
+      "beard_segments": 8,
+      "hair_style": "Regular"
+    },
+    "viewer": {
+      "beard_frames": 1201,
+      "beard_update_ms": {
+        "max": 1.548,
+        "mean": 1.04605995004163,
+        "p50": 1.038,
+        "p95": 1.222,
+        "p99": 1.36
+      },
+      "displayed_fps": 60.0201759745582,
+      "elapsed_s": 20.009938,
+      "frame_age_ms": {
+        "max": 21.3255,
+        "mean": 12.6936303081655,
+        "p50": 12.3610999908447,
+        "p95": 12.9931999969482,
+        "p99": 20.853700012207
+      },
+      "frame_cap": 120,
+      "frames": 1201,
+      "gaps_over_50_ms": 0,
+      "interval_ms": {
+        "max": 25.459,
+        "mean": 16.6661241666666,
+        "p50": 16.667,
+        "p95": 16.922,
+        "p99": 25.061
+      },
+      "landmark_age_ms": {
+        "max": 24.2208000030518,
+        "mean": 14.8587176521676,
+        "p50": 14.5051999969482,
+        "p95": 15.3558000030518,
+        "p99": 23.2241000061035
+      },
+      "landmark_frames": 1201,
+      "mismatched_presentations": 0,
+      "output_cpu_conversion_ms": {},
+      "output_handoff_ms": {},
+      "presented_pair_skew_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      },
+      "render_fps": 120.0,
+      "scalp_mesh_revisions": 4,
+      "scalp_mesh_triangles": 20792,
+      "screen_refresh_hz": 60.0,
+      "upload_ms": {
+        "max": 0.729,
+        "mean": 0.334503746877602,
+        "p50": 0.3077,
+        "p95": 0.5032,
+        "p99": 0.6247
+      },
+      "vsync": 0
+    }
+  }
+}

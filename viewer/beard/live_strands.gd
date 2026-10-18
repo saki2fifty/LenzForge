@@ -4,6 +4,7 @@ var viewport := SubViewport.new()
 var picture := TextureRect.new()
 var camera := Camera3D.new()
 var hair := preload("res://beard/strand_mesh.gd").new()
+var scalp := preload("res://beard/scalp_mesh.gd").new()
 var frame_size := Vector2(1280,720)
 
 func _init() -> void:
@@ -15,6 +16,7 @@ func _init() -> void:
 	add_child(viewport)
 	viewport.add_child(camera)
 	viewport.add_child(hair)
+	viewport.add_child(scalp)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.position.z = 8192
 	camera.far = 16384
@@ -39,10 +41,13 @@ func _ready() -> void:
 	set_frame(frame_size,false)
 
 func set_frame(dimensions: Vector2, mirror: bool) -> void:
+	# Recenter an existing mesh immediately when capture resolution changes.
+	scalp.position += Vector3((frame_size.x-dimensions.x)*.5,(dimensions.y-frame_size.y)*.5,0)
 	frame_size = dimensions
 	picture.flip_h = mirror
 	camera.size = frame_size.y
 	hair.shader_material.set_shader_parameter("frame_size",frame_size)
+	scalp.shader_material.set_shader_parameter("frame_size",frame_size)
 	_resize()
 
 func _resize() -> void:
@@ -51,11 +56,18 @@ func _resize() -> void:
 	if viewport.size != dimensions: viewport.size = dimensions
 
 func set_occlusion(occlusion: RefCounted) -> void:
+	scalp.set_occlusion(occlusion,frame_size)
 	var enabled: bool = occlusion != null and occlusion.enabled and occlusion.valid
 	hair.shader_material.set_shader_parameter("head_occlusion_enabled",enabled)
 	if enabled:
 		hair.shader_material.set_shader_parameter("head_depth",occlusion.texture)
 		hair.shader_material.set_shader_parameter("head_depth_bias",occlusion.width*occlusion.tolerance)
+
+func update_scalp(surface: RefCounted, config: Dictionary, enabled: bool) -> void:
+	scalp.configure(surface,config)
+	scalp.follow(surface,Vector3(-frame_size.x*.5,frame_size.y*.5,0))
+	scalp.visible = enabled and scalp.mesh != null
+	if visible: viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func update_hair(buffer: PackedFloat32Array, segments: int, face_width: float) -> void:
 	hair.upload(buffer,segments,face_width)

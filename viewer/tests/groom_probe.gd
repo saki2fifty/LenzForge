@@ -24,7 +24,7 @@ func _run() -> void:
 	config.brow_enabled = true; config.hair_style = "Afro"
 	var bindings := Profile.all_anchors(config)
 	check(bindings == Profile.all_anchors(config),"Root generation is deterministic")
-	check(bindings.size() == int(config.strands)+int(config.brow_count)+int(config.hair_count),"Every enabled region has its own density")
+	check(bindings.size() == int(config.strands)+int(config.brow_count),"Only enabled facial regions allocate strands")
 	var face := Profile.mannequin()
 	var dims := Vector2(1280,720)
 	var roots := Groom.root_positions(config,bindings,face,dims)
@@ -122,9 +122,9 @@ func _run() -> void:
 		for i in 30: layer.simulator.advance(1.0/60)
 		for value in layer.simulator.get_render_buffer(): check(is_finite(value),"Finite " + style + " geometry")
 	layer.set_settings({"strands":1024,"brow_count":256,"hair_count":768,"segments":16})
-	check(layer.attachment.size() == 2048 and layer.last_error.is_empty(),"Maximum combined allocation is bounded at 2048")
+	check(layer.attachment.size() == 1280 and layer.last_error.is_empty(),"Maximum facial allocation is 1280; scalp is a separate mesh")
 	layer._process(1.0/60)
-	check(layer.mannequin_view.hair.multimesh.instance_count == 2048*16,"One 3D draw batch contains all regions")
+	check(layer.mannequin_view.hair.multimesh.instance_count == 1280*16,"One strand batch contains the facial regions")
 	var dense: Dictionary = layer.get_document()
 	var guide: Array = []
 	for j in 65: guide.append([sin(j*.12)*.06,j/64.0])

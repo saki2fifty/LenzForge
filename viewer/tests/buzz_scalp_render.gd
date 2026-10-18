@@ -21,7 +21,7 @@ func _run() -> void:
 		layer.set_settings(Groom.hair_preset(style))
 		layer.set_process(false)
 		for pose in [Vector2(0,0),Vector2(90,0),Vector2(180,0),Vector2(0,35)]:
-			layer.mannequin_view.set_pose(pose.x,pose.y,1.2)
+			layer.mannequin_view.set_pose(pose.x,pose.y,.9)
 			layer.set_process(false)
 			layer.simulator.reset()
 			for i in 120: layer.simulator.advance(1.0/120)

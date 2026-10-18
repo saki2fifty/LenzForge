@@ -26,7 +26,7 @@ def main():
     edited = artifacts / 'beard-from-blender.json'
     version = json.loads((ROOT/'toolchain.json').read_text())['godot']
     godot = ROOT / f'buildtools/godot-{version}/Godot_v{version}-stable_win64_console.exe'
-    command = [str(godot), '--headless', '--path', str(ROOT/'viewer'), '--script', 'res://tests/beard_exchange.gd', '--']
+    command = [str(godot), '--headless', '--path', str(ROOT/'viewer'), '--log-file', str(artifacts/'blender-exchange.log'), '--script', 'res://tests/beard_exchange.gd', '--']
     run(command + ['export', str(original)], 'BEARD_EXPORT error=')
     script = artifacts / 'blender-beard-probe.py'
     script.write_text('''import bpy, runpy
@@ -36,11 +36,11 @@ addon = runpy.run_path(str(ROOT/'tools/blender_beard.py'), run_name='lenzforge_a
 addon['register']()
 assert bpy.ops.import_curve.lenzforge_beard(filepath=str(ROOT/'artifacts/beard-to-blender.json')) == {'FINISHED'}
 obj = bpy.context.active_object
-assert len(obj.data.splines) == 864
+assert len(obj.data.splines) == 352
 obj.data.splines[0].points[1].co.x += .015
 obj.data.splines[0].points[0].radius = 3.2
-obj.data.splines[352].points[1].co.x += .005
-obj.data.splines[352].points[0].radius = 4.5
+obj.data.splines[256].points[1].co.x += .005
+obj.data.splines[256].points[0].radius = 4.5
 assert bpy.ops.export_curve.lenzforge_beard(filepath=str(ROOT/'artifacts/beard-from-blender.json')) == {'FINISHED'}
 print('BLENDER_BEARD_PASS')
 ''' % str(ROOT), encoding='utf-8')

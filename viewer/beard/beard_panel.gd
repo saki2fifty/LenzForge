@@ -91,8 +91,8 @@ func setup(layer: Control, studio: Control) -> void:
 		["ear_reach","Toward ears",0,.6,.01],["side_back","Side / back reach",0,.8,.02],
 		["sideburn_height","Height around ears",0,1,.05]]:
 		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
-	controls.crown_height.tooltip_text = "Expand or contract the scalp coverage boundary on the fitted head. Roots stay attached to the skin."
-	controls.crown_back.tooltip_text = "Extend roots toward the back of the scalp. The default 0.35 covers the full cap."
+	controls.crown_height.tooltip_text = "Expand or contract the hair object's coverage boundary on the fitted head."
+	controls.crown_back.tooltip_text = "Extend the hair object toward the back of the scalp. The default 0.35 covers the full cap."
 	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
 	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. Lower beard coverage is set on Roots; disable Use lower virtual landmarks there to use the offset controls here. Select a strand to attach it to any measured or virtual landmark.")
 
@@ -129,27 +129,23 @@ func setup(layer: Control, studio: Control) -> void:
 	_color(brows,"brow_color","Color")
 
 	var hair := _page("Scalp hair")
-	host._section(hair,"Scalp styles","Hair follows the fitted crown, sides and back. Adjust hairline and coverage to fit your scalp.")
-	_enum(hair,"hair_style","Style",Groom.HAIR_STYLES)
-	_enum(hair,"hair_motion","Motion",Groom.MOTIONS)
-	for row in [["hair_count","Strands",32,768,32],["hair_length","Length",.02,1.5,.01],
-		["hair_width","Scalp width",.5,1.5,.05],["hair_volume","Height / volume",0,1,.05],
+	host._section(hair,"3D hair objects","Choose a solid hairstyle fitted around your crown, sides and back. Facial hair keeps its independent strands and physics.")
+	_enum(hair,"hair_style","Hairstyle",Groom.HAIR_STYLES)
+	for row in [["hair_length","Length / height",.02,1.5,.01],
+		["hair_width","Scalp coverage",.5,1.5,.05],["hair_volume","Volume",0,1,.05],
 		["hairline","Hairline offset",-.2,.25,.01],["hair_sweep","Sweep direction",-1,1,.05],
-		["hair_part","Part position",-.4,.4,.02],["hair_sides","Side length",0,1,.05],
-		["hawk_width","Mohawk strip width",.04,.6,.02],["hair_curl","Curl amount",0,1,.05],
-		["hair_coils","Coil frequency",1,6,.25],["hair_clump","Clumping",0,1,.05],
-		["hair_frizz","Frizz",0,1,.05],["hair_variation","Length variation",0,.8,.05],
-		["hair_hold","Shape hold",0,1,.05],["hair_root_width","Starting width",.1,12,.1],
-		["hair_tip_width","Ending width",0,12,.05]]:
+		["hair_part","Part position",-.4,.4,.02],["hair_sides","Side volume",0,1,.05],
+		["hawk_width","Mohawk width",.04,.6,.02],["hair_curl","Surface curl",0,1,.05],
+		["hair_frizz","Afro texture",0,1,.05]]:
 		_spin(hair,row[0],row[1],row[2],row[3],row[4])
-	_color(hair,"hair_color","Root color")
-	_color(hair,"hair_tip_color","Tip color")
-	controls.hair_coils.tooltip_text = "Limited to one coil per four segments to avoid jagged undersampling. Increase Segments / strand on the Beard page for finer coils."
-	for key in ["hair_sweep","hair_part","hair_sides"]: controls[key].tooltip_text = "Controls the Regular hairstyle."
-	controls.hawk_width.tooltip_text = "Controls the central root strip of the Mohawk."
+	_color(hair,"hair_color","Base color")
+	_color(hair,"hair_tip_color","Highlight color")
+	for key in ["hair_sweep","hair_part","hair_sides"]: controls[key].tooltip_text = "Shapes the Regular hairstyle."
+	controls.hawk_width.tooltip_text = "Controls the width of the solid Mohawk crest."
+	host._section(hair,"Fit and finish","Changes save automatically. Mesh hair follows the head without strand simulation. Clippers trim beard, mustache and eyebrow strands.")
 
 	var physics := _page("Physics")
-	host._section(physics,"Beard & hair forces","For beard, eyebrows, and scalp hair. Mustache has its own physics on the Mustache page. Static regions keep their shape.")
+	host._section(physics,"Facial hair forces","For beard and eyebrows. Mustache has its own physics on the Mustache page. Static regions keep their shape.")
 	for row in [["gravity","Gravity",0,12,.1],["wind","Horizontal wind",-10,10,.1],
 		["turbulence","Wind variation",0,5,.05],["damping","Damping",0,.95,.005]]:
 		_spin(physics,row[0],row[1],row[2],row[3],row[4])
@@ -161,7 +157,7 @@ func setup(layer: Control, studio: Control) -> void:
 		if beard.simulator: beard.simulator.reset()))
 
 	var strands := _page("Strands")
-	host._section(strands,"Individual strands","Select a root to edit that hair in any region.")
+	host._section(strands,"Individual strands","Select a beard, mustache or eyebrow root to edit that strand.")
 	select_check = CheckBox.new()
 	select_check.text = "Select strands in preview"
 	select_check.toggled.connect(func(value): beard.set_edit_strands(value))
@@ -304,6 +300,7 @@ func _color(parent: Node, key: String, title: String, individual := false) -> vo
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	var picker := ColorPickerButton.new()
+	if key in ["hair_color","hair_tip_color"]: picker.get_picker().edit_alpha = false
 	picker.custom_minimum_size = Vector2(86, 28)
 	row.add_child(picker)
 	(strand_controls if individual else controls)[key] = picker
@@ -324,6 +321,10 @@ func _sync() -> void:
 		elif controls[key] is OptionButton: controls[key].select(Groom.ENUMS[key].find(beard.config[key]))
 		else: controls[key].set_value_no_signal(beard.config[key])
 	controls.stiffness.editable = beard.config.preserve_shape
+	for key in ["hair_sweep","hair_part","hair_sides"]: controls[key].get_parent().visible = beard.config.hair_style=="Regular"
+	controls.hawk_width.get_parent().visible = beard.config.hair_style=="Mohawk"
+	controls.hair_frizz.get_parent().visible = beard.config.hair_style=="Afro"
+	controls.hair_curl.get_parent().visible = beard.config.hair_style in ["Regular","Afro"]
 	for key in control_copies:
 		for control in control_copies[key]: control.set_value_no_signal(beard.config[key])
 	controls.lower_root_depth.editable = beard.config.beard_virtual_roots
@@ -345,6 +346,7 @@ func _sync() -> void:
 		if key.ends_with("color"): strand_controls[key].color = Color.html(value)
 		else: strand_controls[key].set_value_no_signal(value)
 	_syncing = false
+	_update_stats()
 
 func _fill_anchors() -> void:
 	var current: String = beard.overrides.get(beard.selected_key(),{}).get("anchor","")
@@ -486,4 +488,6 @@ func _update_stats() -> void:
 	if not beard.last_error.is_empty(): stats.text = beard.last_error
 	elif not beard.enabled: stats.text = "Hair is hidden; physics is idle."
 	elif not beard._face_live: stats.text = "Waiting for a face. Try the mannequin to design offline."
-	else: stats.text = "%d / 2048 strands · %d segments\nShared head surface · %.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.update_ms]
+	else:
+		stats.text = "%d / 1280 facial strands · %d segments\n%.2f ms physics + upload preparation" % [beard.attachment.size(), beard.attachment.size()*int(beard.config.segments), beard.update_ms]
+		if beard.config.hair_style!="None": stats.text += "\n%s · 3D hair object"%beard.config.hair_style

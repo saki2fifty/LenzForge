@@ -55,10 +55,10 @@ func _run() -> void:
 	if not is_equal_approx(float(studio.beard.config.brow_width),1.3): failures.append("Eyebrow width control failed")
 	studio.beard_panel.show_page("Strands")
 	studio.beard.set_edit_strands(true)
-	var hair_index := int(studio.beard.config.strands)+int(studio.beard.config.brow_count)
+	var hair_index := int(studio.beard.config.strands)
 	studio.beard.selected_strand = hair_index
 	studio.beard.strand_selected.emit(hair_index)
 	studio.beard_panel.strand_controls.length.value = 1.2
-	if not studio.beard.overrides.has("hair:0"): failures.append("Scalp strand editor did not use stable region IDs")
+	if not studio.beard.overrides.has("brow:0"): failures.append("Eyebrow strand editor did not use stable region IDs")
 	print("GROOM_RENDER magenta_pixels=",magenta," failures=",failures)
 	quit(0 if failures.is_empty() else 1)

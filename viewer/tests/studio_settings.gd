@@ -60,8 +60,8 @@ func _run() -> void:
 		studio.beard.selected_strand = 0
 		studio.beard.set_strand_setting("curl", .37)
 		studio.beard.set_strand_setting("anchor", "virtual:1000:250000:250000")
-		studio.beard.set_settings({"hair_style":"Regular","hair_count":64})
-		studio.beard.selected_strand=int(studio.beard.config.strands)
+		studio.beard.set_settings({"hair_style":"Regular","hair_length":.37,"hair_volume":.51,"hair_color":"452d1eff","hair_tip_color":"b2864fff"})
+		studio.beard.selected_strand=1
 		studio.beard.set_strand_setting("guide3d",[[0,0,0],[.05,-.1,.3],[.1,-.2,.7]])
 		studio.beard.mannequin_view.set_pose(35,-12,1.2)
 		studio.beard_panel.select_check.button_pressed = true
@@ -118,6 +118,8 @@ func _run() -> void:
 			check(is_equal_approx(studio.beard.config[key],{"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}[key]),"Restore independent setting "+key)
 		check(not studio.beard.config.mustache_collisions,"Restore independent mustache collision")
 		check(not studio.beard.config.beard_sideburns and is_equal_approx(studio.beard.config.sideburn_rise,.65) and is_equal_approx(studio.beard.config.sideburn_width,.09),"Restore sideburn settings")
+		check(studio.beard.config.hair_style=="Regular" and is_equal_approx(studio.beard.config.hair_length,.37) and is_equal_approx(studio.beard.config.hair_volume,.51),"Restore mesh hairstyle and shape")
+		check(studio.beard.config.hair_color=="452d1eff" and studio.beard.config.hair_tip_color=="b2864fff" and studio.beard.mannequin_view.scalp.mesh!=null,"Restore mesh colors and generated geometry")
 		check(studio.beard.model_name == "Persistence look", "Restore working look name")
 		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")
 		check(studio.beard.overrides.get("0",{}).get("anchor","") == "virtual:1000:250000:250000", "Restore virtual attachment after restarting the app")
