@@ -1,23 +1,37 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
+
 config/name="LenzForge Studio"
 config/description="Local real-time AR capture and face tracking studio"
 config/version="3.0.0"
 run/main_scene="res://studio.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
 run/max_fps=120
+config/icon="res://icon.svg"
 
 [display]
+
 window/size/viewport_width=1440
 window/size/viewport_height=900
 window/size/window_width_override=1440
 window/size/window_height_override=900
-window/stretch/mode="disabled"
 window/vsync/vsync_mode=0
 
+[dotnet]
+
+project/assembly_name="LenzForge Studio"
+
 [rendering]
+
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.047,0.067,0.102,1)
+environment/defaults/default_clear_color=Color(0.047, 0.067, 0.102, 1)
