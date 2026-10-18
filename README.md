@@ -1,3 +1,14 @@
+<p align="center">
+  <a href="https://godotengine.org/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/godot-logo-dark.svg">
+      <img src="docs/images/godot-logo-light.svg" alt="Godot Engine logo" width="220">
+    </picture>
+  </a>
+  <br>
+  <strong>Based on Godot Engine</strong>
+</p>
+
 [![Changelog](docs/images/changelog-badge.svg)](CHANGELOG.md)
 
 # LenzForge Studio
@@ -223,3 +234,9 @@ See [architecture and modernization decisions](docs/ARCHITECTURE.md), [supported
 ## License
 
 Project source is MIT licensed; see [LICENSE](LICENSE). Downloaded engines, packages, compilers, and models retain their upstream licenses. Model and inference dependencies are downloaded only during setup, and camera frames are processed locally.
+
+### Godot attribution
+
+LenzForge uses [Godot Engine](https://godotengine.org/), available under the [MIT license](https://godotengine.org/license/). Copyright © 2014–present Godot Engine contributors; copyright © 2007–2014 Juan Linietsky and Ariel Manzur.
+
+Godot Engine logo © 2017 Andrea Calabró, licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/). The light- and dark-background SVG variants come from the [official Godot press kit](https://godotengine.org/press/) and are reproduced unmodified. The [original logo license notice](docs/images/godot-logo-LICENSE.txt) accompanies the images.
