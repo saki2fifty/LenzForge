@@ -2,7 +2,7 @@ extends RefCounted
 const Head = preload("res://beard/virtual_head.gd")
 ## Procedural root regions and rest guides, all expressed in tracked face widths.
 const MOTIONS := ["Free", "Styled", "Static"]
-const HAIR_STYLES := ["None", "Regular", "Mohawk", "Afro"]
+const HAIR_STYLES := ["None", "Side-swept", "Center-parted", "Long layered", "Regular", "Mohawk", "Afro"]
 const MUSTACHE_STYLES := ["Natural", "Chevron", "Handlebar", "Walrus"]
 const BROW_STYLES := ["Natural", "Straight", "Arched", "Bushy"]
 const NUMBERS := {
@@ -93,6 +93,8 @@ static func valid_id(id: String, config: Dictionary) -> bool:
 
 static func hair_preset(style: String) -> Dictionary:
 	match style:
+		"Side-swept", "Center-parted", "Long layered":
+			return {"hair_style":style,"hair_length":.32,"hair_volume":.35,"hair_width":1.0,"hairline":0.0}
 		"Mohawk": return {"hair_style":style,"hair_length":.4,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.03,"hair_frizz":.05,"hair_sides":0.0}
 		"Afro": return {"hair_style":style,"hair_length":.45,"hair_volume":.65,"hair_sweep":0.0,"hair_curl":.9,"hair_frizz":.15,"hair_sides":1.0}
 		"Regular": return {"hair_style":style,"hair_length":.32,"hair_volume":.35,"hair_sweep":.65,"hair_curl":.08,"hair_frizz":.08,"hair_sides":.4}

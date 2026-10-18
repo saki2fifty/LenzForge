@@ -1,6 +1,7 @@
 extends MeshInstance3D
 ## One fitted, opaque hair object. Geometry changes only when its shape changes.
 const Surface = preload("res://tracking/head_surface.gd")
+const Sculpted = preload("res://beard/sculpted_hair.gd")
 const FLIP := Basis(Vector3.RIGHT,Vector3.DOWN,Vector3.FORWARD)
 const SHAPE_KEYS := ["hair_style","hair_length","hair_width","hair_volume","hairline","hair_sweep",
 	"hair_part","hair_sides","hawk_width","hair_frizz","crown_width","crown_height","crown_back"]
@@ -54,6 +55,7 @@ func configure(surface: RefCounted, config: Dictionary) -> void:
 		shader_material.set_shader_parameter("base_color",Color.html(config.hair_color))
 		shader_material.set_shader_parameter("highlight_color",Color.html(config.hair_tip_color))
 		shader_material.set_shader_parameter("style",2 if config.hair_style=="Afro" else 1 if config.hair_style=="Mohawk" else 0)
+		shader_material.set_shader_parameter("sculpted",Sculpted.has_style(config.hair_style))
 		shader_material.set_shader_parameter("sweep",float(config.hair_sweep))
 		shader_material.set_shader_parameter("curl",float(config.hair_curl))
 	var settings := {}
@@ -117,6 +119,13 @@ func _vertex(p: Vector3, n: Vector3) -> int:
 	return id
 
 func _build(source: PackedVector3Array) -> void:
+	if Sculpted.has_style(_shape.hair_style):
+		var frame := pose(source).affine_inverse()
+		var head := PackedVector3Array()
+		for p in source: head.append(FLIP*(frame*p))
+		mesh = Sculpted.fit(head,_shape)
+		triangle_count = mesh.surface_get_array_index_len(0)/3
+		return
 	_skin.clear(); _normals.clear(); _indices.clear(); _lookup.clear()
 	var frame := pose(source).affine_inverse()
 	var vertices := PackedVector3Array()

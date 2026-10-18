@@ -27,6 +27,8 @@ func _run() -> void:
 			var box: Rect2 = studio.right_panel.get_global_rect()
 			check(box.end.x <= dimensions.x, "Right panel fits %s tab %d: %s" % [dimensions,tab,box])
 			check(box.end.y <= dimensions.y, "Right panel height fits %s" % dimensions)
+			var tabs: TabBar = studio.sidebar_tabs.get_tab_bar()
+			check(tabs.get_tab_rect(4).end.x<=tabs.size.x,"Effects tab remains visible at %s"%dimensions)
 			var toolbar: Rect2 = studio.quick_toolbar.get_global_rect()
 			check(toolbar.position.x >= studio.left_panel.get_global_rect().end.x and toolbar.end.x <= box.position.x,
 				"Quick controls stay above the center preview at %s" % dimensions)
@@ -40,9 +42,16 @@ func _run() -> void:
 					await process_frame
 					await process_frame
 					check(not scroll.get_h_scroll_bar().visible, "Hair page %s fits %s" % [page,dimensions])
-			if "--render" in OS.get_cmdline_user_args() and tab in [0,3]:
+			if tab==4:
+				for page in 3:
+					studio.portrait_effects.set_config({"page":page})
+					await process_frame; await process_frame
+					check(not scroll.get_h_scroll_bar().visible,"Effects page %d fits %s"%[page,dimensions])
+				studio.portrait_effects.set_config({"page":0})
+				await process_frame; await process_frame
+			if "--render" in OS.get_cmdline_user_args() and tab in [0,3,4]:
 				await RenderingServer.frame_post_draw
-				var panel_name := "look" if tab == 0 else "tracking"
+				var panel_name := "look" if tab == 0 else "effects" if tab == 4 else "tracking"
 				root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../artifacts/%s-panel-%d.png" % [panel_name,dimensions.x]))
 			if tab == 3:
 				studio.tracking_panel.model_group.show()

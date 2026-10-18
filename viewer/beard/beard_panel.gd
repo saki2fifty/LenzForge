@@ -129,7 +129,7 @@ func setup(layer: Control, studio: Control) -> void:
 	_color(brows,"brow_color","Color")
 
 	var hair := _page("Scalp hair")
-	host._section(hair,"3D hair objects","Choose a solid hairstyle fitted around your crown, sides and back. Facial hair keeps its independent strands and physics.")
+	host._section(hair,"3D hair objects","Try Side-swept, Center-parted or Long layered. Each sculpted style fits your head in the camera and mannequin.")
 	_enum(hair,"hair_style","Hairstyle",Groom.HAIR_STYLES)
 	for row in [["hair_length","Length / height",.02,1.5,.01],
 		["hair_width","Scalp coverage",.5,1.5,.05],["hair_volume","Volume",0,1,.05],

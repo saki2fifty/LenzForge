@@ -1,0 +1,496 @@
+{
+  "fixture": "Sequential 20-second off-screen synthetic 720p portrait runs, CPU inference, 1024 x 8 facial strands, RX 7900 XTX. No physical webcam or output-camera test.",
+  "regular": {
+    "configuration": {
+      "utc": "2026-10-18T02:45:15.252349+00:00",
+      "seconds": 20.0,
+      "requested_fps": 60,
+      "tracking_backend": "cpu",
+      "warmup_s": 5.0,
+      "offscreen": true,
+      "vsync": "project",
+      "virtual_camera": false,
+      "source": "public-domain portrait, synthetic 60 fps",
+      "overlay": true,
+      "beard": true,
+      "beard_strands": 1024,
+      "beard_segments": 8,
+      "hair_style": "Regular"
+    },
+    "viewer": {
+      "beard_frames": 1197,
+      "beard_update_ms": {
+        "max": 12.629,
+        "mean": 1.11686967418546,
+        "p50": 1.073,
+        "p95": 1.379,
+        "p99": 1.665
+      },
+      "displayed_fps": 59.8411883850103,
+      "elapsed_s": 20.002945,
+      "frame_age_ms": {
+        "max": 65.5418000030518,
+        "mean": 15.5245487888626,
+        "p50": 12.200700012207,
+        "p95": 20.5291999969482,
+        "p99": 25.0210999908447
+      },
+      "frame_cap": 120,
+      "frames": 1197,
+      "gaps_over_50_ms": 1,
+      "interval_ms": {
+        "max": 67.27,
+        "mean": 16.7151337792642,
+        "p50": 16.665,
+        "p95": 25.217,
+        "p99": 25.404
+      },
+      "landmark_age_ms": {
+        "max": 68.1563000030518,
+        "mean": 17.7973604012524,
+        "p50": 14.4511999969482,
+        "p95": 23.109700012207,
+        "p99": 27.5846999969482
+      },
+      "landmark_frames": 1197,
+      "mismatched_presentations": 0,
+      "output_cpu_conversion_ms": {},
+      "output_handoff_ms": {},
+      "presented_pair_skew_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      },
+      "render_fps": 120.0,
+      "scalp_mesh_revisions": 4,
+      "scalp_mesh_triangles": 20792,
+      "screen_refresh_hz": 60.0,
+      "upload_ms": {
+        "max": 0.9098,
+        "mean": 0.41661470342523,
+        "p50": 0.3933,
+        "p95": 0.5967,
+        "p99": 0.6922
+      },
+      "vsync": 0
+    },
+    "backend": {
+      "camera_active": true,
+      "camera_index": -1,
+      "capture_format": "BGR",
+      "capture_timing": {
+        "convert_ms": {
+          "max": 1.46,
+          "mean": 0.513,
+          "p95": 0.591
+        },
+        "fps": 60.0,
+        "interval_ms": {
+          "max": 17.713,
+          "mean": 16.666,
+          "p95": 17.152
+        },
+        "late_frames": 0,
+        "publish_ms": {
+          "max": 0.258,
+          "mean": 0.151,
+          "p95": 0.179
+        },
+        "read_ms": {
+          "max": 0.047,
+          "mean": 0.025,
+          "p95": 0.032
+        },
+        "sample_count": 240
+      },
+      "clients": 0,
+      "error": null,
+      "fps": 60.0,
+      "frames": 1555,
+      "recording": false,
+      "resolution": [
+        1280,
+        720
+      ],
+      "source": "Demo pattern",
+      "tracking": {
+        "active_backend": "cpu",
+        "applied_revision": 1,
+        "avg_inference_ms": 10.603606842893472,
+        "capture_to_landmarks_p95_ms": 12.67221,
+        "comparison": null,
+        "enabled": true,
+        "error": null,
+        "face_detected": true,
+        "fallback_reason": null,
+        "features": {
+          "face": true,
+          "hands": false,
+          "iris": true,
+          "pose": false
+        },
+        "fps": 59.982919485872465,
+        "frames_dropped": 6,
+        "frames_processed": 1549,
+        "inference_size": [
+          640,
+          360
+        ],
+        "landmark_count": 478,
+        "last_inference_ms": 9.739800007082522,
+        "library": {
+          "job": {
+            "state": "idle"
+          },
+          "models": [
+            {
+              "bytes": 3758596,
+              "id": "face_landmarker",
+              "installed": true,
+              "kind": "face",
+              "label": "Face \u00b7 standard",
+              "official": true,
+              "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+              "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            },
+            {
+              "bytes": 7819105,
+              "id": "hand_landmarker",
+              "installed": true,
+              "kind": "hand",
+              "label": "Hands \u00b7 full",
+              "official": true,
+              "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+              "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+            },
+            {
+              "bytes": 5777746,
+              "id": "pose_landmarker_lite",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Lite",
+              "official": true,
+              "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+            },
+            {
+              "bytes": 9398198,
+              "id": "pose_landmarker_full",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Full",
+              "official": true,
+              "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+            },
+            {
+              "bytes": 30664242,
+              "id": "pose_landmarker_heavy",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Heavy",
+              "official": true,
+              "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+            }
+          ]
+        },
+        "model_ms": 9.15200001327321,
+        "phase": "ready",
+        "processing_time": 9.739800007082522,
+        "queue_size": 0,
+        "renderer": null,
+        "requested_backend": "cpu",
+        "round_trip_p50_ms": 10.258450005494524,
+        "round_trip_p95_ms": 11.818625003070338,
+        "running": true,
+        "settings": {
+          "backend": "cpu",
+          "blendshapes": true,
+          "detection_confidence": 0.5,
+          "face_model": "face_landmarker",
+          "face_transform": true,
+          "hand_model": "hand_landmarker",
+          "max_width": 640,
+          "num_faces": 1,
+          "pose_model": "pose_landmarker_lite",
+          "presence_confidence": 0.5,
+          "tracking_confidence": 0.5
+        },
+        "settings_revision": 1
+      }
+    }
+  },
+  "long_layered": {
+    "configuration": {
+      "utc": "2026-10-18T02:45:45.954818+00:00",
+      "seconds": 20.0,
+      "requested_fps": 60,
+      "tracking_backend": "cpu",
+      "warmup_s": 5.0,
+      "offscreen": true,
+      "vsync": "project",
+      "virtual_camera": false,
+      "source": "public-domain portrait, synthetic 60 fps",
+      "overlay": true,
+      "beard": true,
+      "beard_strands": 1024,
+      "beard_segments": 8,
+      "hair_style": "Long layered"
+    },
+    "viewer": {
+      "beard_frames": 1200,
+      "beard_update_ms": {
+        "max": 2.751,
+        "mean": 1.21090833333333,
+        "p50": 1.172,
+        "p95": 1.655,
+        "p99": 1.891
+      },
+      "displayed_fps": 59.970224783395,
+      "elapsed_s": 20.00993,
+      "frame_age_ms": {
+        "max": 46.005700012207,
+        "mean": 16.8913036666361,
+        "p50": 15.9191999969482,
+        "p95": 18.8853000030518,
+        "p99": 32.1879000091553
+      },
+      "frame_cap": 120,
+      "frames": 1200,
+      "gaps_over_50_ms": 0,
+      "interval_ms": {
+        "max": 41.547,
+        "mean": 16.6799974979149,
+        "p50": 16.665,
+        "p95": 24.819,
+        "p99": 25.191
+      },
+      "landmark_age_ms": {
+        "max": 48.3269000091553,
+        "mean": 19.3679970001857,
+        "p50": 18.5681000061035,
+        "p95": 21.7028999938965,
+        "p99": 34.9121999969482
+      },
+      "landmark_frames": 1200,
+      "mismatched_presentations": 0,
+      "output_cpu_conversion_ms": {},
+      "output_handoff_ms": {},
+      "presented_pair_skew_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      },
+      "render_fps": 120.0,
+      "scalp_mesh_revisions": 4,
+      "scalp_mesh_triangles": 88004,
+      "screen_refresh_hz": 60.0,
+      "upload_ms": {
+        "max": 0.7877,
+        "mean": 0.334006666666667,
+        "p50": 0.3185,
+        "p95": 0.4481,
+        "p99": 0.569
+      },
+      "vsync": 0
+    },
+    "backend": {
+      "camera_active": true,
+      "camera_index": -1,
+      "capture_format": "BGR",
+      "capture_timing": {
+        "convert_ms": {
+          "max": 3.213,
+          "mean": 0.543,
+          "p95": 0.738
+        },
+        "fps": 60.0,
+        "interval_ms": {
+          "max": 20.522,
+          "mean": 16.666,
+          "p95": 17.054
+        },
+        "late_frames": 0,
+        "publish_ms": {
+          "max": 0.424,
+          "mean": 0.158,
+          "p95": 0.196
+        },
+        "read_ms": {
+          "max": 0.188,
+          "mean": 0.03,
+          "p95": 0.036
+        },
+        "sample_count": 240
+      },
+      "clients": 0,
+      "error": null,
+      "fps": 60.0,
+      "frames": 1555,
+      "recording": false,
+      "resolution": [
+        1280,
+        720
+      ],
+      "source": "Demo pattern",
+      "tracking": {
+        "active_backend": "cpu",
+        "applied_revision": 1,
+        "avg_inference_ms": 11.205476918394755,
+        "capture_to_landmarks_p95_ms": 15.814789999999999,
+        "comparison": null,
+        "enabled": true,
+        "error": null,
+        "face_detected": true,
+        "fallback_reason": null,
+        "features": {
+          "face": true,
+          "hands": false,
+          "iris": true,
+          "pose": false
+        },
+        "fps": 60.01439538573052,
+        "frames_dropped": 3,
+        "frames_processed": 1551,
+        "inference_size": [
+          640,
+          360
+        ],
+        "landmark_count": 478,
+        "last_inference_ms": 8.667500005685724,
+        "library": {
+          "job": {
+            "state": "idle"
+          },
+          "models": [
+            {
+              "bytes": 3758596,
+              "id": "face_landmarker",
+              "installed": true,
+              "kind": "face",
+              "label": "Face \u00b7 standard",
+              "official": true,
+              "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+              "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+            },
+            {
+              "bytes": 7819105,
+              "id": "hand_landmarker",
+              "installed": true,
+              "kind": "hand",
+              "label": "Hands \u00b7 full",
+              "official": true,
+              "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+              "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+            },
+            {
+              "bytes": 5777746,
+              "id": "pose_landmarker_lite",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Lite",
+              "official": true,
+              "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+            },
+            {
+              "bytes": 9398198,
+              "id": "pose_landmarker_full",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Full",
+              "official": true,
+              "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+            },
+            {
+              "bytes": 30664242,
+              "id": "pose_landmarker_heavy",
+              "installed": true,
+              "kind": "pose",
+              "label": "Pose \u00b7 Heavy",
+              "official": true,
+              "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+              "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+            }
+          ]
+        },
+        "model_ms": 8.25559999793768,
+        "phase": "ready",
+        "processing_time": 8.667500005685724,
+        "queue_size": 0,
+        "renderer": null,
+        "requested_backend": "cpu",
+        "round_trip_p50_ms": 10.525450001296122,
+        "round_trip_p95_ms": 13.646745002188252,
+        "running": true,
+        "settings": {
+          "backend": "cpu",
+          "blendshapes": true,
+          "detection_confidence": 0.5,
+          "face_model": "face_landmarker",
+          "face_transform": true,
+          "hand_model": "hand_landmarker",
+          "max_width": 640,
+          "num_faces": 1,
+          "pose_model": "pose_landmarker_lite",
+          "presence_confidence": 0.5,
+          "tracking_confidence": 0.5
+        },
+        "settings_revision": 1
+      }
+    }
+  },
+  "geometry": {
+    "failures": [],
+    "fixture": "Generated 3D scalp objects, headless CPU. Mesh construction on edits; 180 stable-pose updates. Excludes GPU completion and tracking inference.",
+    "pose_error_pixels": 0.000384282233426347,
+    "pose_update_ms": {
+      "p50": 0.009,
+      "p95": 0.024
+    },
+    "styles": [
+      {
+        "build_ms": 43.334,
+        "style": "Side-swept",
+        "triangles": 33626,
+        "vertices": 19809
+      },
+      {
+        "build_ms": 45.763,
+        "style": "Center-parted",
+        "triangles": 40941,
+        "vertices": 24023
+      },
+      {
+        "build_ms": 120.366,
+        "style": "Long layered",
+        "triangles": 88004,
+        "vertices": 50119
+      },
+      {
+        "build_ms": 57.559,
+        "style": "Regular",
+        "triangles": 22172,
+        "vertices": 11088
+      },
+      {
+        "build_ms": 25.119,
+        "style": "Mohawk",
+        "triangles": 7308,
+        "vertices": 3656
+      },
+      {
+        "build_ms": 54.192,
+        "style": "Afro",
+        "triangles": 22172,
+        "vertices": 11088
+      }
+    ]
+  }
+}

@@ -11,6 +11,8 @@ const QuickToolbar = preload("res://ui/quick_toolbar.gd")
 const VirtualCamera = preload("res://output/virtual_camera.gd")
 const HeadProfile = preload("res://tracking/head_profile.gd")
 const CalibrationWizard = preload("res://tracking/calibration_wizard.gd")
+const PortraitEffects = preload("res://effects/portrait_effects.gd")
+const EffectsPanel = preload("res://effects/effects_panel.gd")
 const INK := Color("e4ebf3")
 const MUTED := Color("8d9bb0")
 const ACCENT := Color("68dfc3")
@@ -85,6 +87,8 @@ var head_crown_slider: HSlider
 var guides_check: CheckBox
 var occlusion_check: CheckBox
 var pacing_picker: OptionButton
+var portrait_effects: Node
+var effects_panel: VBoxContainer
 const PACING_MODES := ["responsive","display_sync","low_power"]
 
 func _ready() -> void:
@@ -331,6 +335,14 @@ func _build_ui() -> void:
 	sidebar_tabs = TabContainer.new()
 	sidebar_tabs.clip_tabs = true
 	sidebar_tabs.add_theme_font_size_override("font_size", 12)
+	for state in ["tab_selected","tab_unselected","tab_hovered"]:
+		var tab_style := StyleBoxFlat.new()
+		tab_style.bg_color = PANEL if state=="tab_selected" else BG
+		tab_style.content_margin_left = 5
+		tab_style.content_margin_right = 5
+		tab_style.content_margin_top = 5
+		tab_style.content_margin_bottom = 5
+		sidebar_tabs.add_theme_stylebox_override(state,tab_style)
 	right_panel.add_child(sidebar_tabs)
 	var right := _tab_column("Look")
 	_section(right, "03 / Appearance", "Adjust the desktop preview. Recordings keep the original source.")
@@ -439,8 +451,16 @@ func _build_ui() -> void:
 	tracking_panel = TrackingPanel.new()
 	tracking_column.add_child(tracking_panel)
 	tracking_panel.setup(self)
+	portrait_effects = PortraitEffects.new()
+	add_child(portrait_effects)
+	portrait_effects.setup(self,settings.get_value("effects","settings",{}))
+	portrait_effects.changed.connect(queue_settings_save)
+	var effects_column := _tab_column("Effects")
+	effects_panel = EffectsPanel.new()
+	effects_column.add_child(effects_panel)
+	effects_panel.setup(self,portrait_effects)
 	_compact_panel(right_panel)
-	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,3)
+	sidebar_tabs.current_tab = clampi(int(settings.get_value("view", "sidebar_tab", 1)),0,4)
 	message = _label("Ready. Start the backend, then select a capture source.", 12, MUTED)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(message)
@@ -534,6 +554,7 @@ func _sync_preview_landmarks() -> void:
 	if empty_state: empty_state.hide()
 
 func _clear_tracking() -> void:
+	if portrait_effects: portrait_effects.facial.clear()
 	if video_reader: video_reader.set_frame_locked(false)
 	occlusion.valid = false
 	if beard.mannequin: return
@@ -711,6 +732,7 @@ func _on_video(y: ImageTexture, uv: ImageTexture, _frame_id: int, timestamp: int
 	empty_state.hide()
 	frame_timestamp = timestamp
 	last_video_at = Time.get_ticks_msec()
+	portrait_effects.frame(y,uv)
 	received_frames += 1
 	if received_frames == 1:
 		message.text = "Source connected. Adjust your look or start a recording."
@@ -732,6 +754,7 @@ func _on_landmarks(points: Array, frame_id: int, timestamp: int) -> void:
 		depth.append(point.z)
 	overlay.points = normalized
 	overlay.depth = depth
+	portrait_effects.facial.set_face(normalized,timestamp,overlay.video_size)
 	occlusion.update(normalized,depth,overlay.video_size)
 	overlay.queue_redraw()
 	extensions.set_face(normalized, overlay.video_size, depth)
@@ -910,6 +933,7 @@ func _next_action() -> void:
 	else: _flush_backend_settings()
 
 func _store_settings() -> void:
+	if portrait_effects: settings.set_value("effects","settings",portrait_effects.config)
 	if not calibration_profile.is_empty():
 		calibration_profile.depth = occlusion.head_depth
 		calibration_profile.crown = occlusion.crown

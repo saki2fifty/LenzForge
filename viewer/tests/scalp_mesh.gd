@@ -24,6 +24,7 @@ func _run() -> void:
 		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var sculpted := Scalp.Sculpted.has_style(style)
 		var edges := {}
 		for p in points: check(p.is_finite(),"Finite "+style+" vertices")
 		for n in normals: check(n.is_finite(),"Finite "+style+" normals")
@@ -32,8 +33,12 @@ func _run() -> void:
 				var a := indices[i+j]; var b := indices[i+(j+1)%3]
 				var edge := Vector2i(mini(a,b),maxi(a,b))
 				edges[edge] = edges.get(edge,0)+1
-		for count: int in edges.values(): check(count==2,"Closed manifold shell and rim for "+style)
-		check(points.size()<20000 and indices.size()<100000,"Bounded mesh geometry for "+style)
+		if sculpted:
+			check(arrays[Mesh.ARRAY_TEX_UV].size()==points.size(),"Lock flow UVs preserved for "+style)
+			check(points.size()<60000 and indices.size()<300000,"Bounded sculpted geometry for "+style)
+		else:
+			for count: int in edges.values(): check(count==2,"Closed manifold shell and rim for "+style)
+			check(points.size()<20000 and indices.size()<100000,"Bounded mesh geometry for "+style)
 		var coverage := {"left":0,"right":0,"back":0,"crown":0}
 		var center := (surface.vertices[234]+surface.vertices[454])*.5
 		for p in points:
@@ -46,7 +51,7 @@ func _run() -> void:
 			if style=="Mohawk" and region in ["left","right"]: continue
 			check(coverage[region]>8,style+" covers the "+region)
 		reports.append({"style":style,"vertices":points.size(),"triangles":indices.size()/3,"build_ms":scalp.build_ms})
-	config.merge(Groom.hair_preset("Regular"),true)
+	config.merge(Groom.hair_preset("Long layered"),true)
 	scalp.configure(surface,config); scalp.follow(surface)
 	var original := PackedVector3Array()
 	for p in scalp.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]: original.append(Scalp.FLIP*(scalp.transform*p))
@@ -93,7 +98,7 @@ func _run() -> void:
 	layer.set_mannequin(true); layer.set_enabled(true); layer.set_process(false)
 	for i in 60: layer.simulator.advance(1.0/120)
 	var before: PackedFloat32Array = layer.simulator.get_render_buffer()
-	layer.set_settings(Groom.hair_preset("Afro"))
+	layer.set_settings(Groom.hair_preset("Center-parted"))
 	check(layer.attachment.size()==int(layer.config.strands),"Scalp allocates no simulated strands")
 	check(layer.simulator.get_render_buffer()==before,"Changing hairstyles preserves facial hair physics")
 	check(layer.mannequin_view.scalp.visible,"Enabled mesh appears in the mannequin")
@@ -101,7 +106,7 @@ func _run() -> void:
 	layer.set_setting("hair_style","None")
 	check(layer.mannequin_view.scalp.mesh==null and not layer.mannequin_view.scalp.visible,"None removes the object")
 	layer.apply_document(JSON.parse_string(JSON.stringify(saved)))
-	check(layer.mannequin_view.scalp.visible and layer.config.hair_style=="Afro","Saved looks restore generated mesh choice")
+	check(layer.mannequin_view.scalp.visible and layer.config.hair_style=="Center-parted","Saved looks restore sculpted mesh choice")
 	layer.set_enabled(false)
 	check(not layer.mannequin_view.scalp.visible,"Master hair toggle hides mesh and strands")
 	layer.free(); scalp.free()

@@ -11,6 +11,12 @@ var measuring := false
 var camera_consumer := -1
 var output_readbacks: Array[float] = []
 var output_conversions: Array[float] = []
+var mask_ages: Array[float] = []
+var mask_inferences: Array[float] = []
+var mask_frames := 0
+var last_mask_stamp := 0
+var face_effect_frames := 0
+var last_face_effect_stamp := 0
 
 func distribution(values: Array[float]) -> Dictionary:
 	if values.is_empty():
@@ -73,6 +79,28 @@ func _run() -> void:
 		print("PERFORMANCE_FAILED ", studio.message.text)
 		quit(1)
 		return
+	var blur := args.size()>13 and args[13]=="1"
+	var face_effects := args.size()>18 and args[18]=="1"
+	if face_effects:
+		studio.portrait_effects.set_config({"face_enabled":true,"skin_smoothing":.65,"skin_detail":.65,
+			"face_brightness":.025,"face_warmth":.005,"blush":.25,"lip_tint":.25})
+		studio.sidebar_tabs.current_tab = 4
+	if blur:
+		studio.portrait_effects.set_config({"blur":true,"mask_rate":int(args[15]) if args.size()>15 else 30,
+			"mask_quality":args[16] if args.size()>16 else "fast"})
+		studio.sidebar_tabs.current_tab = 4
+		deadline = Time.get_ticks_msec()+20000
+		while not studio.portrait_effects.mask_ready and Time.get_ticks_msec()<deadline: await create_timer(.05).timeout
+		if not studio.portrait_effects.mask_ready:
+			print("PERFORMANCE_FAILED Background blur: ",studio.portrait_effects.detail)
+			quit(1); return
+		if args.size()>17 and args[17]=="1":
+			var reference := Image.create(256,144,false,Image.FORMAT_RGB8)
+			reference.fill(Color.BLACK)
+			studio.portrait_effects.room_reference = ImageTexture.create_from_image(reference)
+			studio.portrait_effects.room_dimensions = Vector2i(1280,720)
+			studio.portrait_effects.mask_material.set_shader_parameter("room_reference",studio.portrait_effects.room_reference)
+			studio.portrait_effects.mask_material.set_shader_parameter("room_ready",true)
 	if args.size() > 11 and args[11] == "1":
 		studio.virtual_camera.start()
 		deadline = Time.get_ticks_msec()+25000
@@ -101,6 +129,12 @@ func _run() -> void:
 			uploads.append(studio.video_reader.get_upload_ms())
 		if studio.beard.enabled and studio.beard._face_live:
 			beard_updates.append(studio.beard.update_ms)
+		if blur and studio.portrait_effects.mask_ready:
+			mask_frames += 1
+			mask_ages.append(absf(studio.frame_timestamp-studio.portrait_effects.mask_stamp)/1000.0)
+			if studio.portrait_effects.mask_stamp!=last_mask_stamp:
+				last_mask_stamp=studio.portrait_effects.mask_stamp
+				mask_inferences.append(studio.portrait_effects.mask_ms)
 		if studio.virtual_camera.active:
 			output_readbacks.append(studio.virtual_camera.readback_ms)
 			output_conversions.append(studio.virtual_camera.stats.get("conversion_ms",0))
@@ -112,6 +146,8 @@ func _run() -> void:
 			landmark_ages.append(studio.video_reader.get_frame_age_ms() + (studio.video_reader.get_timestamp() - timestamp) / 1000.0)
 	)
 	RenderingServer.frame_pre_draw.connect(func():
+		if measuring and studio.portrait_effects.facial.face_ready and studio.portrait_effects.facial.stamp!=last_face_effect_stamp:
+			last_face_effect_stamp = studio.portrait_effects.facial.stamp; face_effect_frames += 1
 		if measuring and not studio.overlay.points.is_empty():
 			var skew := absf(studio.frame_timestamp-studio.landmark_timestamp)/1000.0
 			pair_skews.append(skew)
@@ -136,6 +172,11 @@ func _run() -> void:
 		"beard_update_ms":distribution(beard_updates), "beard_frames":beard_updates.size(),
 		"scalp_mesh_triangles":studio.beard.live_view.scalp.triangle_count,"scalp_mesh_revisions":studio.beard.live_view.scalp.revision,
 		"output_handoff_ms":distribution(output_readbacks),"output_cpu_conversion_ms":distribution(output_conversions)}
+	result["background_blur"] = {"enabled":blur,"frames_with_mask":mask_frames,"mask_age_ms":distribution(mask_ages),"inference_ms":distribution(mask_inferences)}
+	result["facial_effects"] = {"enabled":face_effects,"distinct_frames_with_effects":face_effect_frames}
+	if args.size()>14 and not args[14].is_empty():
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(args[14])
 	if studio.virtual_camera.active: result["virtual_camera"] = studio.virtual_camera.writer.get_status()
 	print("LENZFORGE_PERFORMANCE ", JSON.stringify(result))
 	if camera_consumer > 0 and OS.is_process_running(camera_consumer): OS.kill(camera_consumer)

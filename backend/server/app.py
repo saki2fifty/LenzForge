@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 # Studio routes
-from .routes import system, camera, tracking, effects, export_data, streaming, logs, docs, performance, stats, calibration
+from .routes import system, camera, tracking, effects, export_data, streaming, logs, docs, performance, stats, calibration, portrait
 
 # Global SocketIO instance
 socketio = SocketIO(async_mode="threading")
@@ -92,6 +92,7 @@ def create_app(config=None):
     app.register_blueprint(camera.bp, url_prefix='/api/camera')
     app.register_blueprint(tracking.bp, url_prefix='/api/tracking')
     app.register_blueprint(calibration.bp, url_prefix='/api/calibration')
+    app.register_blueprint(portrait.bp, url_prefix='/api/portrait')
     app.register_blueprint(effects.bp, url_prefix='/api/effects')
     app.register_blueprint(export_data.bp, url_prefix='/api/export')
     app.register_blueprint(streaming.streaming_bp)  # Streaming routes (no prefix)

@@ -1,5 +1,57 @@
 # Performance measurements
 
+## Desktop background blur
+
+Measured October 18, 2026 on the Ryzen 5 5500 / RX 7900 XTX workstation, using the Compatibility renderer, synthetic 1280 × 720 portrait capture at 60 fps, real CPU face tracking at width 640, 1,024 × 8 facial strands and background blur at up to 30 masks/s. Settings were isolated; the rendered viewer was off-screen. The final run used five seconds of warmup and twenty seconds of measurement.
+
+| Measurement | Blur enabled |
+| --- | ---: |
+| Distinct matched preview fps | 59.99 |
+| Renderer fps | 120 |
+| Preview gaps over 50 ms / frame-landmark mismatches | 0 / 0 |
+| Preview frames with a valid person mask | 1,200 / 1,200 |
+| Person segmentation median / p95 | 5.105 / 6.556 ms |
+| Mask-to-displayed-frame timestamp difference median / p95 | 49.854 / 66.818 ms |
+
+Background masks are asynchronous, while face landmarks remain paired with their video frame. The independent worker and small binary masks preserve preview throughput in this test, but this is not a physical-camera motion or low-end-hardware benchmark. The mask-age row describes potential boundary lag, not added video delay. Intermediate GPU textures update only on new video; color-only effects bypass segmentation. No output-camera client was connected during this timing run. A separate rendered shared-world composition check verifies that virtual-camera composition includes the effect. [Raw report](performance/2026-10-18-background-blur.json).
+
+Reproduce with `tools/benchmark.py --portrait --beard --beard-strands 1024 --background-blur --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen`. Screenshots are saved only if `--capture-preview <path>` is explicitly passed. `res://tests/effects_render.gd` checks sharp foreground versus blurred background, mirroring, stale-mask fallback, shared-world output and color transforms. Python worker tests cover no-demand behavior, duplicate frames, bounded in-flight work, expiry, errors and capture-generation validation.
+
+### Background cleanup and faster mask updates
+
+Follow-up October 18 measurements use the same synthetic capture, CPU face tracker, 1,024 × 8 facial strands and 5/20-second warmup/measurement periods, with native-size GPU mask refinement, a known black-room reference and an inference cap of 60 masks/s. The reference matches the synthetic portrait's black surround; this tests the active cleanup path, not a real room calibration. No physical camera or virtual-camera consumer was opened.
+
+| Measurement | Fast + cleanup | Balanced + cleanup |
+| --- | ---: | ---: |
+| Distinct matched preview fps | 59.98 | 59.98 |
+| Renderer fps | 120 | 120 |
+| Preview gaps over 50 ms / frame-landmark mismatches | 0 / 0 | 0 / 0 |
+| Preview frames with a valid mask | 1,200 / 1,200 | 1,200 / 1,200 |
+| Segmentation median / p95 | 6.239 / 8.442 ms | 10.844 / 13.387 ms |
+| Mask timestamp difference median / p95 | 33.184 / 50.077 ms | 33.448 / 66.428 ms |
+
+Fast's median mask age decreased from about 50 to 33 ms versus the earlier 30-mask/s run. Increasing the cap raises CPU work; actual mask cadence still depends on camera, inference and delivery. Balanced preserves square-model mask detail but costs more CPU and can lag more at the tail. The fast model remains the default. These observations are not a controlled physical-camera motion comparison. [Fast report](performance/2026-10-18-background-cleanup-fast.json), [Balanced report](performance/2026-10-18-background-cleanup-balanced.json).
+
+Use the command above with `--mask-rate 60 --room-cleanup`; add `--mask-quality balanced` for the second configuration. Rendered tests also cover a fully confident false background patch, foreground preservation, newly uncovered wall with an unchanged AI mask, confidence/inset controls, room bypass/forget/cancellation, and switching mask dimensions. The expanded project checks passed 96 Python tests, four browser tests, settings restoration, layout, Godot/IPC and existing capture/physics checks.
+
+## Facial effects
+
+Measured October 18 on the same workstation with synthetic 1280 × 720 portrait capture at 60 fps, CPU face tracking, 1,024 × 8 facial strands, five seconds warmup and twenty seconds measurement per run. Both runs enabled skin smoothing 0.65, detail preservation 0.65, face brightness +0.025, warmth +0.005, blush 0.25 and lip tint 0.25. The combined run added Fast background segmentation capped at 60 masks/s and the known synthetic black-room reference.
+
+| Measurement | Facial effects | Facial effects + blur/cleanup |
+| --- | ---: | ---: |
+| Distinct matched preview fps | 59.99 | 59.93 |
+| Renderer fps | 120 | 120 |
+| Preview gaps over 50 ms | 0 | 0 |
+| Video/landmark presentation mismatches | 0 | 0 |
+| Distinct face-effect frame states observed during rendering | 1,201 | 1,199 |
+
+The face-effect counter includes a face already displayed at the start of measurement; it is independent of interval-based FPS. The effects reuse existing face inference and add only a small anatomical-mask render plus bounded shader sampling. No additional segmentation runs for facial effects alone. These are synthetic throughput measurements, not a physical-camera quality test or a guarantee for other GPUs. No output-camera consumer was connected. [Facial report](performance/2026-10-18-face-effects.json), [combined report](performance/2026-10-18-face-effects-with-blur.json).
+
+Reproduce with `tools/benchmark.py --portrait --beard --beard-strands 1024 --face-effects --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen`; add `--background-blur --mask-rate 60 --room-cleanup` for the combined run.
+
+`res://tests/face_effects_render.gd` verifies smoothing of low-contrast texture, protected eyes/brows/mouth, unchanged background, blush and lip regions, an open-mouth exclusion, mirroring, exact frame matching, tracking expiry, mannequin/master bypass and shared-world virtual-camera composition. The existing rendered background-effect checks also pass. The full project checks passed 96 Python tests, four browser tests, Godot/IPC/capture checks, facial setting/color persistence and all three Effects pages at 960/1200/1440-pixel window widths.
+
 ## GPU virtual-camera transfer and head calibration
 
 Measured October 17 on the same Ryzen 5 5500 / RX 7900 XTX workstation, Godot 4.7.2 Compatibility rendering, AMD driver 26.6.4. Sequential 20-second runs, 5-second warmup, synthetic 1280×720 portrait at 60 fps, actual CPU face inference at width 640, 1,024 × 8 facial strands, off-screen rendered viewer, isolated settings and an active Windows camera client. The CPU comparison forces the original output transport with `LENZFORGE_CAMERA_CPU=1`; tracking stays on CPU in **both** runs.
@@ -295,6 +347,24 @@ The isolated 180-pose test measured a **0.007 ms median / 0.016 ms p95** scalp c
 A 20-second rendered synthetic portrait run with **Regular mesh enabled**, CPU tracking and 1,024 facial strands × 8 maintained **60.02 matched preview fps**, 120 render fps, zero intervals over 50 ms and zero mismatched presentations. Median facial physics/upload preparation was 1.038 ms. This is a local RX 7900 XTX fixture, not a guarantee for every camera or GPU.
 
 Reproduce mesh attachment tests with `res://tests/scalp_mesh.gd`, CPU cutting with `res://tests/buzz_performance.gd`, and the rendered preview with `tools/benchmark.py --portrait --beard --beard-strands 1024 --hair-style Regular --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen`. [Raw results](performance/scalp-mesh.json).
+
+### Sculpted hairstyles
+
+Measured October 17 on the same Ryzen 5 5500 / RX 7900 XTX workstation. The three bundled meshes use one opaque surface each: 33,626 triangles (Side-swept), 40,941 (Center-parted) and 88,004 (Long layered). No scalp strand simulation is added. Pose changes reuse the mesh and issue only the existing rigid transform update. The 180-pose headless fixture measured 0.009 ms median / 0.024 ms p95 for Long layered configure/follow, excluding GPU completion and inference. Initial fitting including native scalp-clearance queries took approximately 43 / 46 / 120 ms respectively; these are edit costs, not per-frame costs.
+
+Sequential 20-second runs used synthetic 720p portrait capture at 60 fps, real CPU face inference at width 640, 1,024 × 8 facial strands, five-second warmup, isolated settings and an off-screen rendered viewer:
+
+| Measurement | Regular comparison | Long layered |
+| --- | ---: | ---: |
+| Matched preview fps | 59.84 | 59.97 |
+| Render fps | 120 | 120 |
+| Frame gaps over 50 ms | 1 | 0 |
+| Frame/landmark mismatches | 0 | 0 |
+| Facial physics/upload median | 1.073 ms | 1.172 ms |
+
+The larger mesh retained the target throughput in this short local run. The comparison's single 67 ms gap was not isolated, and the small FPS difference is not evidence of a speedup. This does not establish physical-camera latency, GPU utilization, low-end GPU performance or virtual-camera output cost. Runtime lighting differs from the Blender reference renders. [Raw runs and geometry timings](performance/sculpted-hair.json).
+
+Reproduce with `tools/benchmark.py --portrait --beard --beard-strands 1024 --hair-style "Long layered" --fps 60 --tracking-backend cpu --warmup 5 --seconds 20 --offscreen`. `res://tests/sculpted_hair_render.gd` exercises the selector and renders each style from three mannequin views without saving personal preferences. `res://tests/scalp_mesh_render.gd -- "Long layered"` verifies live projection, mesh/strand depth and the head mask.
 
 ### Buzz and wrapped scalp follow-up
 

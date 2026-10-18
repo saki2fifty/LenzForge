@@ -37,6 +37,11 @@ func _run() -> void:
 		studio.resolution_picker.select(2)
 		studio.fps_picker.select(0)
 		studio.exposure_slider.value = .17
+		studio.portrait_effects.set_config({"blur":true,"blur_strength":32.0,"edge_softness":.2,"mask_rate":60,
+			"page":2,"face_enabled":true,"skin_smoothing":.7,"skin_detail":.8,"face_brightness":.04,"face_warmth":.025,
+			"blush":.2,"blush_color":"ca7090","lip_tint":.35,"lip_color":"9c2147",
+			"mask_quality":"balanced","person_confidence":.78,"edge_inset":1.25,"room_cleanup":false,"room_tolerance":.14,
+			"filter":2,"saturation":.8,"contrast":1.2,"warmth":.025,"vignette":.4})
 		studio.preset_picker.select(2)
 		studio.preset_picker.item_selected.emit(2)
 		studio.point_slider.value = 3.25
@@ -60,7 +65,7 @@ func _run() -> void:
 		studio.beard.selected_strand = 0
 		studio.beard.set_strand_setting("curl", .37)
 		studio.beard.set_strand_setting("anchor", "virtual:1000:250000:250000")
-		studio.beard.set_settings({"hair_style":"Regular","hair_length":.37,"hair_volume":.51,"hair_color":"452d1eff","hair_tip_color":"b2864fff"})
+		studio.beard.set_settings({"hair_style":"Long layered","hair_length":.37,"hair_volume":.51,"hair_color":"452d1eff","hair_tip_color":"b2864fff"})
 		studio.beard.selected_strand=1
 		studio.beard.set_strand_setting("guide3d",[[0,0,0],[.05,-.1,.3],[.1,-.2,.7]])
 		studio.beard.mannequin_view.set_pose(35,-12,1.2)
@@ -104,6 +109,15 @@ func _run() -> void:
 		check(studio.source_picker.selected == 1, "Restore the camera by stable device ID")
 		check(studio.resolution_picker.selected == 2 and studio.fps_picker.selected == 0, "Restore capture format")
 		check(is_equal_approx(studio.exposure_slider.value,.17), "Restore exposure slider")
+		var fx: Dictionary = studio.portrait_effects.config
+		check(fx.face_enabled and fx.page==2 and fx.blush_color=="ca7090" and fx.lip_color=="9c2147","Restore facial controls, colors and selected effects page")
+		for key in {"skin_smoothing":.7,"skin_detail":.8,"face_brightness":.04,"face_warmth":.025,"blush":.2,"lip_tint":.35}:
+			check(is_equal_approx(fx[key],{"skin_smoothing":.7,"skin_detail":.8,"face_brightness":.04,"face_warmth":.025,"blush":.2,"lip_tint":.35}[key]),"Restore facial effect "+key)
+		check(fx.blur and fx.mask_rate==60 and fx.filter==2 and fx.mask_quality=="balanced" and not fx.room_cleanup,"Restore background blur and effect choices")
+		for key in {"person_confidence":.78,"edge_inset":1.25,"room_tolerance":.14}:
+			check(is_equal_approx(fx[key],{"person_confidence":.78,"edge_inset":1.25,"room_tolerance":.14}[key]),"Restore blur cleanup "+key)
+		for key in {"blur_strength":32.0,"edge_softness":.2,"saturation":.8,"contrast":1.2,"warmth":.025,"vignette":.4}:
+			check(is_equal_approx(fx[key],{"blur_strength":32.0,"edge_softness":.2,"saturation":.8,"contrast":1.2,"warmth":.025,"vignette":.4}[key]),"Restore effect "+key)
 		check(is_equal_approx(studio.material_video.get_shader_parameter("exposure"),.17), "Apply restored exposure to shader")
 		check(studio.preset_picker.selected == 2, "Restore appearance preset")
 		check(not studio.mirror_check.button_pressed and not studio.points_check.button_pressed, "Restore false toggles")
@@ -118,7 +132,7 @@ func _run() -> void:
 			check(is_equal_approx(studio.beard.config[key],{"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}[key]),"Restore independent setting "+key)
 		check(not studio.beard.config.mustache_collisions,"Restore independent mustache collision")
 		check(not studio.beard.config.beard_sideburns and is_equal_approx(studio.beard.config.sideburn_rise,.65) and is_equal_approx(studio.beard.config.sideburn_width,.09),"Restore sideburn settings")
-		check(studio.beard.config.hair_style=="Regular" and is_equal_approx(studio.beard.config.hair_length,.37) and is_equal_approx(studio.beard.config.hair_volume,.51),"Restore mesh hairstyle and shape")
+		check(studio.beard.config.hair_style=="Long layered" and is_equal_approx(studio.beard.config.hair_length,.37) and is_equal_approx(studio.beard.config.hair_volume,.51),"Restore sculpted hairstyle and shape")
 		check(studio.beard.config.hair_color=="452d1eff" and studio.beard.config.hair_tip_color=="b2864fff" and studio.beard.mannequin_view.scalp.mesh!=null,"Restore mesh colors and generated geometry")
 		check(studio.beard.model_name == "Persistence look", "Restore working look name")
 		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")

@@ -1,4 +1,4 @@
-"""Profile the full capture-to-viewer path; no video or images are saved."""
+"""Profile capture-to-viewer performance; optionally save a preview screenshot."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -28,8 +28,14 @@ def main():
     parser.add_argument('--beard', action='store_true', help='Enable the default physics beard')
     parser.add_argument('--beard-strands', type=int, default=256)
     parser.add_argument('--beard-segments', type=int, default=8)
-    parser.add_argument('--hair-style', choices=['None', 'Regular', 'Mohawk', 'Afro'], default='None', help='Include a generated 3D scalp hair object')
+    parser.add_argument('--hair-style', choices=['None', 'Side-swept', 'Center-parted', 'Long layered', 'Regular', 'Mohawk', 'Afro'], default='None', help='Include a fitted 3D scalp hair object')
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--background-blur', action='store_true', help='Include real person segmentation and GPU background blur')
+    parser.add_argument('--face-effects', action='store_true', help='Include skin smoothing, face color, blush and lip tint using the tracked face')
+    parser.add_argument('--mask-rate', type=int, choices=[15,30,60], default=30)
+    parser.add_argument('--mask-quality', choices=['fast','balanced'], default='fast')
+    parser.add_argument('--room-cleanup', action='store_true', help='Use the known black background of the synthetic portrait as a room reference')
+    parser.add_argument('--capture-preview', type=Path, help='Explicitly save one rendered studio image after measurement')
     parser.add_argument('--tracking-backend', choices=['auto', 'gpu', 'cpu'], default='auto')
     parser.add_argument('--warmup', type=float, default=8)
     parser.add_argument('--offscreen', action='store_true', help='Keep the rendered test window off-screen')
@@ -37,6 +43,8 @@ def main():
     parser.add_argument('--portrait', action='store_true', help='Use a deterministic public-domain portrait as the demo source')
     parser.add_argument('--virtual-camera', action='store_true', help='Measure composed output with an actual Windows camera consumer; requires native camera installation')
     args = parser.parse_args()
+    if args.room_cleanup and not (args.portrait and args.background_blur):
+        parser.error('--room-cleanup requires --portrait and --background-blur')
     os.environ['LENZFORGE_SETTINGS_DIR'] = str(ROOT / 'artifacts' / ('benchmark-settings-' + uuid.uuid4().hex))
     if not 1 <= args.seconds <= 300:
         parser.error('--seconds must be 1 to 300')
@@ -80,6 +88,10 @@ def main():
     command.append(args.vsync)
     command.append('1' if args.virtual_camera else '0')
     command.append(args.hair_style)
+    command.append('1' if args.background_blur else '0')
+    command.append(str(args.capture_preview.resolve()) if args.capture_preview else '')
+    command += [str(args.mask_rate), args.mask_quality, '1' if args.room_cleanup else '0']
+    command.append('1' if args.face_effects else '0')
     if args.offscreen:
         command[1:1] = ['--position', '-3000,0']
     try:
@@ -99,7 +111,9 @@ def main():
                   'virtual_camera': args.virtual_camera,
                   'source': f'public-domain portrait, synthetic {args.fps} fps' if args.portrait else 'camera' if args.camera >= 0 else 'demo',
                   'overlay': not args.no_overlay, 'beard': args.beard, 'beard_strands': args.beard_strands,
-                  'beard_segments': args.beard_segments, 'hair_style': args.hair_style},
+                  'beard_segments': args.beard_segments, 'hair_style': args.hair_style, 'background_blur': args.background_blur,
+                  'mask_rate': args.mask_rate, 'mask_quality': args.mask_quality, 'room_cleanup': args.room_cleanup,
+                  'face_effects': args.face_effects},
                   'viewer': json.loads(lines[-1].split(' ', 1)[1]), 'backend': status}
         # Mapping names identify only this transient session and add no value to reports.
         report['backend'].pop('buffers', None)
@@ -109,6 +123,8 @@ def main():
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(encoded, encoding='utf-8')
     finally:
+        from server.routes.portrait import worker
+        worker.stop()
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()

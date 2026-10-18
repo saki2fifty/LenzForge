@@ -84,17 +84,22 @@ The mannequin uses this same mesh and shared triangle bindings, so roots and ora
 
 ### Generated 3D scalp hair
 
-Open **Hair → Scalp hair → Hairstyle** to choose a solid, generated mesh:
+Open **Hair → Scalp hair → Hairstyle** to choose a solid 3D mesh. The three sculpted styles are the approved Blender prototypes, bundled with the app; Blender is not needed to use them.
 
 | Style | Shape and useful controls |
 | --- | --- |
+| Side-swept | Sculpted short hair with a swept fringe and layered locks over the crown and sides. |
+| Center-parted | Sculpted curtains with a central part, temple coverage and a shaped back. |
+| Long layered | Sculpted long locks wrapping around the scalp and hanging beside the face and neck. |
 | Regular | Swept cap around the crown, temples and back; sweep direction, part position and side volume. |
 | Mohawk | Raised solid crest running from forehead toward the back; width, length/height and volume. |
 | Afro | Rounded, textured volume around the scalp; length/height, volume, surface curl and texture. |
 
 Every style supports scalp coverage, hairline offset, base color and highlight color. The panel shows the controls relevant to the selected style. **None** removes the object. Styles and all shape/color changes autosave and restore after restarting; named library looks retain them too. Selecting a style applies its shape preset and preserves colors.
 
-These are opaque 3D meshes with a closed scalp-facing shell and rim. They use the fitted head shape, stay attached through head turns, and share depth testing with facial hair. Live **Occlusion** hides geometry behind the head; the mannequin always uses its solid head. Hidden landmark guides do not affect fitting. Unmeasured scalp/back geometry remains an anatomical estimate.
+These are opaque 3D meshes. The sculpted styles fit their reference skull to the shared head and correct local scalp intersections once on edits; the procedural styles build a closed shell directly from the head. They stay attached through head turns and share depth testing with facial hair. Live **Occlusion** hides geometry behind the head; the mannequin always uses its solid head. Hidden landmark guides do not affect fitting. Unmeasured scalp/back geometry remains an anatomical estimate.
+
+For the sculpted styles, **Length / height = 0.32**, **Volume = 0.35**, **Scalp coverage = 1.0** and **Hairline offset = 0.0** reproduce the authored proportions after fitting. Length changes the short styles' lift or the long style's hanging length. Coverage changes width; positive hairline offset moves the hair downward. Color controls preserve your existing colors when switching styles. Use **Try on mannequin**, drag to inspect all sides, then turn mannequin mode off to test with the camera. Restart an already-open viewer to load newly installed styles.
 
 Meshes are generated when their shape or head fit changes. During tracking, a single transform follows the rigid skull frame, outside its expression-sensitive seam. Blinks and mouth movements do not deform the hair. Color changes reuse geometry, and changing a hairstyle does not reset beard or mustache physics. Scalp hair consumes no simulated strands or segment budget and has no gravity, wind or strand-motion controls.
 
