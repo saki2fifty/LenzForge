@@ -73,6 +73,11 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_render_buffer"), &BeardSimulator::get_render_buffer);
     ClassDB::bind_method(D_METHOD("get_strand_points", "strand"), &BeardSimulator::get_strand_points);
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
+    ClassDB::bind_method(D_METHOD("clip_line", "start", "finish", "occluder", "triangles", "head_to_pixels", "world_to_pixels", "pixel_size"), &BeardSimulator::clip_line);
+    ClassDB::bind_method(D_METHOD("get_clippings_buffer", "world_to_pixels"), &BeardSimulator::get_clippings_buffer);
+    ClassDB::bind_method(D_METHOD("get_clipping_count"), &BeardSimulator::get_clipping_count);
+    ClassDB::bind_method(D_METHOD("clear_clippings"), &BeardSimulator::clear_clippings);
+    ClassDB::bind_method(D_METHOD("set_clipping_projection", "projection"), &BeardSimulator::set_clipping_projection);
 }
 
 static bool valid_forces(double g, double w, double t, double d) {
@@ -224,6 +229,7 @@ void BeardSimulator::advance(double delta) {
         last_worker_count=int(workers->threads.size())+1;
         workers->run(steps,clock);
     } else step_range(0,count,steps,clock);
+    if (!clippings.empty()) for (int tick=0;tick<steps;++tick) advance_clippings(dt);
     clock+=steps*dt;
     accumulator-=steps*dt;
 }

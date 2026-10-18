@@ -4,7 +4,7 @@ Daily summaries of LenzForge changes, with links to the commits that delivered t
 
 | Date | Summary | Daily changelog |
 | --- | --- | --- |
-| 2026-10-17 | Guided personal head fitting and shared-GPU virtual-camera output with CPU fallback; custom Windows camera; compact changelog badge; independent mustache physics; fuller virtual beard roots, sideburns and strand occlusion; synchronized face attachments; restored preview throughput and parallel C++ physics. | [October 17](docs/changelog/2026-10-17_000136-0500-changelog.md) |
+| 2026-10-17 | Mannequin Clippers with saved cuts and falling ends; guided personal head fitting and shared-GPU virtual-camera output with CPU fallback; custom Windows camera; compact changelog badge; independent mustache physics; fuller virtual beard roots, sideburns and strand occlusion; synchronized face attachments; restored preview throughput and parallel C++ physics. | [October 17](docs/changelog/2026-10-17_000136-0500-changelog.md) |
 | 2026-10-16 | Independent virtual landmarks and shared head attachments; interactive 3D mannequin; browser GPU tracking with CPU fallback; model downloads; automatic settings; quick controls; preferred defaults; physical 3D head collision. | [October 16](docs/changelog/2026-10-16_001356-0500-changelog.md) |
 | 2026-10-15 | Repository and legacy-source import; Godot and dependency modernization; camera startup fixes; lower capture latency; native beard editor, physics, Blender exchange, and expanded grooming styles. | [October 15](docs/changelog/2026-10-15_133201-0500-changelog.md) |
 

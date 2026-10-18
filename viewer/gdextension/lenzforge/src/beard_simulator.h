@@ -8,6 +8,9 @@
 #include "head_collider.h"
 #include <vector>
 #include <memory>
+#include <deque>
+#include <godot_cpp/variant/transform3d.hpp>
+#include <godot_cpp/variant/color.hpp>
 
 namespace lenzforge {
 // Bounded 3D strand solver. Camera-pixel coordinates: X right, Y down, Z away.
@@ -38,6 +41,13 @@ public:
     godot::PackedVector2Array get_strand_points(int strand) const;
     godot::PackedVector3Array get_strand_points_3d(int strand) const;
     double get_max_length_error() const;
+    godot::Dictionary clip_line(const godot::Vector2 &start, const godot::Vector2 &finish,
+        const godot::PackedVector3Array &occluder, const godot::PackedInt32Array &triangles,
+        const godot::Transform3D &head_to_pixels, const godot::Transform3D &world_to_pixels, double pixel_size);
+    godot::PackedFloat32Array get_clippings_buffer(const godot::Transform3D &world_to_pixels) const;
+    int get_clipping_count() const { return int(clippings.size()); }
+    void clear_clippings() { clippings.clear(); }
+    void set_clipping_projection(const godot::Transform3D &projection);
 protected:
     static void _bind_methods();
 private:
@@ -70,6 +80,17 @@ private:
     std::unique_ptr<ParallelState> workers;
     bool parallel_enabled = true;
     int last_worker_count = 1;
+    struct Clipping {
+        std::vector<godot::Vector3> points, previous;
+        std::vector<float> lengths, widths;
+        std::vector<godot::Color> colors;
+        std::vector<int> hints;
+        double age=0, gravity=0, wind=0, turbulence=0, damping=0, face_width=1;
+        bool collision=false;
+    };
+    std::deque<Clipping> clippings;
+    godot::Transform3D clipping_projection;
+    void advance_clippings(double dt);
 };
 }
 #endif

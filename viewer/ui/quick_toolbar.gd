@@ -6,6 +6,7 @@ const ICONS := {
 	"hair": '<path d="M5 5v6c0 5 3 8 7 10 4-2 7-5 7-10V5 M8 10v4l4 4 4-4v-4 M9 6l3 2 3-2"/>',
 	"mirror": '<path d="M12 3v18 M8 6 3 18h5Z M16 6l5 12h-5Z"/>',
 	"mannequin": '<path d="M7 8a5 5 0 0 1 10 0v4c0 3-2 5-5 5s-5-2-5-5Z M9 17v3h6v-3 M6 21h12 M8 10h2 M14 10h2"/>',
+	"clippers": '<path d="M6 3v4 M9 3v4 M12 3v4 M15 3v4 M18 3v4 M5 7h14v4l-4 3v6H9v-6l-4-3Z M10 17h4"/>',
 	"processor": '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
 	"models": '<path d="m12 3 9 5-9 5-9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/>',
 	"camera": '<rect x="2" y="5" width="13" height="14" rx="3"/><path d="m15 10 7-4v12l-7-4 M6 12h5 M8.5 9.5v5"/>',
@@ -38,6 +39,12 @@ func setup(studio: Control) -> void:
 	_toggle("hair", "Hair and beard", "Show / hide hair and beard.", func(value): host.beard.set_enabled(value))
 	_toggle("mirror", "Mirror preview", "Mirror preview (M).", func(value): host.mirror_check.button_pressed = value)
 	_toggle("mannequin", "3D mannequin", "Switch between the camera and 3D mannequin.", func(value): host.beard.set_mannequin(value))
+	_toggle("clippers", "Clippers", "3D mannequin only. Drag a line to cut the nearest visible hair. Right-drag rotates; Ctrl+Z undoes.", func(value): host.beard.clippers.set_active(value))
+	buttons.clippers.text = "Clippers"
+	buttons.clippers.add_theme_color_override("icon_disabled_color",Color("596472"))
+	buttons.clippers.add_theme_color_override("font_disabled_color",Color("596472"))
+	host.beard.clippers.changed.connect(sync)
+	host.beard.clippers.message.connect(func(text): host.message.text = text)
 	_toggle("camera", "Virtual camera", "Send the composed preview to other apps.", func(value):
 		if value: host.virtual_camera.start()
 		else: host.virtual_camera.stop())
@@ -133,6 +140,8 @@ func sync() -> void:
 	buttons.hair.set_pressed_no_signal(host.beard.enabled)
 	buttons.mirror.set_pressed_no_signal(host.mirror_check.button_pressed)
 	buttons.mannequin.set_pressed_no_signal(host.beard.mannequin)
+	buttons.clippers.disabled = not host.beard.mannequin
+	buttons.clippers.set_pressed_no_signal(host.beard.clippers.active)
 	var config: Dictionary = host.tracking_panel.values()
 	var mode: String = config.get("backend","auto")
 	var label := "Auto" if mode == "auto" else mode.to_upper()

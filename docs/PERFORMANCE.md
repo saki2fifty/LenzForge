@@ -275,6 +275,23 @@ Regional contour shaping is also cached when settings change. A follow-up compar
 
 The small default-count difference is ordinary run variation, not a speedup claim. The same synthetic fixture, sample counts, hardware, and exclusions apply. [Raw contour report](performance/landmark-contours.json). Add `-- contours` to the command above to reproduce it; the output is `artifacts/landmark-contours-performance.json`. Regional tests also check independent starting positions, inward side offsets, backward progression, inward wrapping past 90°, pose projection, saved contours, and older settings.
 
+## Mannequin Clippers — October 17
+
+Clippers performs depth selection only when a drag ends, using a one-dimensional depth strip and cached bust geometry. It adds no camera inference or GPU readback. Detached pieces use bounded native storage and one render batch; the batch's upload image/texture is released after the final piece expires.
+
+The local headless mannequin fixture measured these CPU times (one 120 Hz simulation step plus upload preparation). Each trim is a single gesture, followed by 90 updates with loose pieces; idle figures use 60 samples after warmup.
+
+| Attached hair | Pieces cut | Cut commit | Idle median / p95 | With pieces median / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| 1,024 × 8 | 35 | 1.764 ms | 0.694 / 0.886 ms | 0.849 / 1.276 ms |
+| 2,048 × 16, including scalp/brows | 2 | 2.397 ms | 3.249 / 3.726 ms | 3.192 / 3.575 ms |
+
+The second view exposes only two crossings at its trim line; it is a maximum attached-hair workload, not a maximum debris workload. In a separate full-pool fixture, cutting **2,048 separated strands × 16 segments** took **15.503 ms**. Advancing the retained hair and 2,048 pieces and packing both buffers took **3.313 ms median / 3.763 ms p95**. That artificial stress fixture disables head collisions and excludes Godot texture uploads; the mannequin fixtures retain head collision. These CPU measurements exclude GPU completion, camera capture and AI inference and should not be read as rendered FPS.
+
+A separate 20-second rendered synthetic portrait run with CPU tracking and 1,024 × 8 strands retained **59.89 matched preview fps**, 120 render fps, zero intervals over 50 ms and zero mismatched presentations. Hair update median was 1.034 ms. The preceding crown-stability run measured 59.94 matched fps on this workstation; this is consistent with preserving preview throughput, not a speedup claim. [Raw reports](performance/clippers.json).
+
+Reproduce the trim measurements with `--headless --path viewer --script res://tests/clippers_performance.gd`; `tests/clippers_render.gd` separately checks visible detached pixels, side-view cuts, and render-resource cleanup with an actual graphics context. `tools/check.py` includes depth selection, repeated maximum cuts, segment preservation, undo, and cross-process autosave regressions.
+
 ## Reproduce
 
 Close other camera applications, build with `Setup.ps1 -SkipInstall`, then run:

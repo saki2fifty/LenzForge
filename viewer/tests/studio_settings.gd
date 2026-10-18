@@ -4,6 +4,22 @@ var failures: Array[String] = []
 func check(condition: bool, detail: String) -> void:
 	if not condition: failures.append(detail)
 
+func same_saved_value(actual: Variant, expected: Variant) -> bool:
+	# ConfigFile rounds native float widths; retain sub-pixel precision while
+	# checking every strand, key, guide point and exact nonnumeric value.
+	if actual is float and expected is float: return absf(actual-expected)<.000001
+	if actual is Dictionary and expected is Dictionary:
+		if actual.size()!=expected.size(): return false
+		for key in expected:
+			if not actual.has(key) or not same_saved_value(actual[key],expected[key]): return false
+		return true
+	if actual is Array and expected is Array:
+		if actual.size()!=expected.size(): return false
+		for i in expected.size():
+			if not same_saved_value(actual[i],expected[i]): return false
+		return true
+	return actual==expected
+
 func _initialize() -> void:
 	_run.call_deferred()
 
@@ -65,7 +81,15 @@ func _run() -> void:
 		studio.tracking_panel.accept_config({"pose_model":"custom_pose_test"},-1)
 		studio.tracking_panel._edited()
 		studio.tracking_checks.hands.button_pressed = true
+		studio.beard.simulator.reset()
+		var bottom := -INF
+		for i in studio.beard.attachment.size(): bottom = maxf(bottom,studio.beard.simulator.get_strand_points_3d(i)[-1].y)
+		var cut_count: int = studio.beard.clippers.cut(studio.beard._screen(Vector2(0,bottom-40)),studio.beard._screen(Vector2(1280,bottom-65)))
+		check(cut_count>0,"Create an actual clipped look for the restart test")
 		await create_timer(.8).timeout
+		var expected := FileAccess.open(studio.settings_path+".clippers.json",FileAccess.WRITE)
+		expected.store_string(JSON.stringify(studio.beard.overrides))
+		expected.close()
 		var disk := ConfigFile.new()
 		check(disk.load(studio.settings_path) == OK, "Changes must reach disk while the window is still open")
 		check(is_equal_approx(disk.get_value("view","exposure",0),.17), "Exposure must autosave without closing")
@@ -91,6 +115,8 @@ func _run() -> void:
 		check(studio.beard.model_name == "Persistence look", "Restore working look name")
 		check(not studio.beard.overrides.is_empty() and is_equal_approx(studio.beard.overrides.values()[0].curl,.37), "Restore individual strand edits")
 		check(studio.beard.overrides.get("0",{}).get("anchor","") == "virtual:1000:250000:250000", "Restore virtual attachment after restarting the app")
+		var expected: Variant = JSON.parse_string(FileAccess.get_file_as_string(studio.settings_path+".clippers.json"))
+		check(same_saved_value(JSON.parse_string(JSON.stringify(studio.beard.overrides)),expected),"Restore every clipped length, taper, color and guide in a new process")
 		check(is_equal_approx(studio.beard.mannequin_view.yaw,35) and is_equal_approx(studio.beard.mannequin_view.zoom,1.2), "Restore 3D mannequin pose")
 		check(is_equal_approx(studio.extensions.model.config.vertical_offset,-.23) and is_equal_approx(studio.extensions.model.config.top,.61), "Restore virtual landmark shape")
 		check(not studio.occlusion.enabled and is_equal_approx(studio.occlusion.head_depth,.81) and is_equal_approx(studio.occlusion.crown,.29), "Restore visibility settings")

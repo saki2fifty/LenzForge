@@ -103,6 +103,12 @@ Mannequin roots use the same cached triangle bindings as live roots. The same he
 
 The mannequin viewport renders at the fitted preview resolution, capped at 720p; thumbnails use their own small resolution. Pose and fitting changes request one frame, hair requests frames while active, and leaving mannequin mode disables the viewport. With hair off, no continual renderer or simulation work is requested for a stationary head. Camera frames can continue arriving without changing mannequin projection dimensions. Existing persisted grooming and extension settings are preserved.
 
+### Mannequin Clippers
+
+`viewer/beard/clippers.gd` handles a finite screen-space drag, pauses simulation while aiming, and maps the blade through the existing mirrored preview transform. `hair_clippers.cpp` performs the cut on release. A bounded one-dimensional depth strip under the blade resolves the nearest strand using its simulated 3D depth and width, the existing root-height tie-breaker, and a cached copy of the complete rendered bust. It requires no GPU readback or full-frame picking buffer. Hidden strands remain intact, and all intersections are selected before any strand changes.
+
+The native solver resamples each retained chain, velocity and rest guide to the original segment count without rebuilding unaffected strands. GDScript records per-strand length/taper/color/guide overrides in the existing autosaved document; twelve override snapshots support temporary undo. Detached chains use world-space Verlet motion, their region's forces and head collisions. A pool of at most 2,048 pieces expires after 2.5 seconds. One reusable `MultiMeshInstance3D` draws all pieces with the existing depth-tested shader; native vectors and upload textures are released after cleanup. Ordinary camera preview does no clipping selection, debris simulation or debris upload.
+
 ## Verification and limits
 
 Validation covers wire layout/publication, NV12 color round trips, latest-frame behavior, capture without viewers and restart generations, recording decode, API behavior, invalid configuration atomicity, and Tasks inference. A public-domain Grace Hopper portrait from Matplotlib's sample data produces 478 face landmarks, 52 blendshapes, and a 4×4 transform. An isolated Python producer also exercises the compiled Godot readers with known values, timestamps, and face-loss events.

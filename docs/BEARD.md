@@ -26,6 +26,18 @@ Opaque strand interiors write GPU depth; tapered edges blend smoothly, and fully
 
 The C++ extension must be rebuilt after updating an older checkout: close viewers and run `Setup.ps1 -SkipInstall`. The current working beard and visibility are restored when the desktop closes normally. Use the library to retain several designs.
 
+## Clippers
+
+Switch to the **3D mannequin**, then click **Clippers** in the top toolbar. The button is greyed out in camera mode. Drag from **Start** to **Finish** across visible hair and release to cut. The hair pauses while you aim. Right-drag rotates the head, the wheel zooms, and **Esc** cancels the line or leaves the tool. **Undo cut** or **Ctrl+Z** restores up to twelve previous cuts; other grooming edits clear this temporary history.
+
+![Clippers line across the mannequin's beard](images/clippers.png)
+
+Each stroke cuts the nearest visible strands it crosses from the current view. Hair hidden by other strands or the solid mannequin stays intact; rotate the head or make another pass to reach it. The root-connected part remains attached, with its own shorter length and the **same segment count**. Cutting across an angled line therefore leaves different strand lengths. The cut tip keeps the width and color at the cut point.
+
+Detached ends retain momentum, fall under their region's gravity/wind/damping, and can collide with the head. They fade and are removed after 2.5 seconds of simulation, with a bounded pool and one render batch. Turning the head does not carry detached hair with it. Changing the groom or leaving the mannequin clears loose pieces immediately.
+
+Cuts autosave as ordinary per-strand length, taper, color and guide overrides. They survive restarts, appear on your live face, and are included in look-library saves and exports. The active tool, loose pieces and undo history are temporary. Changing strand count can remove edits for strands that no longer exist, as with other per-strand editing.
+
 ## Hair root surface
 
 All roots now fit the same closed head mesh used by virtual landmarks and occlusion. **Hair → Root surface → Extend root coverage** distributes roots across scalp, chin and sides while preserving hairstyle, colors and strand budget. **Expand root coverage** selects that wider procedural distribution; roots always stay on the shared surface.

@@ -47,6 +47,7 @@ var last_error := ""
 var _face_live := false
 var mannequin_view := MannequinView.new()
 var mannequin_toolbar := HBoxContainer.new()
+var clippers := preload("res://beard/clippers.gd").new()
 
 func _init() -> void:
 	# Own child nodes even when controls are built outside the tree in tests.
@@ -77,6 +78,8 @@ func _init() -> void:
 	hint.add_theme_font_size_override("font_size",12)
 	mannequin_toolbar.add_child(hint)
 	mannequin_toolbar.hide()
+	add_child(clippers)
+	clippers.setup(self)
 
 func _ready() -> void:
 	process_priority = 10 # Readers and matched landmark attachments run first.
@@ -174,6 +177,7 @@ func selected_defaults() -> Dictionary:
 
 func set_enabled(value: bool) -> void:
 	enabled = value
+	if not enabled: clippers.set_active(false); clippers.clear_clippings()
 	set_process(enabled and simulator != null)
 	if not enabled: live_view.hide(); root_markers.hide(); virtual_markers.hide()
 	elif mannequin: _set_demo_face()
@@ -188,6 +192,8 @@ func set_enabled(value: bool) -> void:
 
 func set_mannequin(value: bool) -> void:
 	mannequin = value
+	clippers.set_active(false)
+	clippers.clear_clippings()
 	clear_face()
 	mannequin_view.set_active(value)
 	mannequin_toolbar.visible = value and size.x >= 320
@@ -204,9 +210,10 @@ func set_edit_strands(value: bool) -> void:
 
 func _update_mouse() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if edit_strands or mannequin else Control.MOUSE_FILTER_IGNORE
-	mouse_default_cursor_shape = Control.CURSOR_CROSS if edit_strands else Control.CURSOR_MOVE
+	mouse_default_cursor_shape = Control.CURSOR_CROSS if edit_strands or clippers.active else Control.CURSOR_MOVE
 
 func set_mirror(value: bool) -> void:
+	clippers.cancel_stroke()
 	mirror = value
 	mannequin_view.set_mirror(value)
 	_update_transform()
@@ -239,6 +246,7 @@ func clear_face() -> void:
 
 func _set_demo_face() -> void:
 	if not mannequin: return
+	clippers.cancel_stroke()
 	video_size = MannequinView.FRAME
 	face = mannequin_view.project_points(mannequin_view.reference)
 	for i in face.size(): face[i] /= video_size
@@ -246,10 +254,12 @@ func _set_demo_face() -> void:
 	_face_live = true
 	set_process(enabled and simulator != null)
 	if enabled: _attach()
+	if simulator: simulator.set_clipping_projection(mannequin_view.world_to_pixels())
 	_update_transform()
 	preview_face_changed.emit()
 
-func _rebuild() -> void:
+func _rebuild(preserve_cut_history := false) -> void:
+	if not preserve_cut_history: clippers.invalidate()
 	mannequin_view._roots_dirty = true
 	var selected_id := selected_key()
 	attachment = Profile.all_anchors(config)
@@ -414,16 +424,20 @@ func _process(delta: float) -> void:
 		clear_face()
 	if not _face_live or simulator == null: return
 	var started := Time.get_ticks_usec()
+	if clippers.dragging: return
 	simulator.advance(delta)
 	var buffer: PackedFloat32Array = simulator.get_render_buffer()
 	if mannequin: mannequin_view.update_hair(buffer,int(config.segments),enabled)
 	else: live_view.update_hair(buffer,int(config.segments),surface.width)
+	if mannequin and (simulator.get_clipping_count()>0 or mannequin_view.clippings.visible):
+		mannequin_view.update_clippings(simulator.get_clippings_buffer(mannequin_view.world_to_pixels()))
 	update_ms = (Time.get_ticks_usec() - started) / 1000.0
 	if edit_strands and selected_strand >= 0: selection.queue_redraw()
 
 func _update_transform() -> void:
+	clippers.cancel_stroke()
 	mannequin_toolbar.visible = mannequin and size.x >= 320
-	mannequin_toolbar.get_child(4).visible = size.x >= 540
+	mannequin_toolbar.get_child(4).visible = size.x >= (660 if clippers.active else 540)
 	var fit := minf(size.x / video_size.x, size.y / video_size.y)
 	var origin := (size - video_size*fit)*.5
 	_video_transform = Transform2D(Vector2(-fit if mirror else fit, 0), Vector2(0, fit),
@@ -447,6 +461,7 @@ func _screen(point: Vector2) -> Vector2:
 	return _video_transform * point
 
 func _gui_input(event: InputEvent) -> void:
+	if clippers.handle_input(event): accept_event(); return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and edit_strands and _face_live:
 		var nearest := -1
 		var distance := 22.0

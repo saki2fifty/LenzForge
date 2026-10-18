@@ -16,6 +16,9 @@ var mirror := true
 var face_width := 0.0
 var dots: Dictionary = {}
 var hair: MultiMeshInstance3D
+var clippings: MultiMeshInstance3D
+var cut_vertices := PackedVector3Array()
+var cut_triangles := PackedInt32Array()
 var hair_material := ShaderMaterial.new()
 var root_positions := PackedVector3Array()
 var root_camera_positions := PackedVector3Array()
@@ -51,7 +54,7 @@ func set_active(value: bool) -> void:
 		request_frame()
 	else:
 		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		if _built: hair.hide()
+		if _built: hair.hide(); clippings.hide()
 
 func _build() -> void:
 	if _built: return
@@ -59,10 +62,13 @@ func _build() -> void:
 	camera = Camera3D.new()
 	pivot = Node3D.new()
 	hair = preload("res://beard/strand_mesh.gd").new()
+	clippings = preload("res://beard/strand_mesh.gd").new()
+	clippings.hide()
 	hair_material = hair.shader_material
 	_refresh_reference()
 	viewport.add_child(pivot)
 	pivot.add_child(HeadModel.build(reference,surface))
+	_cache_cut_mesh()
 	viewport.add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.position = Vector3(0,-2,50)
@@ -98,6 +104,7 @@ func _build() -> void:
 	hair_material.set_shader_parameter("units_per_pixel",1/pixels_per_unit())
 	hair_material.set_shader_parameter("camera_y",camera.position.y)
 	viewport.add_child(hair)
+	viewport.add_child(clippings)
 
 func _resize() -> void:
 	# Match display resolution, including tiny library thumbnails; cap at 720p.
@@ -124,6 +131,7 @@ func set_surface_shape(depth: float, crown_height: float, sides := 1.0, jaw := 1
 	var bust := HeadModel.build(reference,surface)
 	pivot.add_child(bust)
 	pivot.move_child(bust,0)
+	_cache_cut_mesh()
 	_roots_dirty = true
 	pose_changed.emit()
 	request_frame()
@@ -133,6 +141,41 @@ func _refresh_reference() -> void:
 	reference = surface.vertices.slice(0,478)
 	for i in reference.size(): reference[i] *= Vector3(1,-1,-1)
 	face_width = reference[454].distance_to(reference[234])
+
+func _cache_cut_mesh() -> void:
+	# Cache the complete rendered bust only when its geometry changes.
+	cut_vertices.clear()
+	cut_triangles.clear()
+	for node in pivot.get_child(0).get_children():
+		if not node is MeshInstance3D: continue
+		for section in node.mesh.get_surface_count():
+			var arrays: Array = node.mesh.surface_get_arrays(section)
+			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			var offset := cut_vertices.size()
+			for p in points: cut_vertices.append(node.transform*p)
+			if indices.is_empty():
+				for i in points.size(): cut_triangles.append(offset+i)
+			else:
+				for i in indices: cut_triangles.append(offset+i)
+
+func world_to_pixels() -> Transform3D:
+	var unit := pixels_per_unit()
+	return Transform3D(Basis.from_scale(Vector3(unit,-unit,-unit)),Vector3(FRAME.x*.5,FRAME.y*.5+camera.position.y*unit,0))
+
+func update_clippings(buffer: PackedFloat32Array) -> void:
+	if not _built: return
+	clippings.visible = active and not buffer.is_empty()
+	if clippings.visible:
+		clippings.shader_material.set_shader_parameter("units_per_pixel",1/pixels_per_unit())
+		clippings.shader_material.set_shader_parameter("camera_y",camera.position.y)
+		clippings.upload(buffer,1,0)
+	elif clippings.multimesh.instance_count:
+		clippings.multimesh.instance_count = 0
+		clippings.shader_material.set_shader_parameter("strand_data",null)
+		clippings.data_image = null
+		clippings.data_texture = null
+	request_frame()
 
 func _frame_rendered() -> void:
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
