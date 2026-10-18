@@ -28,9 +28,11 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 		targets.append(Vector3(xy.x,xy.y,depths[i]*FRAME.x/20))
 		if anchors[i].has("sideburn_target"): targets[i] = anchors[i].sideburn_target*reference_width
 	var result: Dictionary = surface.bind_nearest(targets)
+	var scalp := preload("res://beard/scalp_groom.gd").bindings(surface,config,anchors)
 	for i in anchors.size():
 		var anchor: String = overrides.get(anchors[i].id,{}).get("anchor","")
 		var binding := Surface.binding(anchor)
+		if binding.is_empty() and anchors[i].region == "hair": binding = scalp.get(anchors[i].id,{})
 		if binding.is_empty() and anchors[i].has("lower_surface"):
 			var uv: Vector2 = anchors[i].lower_surface
 			var allowed := bounded_depth(uv.x,float(config.lower_root_depth),fitted,rear_limit)
@@ -45,6 +47,8 @@ static func build(surface: RefCounted, config: Dictionary, anchors: Array, overr
 	var clipped_ids: Array[int] = []
 	var placed: PackedVector3Array = surface.math.sample(fitted,result.indices,result.weights)
 	for i in anchors.size():
+		if anchors[i].region == "hair":
+			anchors[i]["scalp_side"] = clampf(((placed[i].y-(fitted[234].y+fitted[454].y)*.5)/reference_width+.45)/.5,0,1)
 		if anchors[i].region != "beard" or overrides.get(anchors[i].id,{}).has("anchor") or placed[i].z <= rear_limit: continue
 		clipped_ids.append(i)
 		clipped_targets.append(Vector3(placed[i].x,placed[i].y,rear_limit))

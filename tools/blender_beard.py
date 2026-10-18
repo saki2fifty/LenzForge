@@ -1,7 +1,7 @@
 """Blender add-on: round-trip LenzForge beard guides as editable poly curves.
 
 Install this file as a Blender add-on, then use File > Import/Export > LenzForge
-beard (.json). Geometry uses face-width units, with planar strands rooted on a 3D head. The viewer
+beard (.json). Geometry uses face-width units, with spatial strands rooted on a 3D head. The viewer
 rebinds roots to live landmarks; curve edits control each strand's rest shape.
 """
 import copy
@@ -14,21 +14,23 @@ bl_info = {'name': 'LenzForge Beard Curves', 'author': 'saki2fifty',
 
 
 def curve_override(points, base_length, root_width, tip_width):
-    """Convert Blender XY points to a bounded, normalized Godot rest guide."""
+    """Convert Blender points to a bounded, normalized Godot rest guide."""
     if not 2 <= len(points) <= 65 or not .00001 < base_length < 5:
         raise ValueError('Use 2–65 points per strand and a valid exported base length.')
-    if any(len(p) < 2 or not all(math.isfinite(v) for v in p) for p in points):
+    if any(len(p) not in (2, 3) or len(p) != len(points[0]) or not all(math.isfinite(v) for v in p) for p in points):
         raise ValueError('Curve coordinates must be finite.')
     if not .1 <= root_width <= 12 or not 0 <= tip_width <= 12:
         raise ValueError('Widths must fit the viewer range: root 0.1–12, tip 0–12.')
-    relative = [(p[0] - points[0][0], -(p[1] - points[0][1])) for p in points]
+    spatial = len(points[0]) == 3 and any(abs(p[2] - points[0][2]) > 1e-8 for p in points)
+    relative = [[p[0] - points[0][0], -(p[1] - points[0][1])] +
+                ([-(p[2] - points[0][2])] if spatial else []) for p in points]
     length = sum(math.dist(a, b) for a, b in zip(relative, relative[1:]))
     if length < 1e-6:
         return {'length': 0.0, 'root_width': root_width, 'tip_width': tip_width}
     if length / base_length > 3.00001:
         raise ValueError('A strand exceeds the 3× length limit. Increase the base length in LenzForge first.')
     return {'length': min(3.0, length / base_length), 'root_width': root_width,
-            'tip_width': tip_width, 'guide': [[x / length, y / length] for x, y in relative]}
+            'tip_width': tip_width, 'guide3d' if spatial else 'guide': [[v / length for v in p] for p in relative]}
 
 
 def edited_document(original, curves):
@@ -43,8 +45,9 @@ def edited_document(original, curves):
         index = str(guide['index'])
         edit = curve_override(curve['points'], guide['base_length'], curve['root_width'], curve['tip_width'])
         result['strands'].setdefault(index, {}).update(edit)
-        if 'guide' not in edit:
-            result['strands'][index].pop('guide', None)
+        for key in ('guide', 'guide3d'):
+            if key not in edit:
+                result['strands'][index].pop(key, None)
     result.pop('geometry', None)  # The viewer regenerates neutral export geometry.
     return result
 

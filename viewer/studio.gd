@@ -827,6 +827,10 @@ func _setup_autosave() -> void:
 	# Restore view-only choices after constructing all controls, before observing edits.
 	beard.set_mannequin(bool(settings.get_value("beard", "mannequin", false)))
 	beard.set_edit_strands(bool(settings.get_value("beard", "edit_strands", false)))
+	var clip_mode := str(settings.get_value("tools","clippers_mode","Line"))
+	beard.clippers.mode = clip_mode if clip_mode in ["Line","Buzz"] else "Line"
+	var blade := float(settings.get_value("tools","clippers_width",40.0))
+	beard.clippers.blade_width = clampf(blade,16,96) if is_finite(blade) else 40.0
 	var pose: Vector3 = settings.get_value("beard", "pose", Vector3(0,0,1))
 	beard.mannequin_view.set_pose(pose.x,pose.y,pose.z)
 	beard_panel.select_check.set_pressed_no_signal(beard.edit_strands)
@@ -915,6 +919,8 @@ func _store_settings() -> void:
 		settings.set_value("beard", "enabled", beard.enabled)
 		settings.set_value("beard", "mannequin", beard.mannequin)
 		settings.set_value("beard", "edit_strands", beard.edit_strands)
+		settings.set_value("tools","clippers_mode",beard.clippers.mode)
+		settings.set_value("tools","clippers_width",beard.clippers.blade_width)
 		settings.set_value("beard", "pose", Vector3(beard.mannequin_view.yaw,beard.mannequin_view.pitch,beard.mannequin_view.zoom))
 		settings.set_value("beard", "library_id", beard_panel.current_id)
 		if beard_panel.models.selected > 0: settings.set_value("beard", "library_selection", beard_panel.models.get_item_metadata(beard_panel.models.selected))

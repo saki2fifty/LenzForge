@@ -22,7 +22,8 @@ public:
     bool configure(int strands, int segments, const godot::Dictionary &settings,
                    const godot::PackedFloat32Array &attributes,
                    const godot::PackedVector2Array &rest_steps = godot::PackedVector2Array(),
-                   const godot::PackedFloat32Array &strand_options = godot::PackedFloat32Array());
+                   const godot::PackedFloat32Array &strand_options = godot::PackedFloat32Array(),
+                   const godot::PackedVector3Array &spatial_steps = godot::PackedVector3Array());
     bool set_anchors(const godot::PackedVector2Array &roots, double face_width,
                      const godot::Vector2 &down, const godot::Vector2 &mouth,
                      const godot::Vector2 &mouth_radii);
@@ -45,6 +46,9 @@ public:
         const godot::PackedVector3Array &occluder, const godot::PackedInt32Array &triangles,
         const godot::Transform3D &head_to_pixels, const godot::Transform3D &world_to_pixels, double pixel_size);
     godot::PackedFloat32Array get_clippings_buffer(const godot::Transform3D &world_to_pixels) const;
+    godot::Dictionary clip_buzz(const godot::Vector2 &from, const godot::Vector2 &to, double width,
+        const godot::PackedVector3Array &occluder, const godot::PackedInt32Array &triangles,
+        const godot::Transform3D &head_to_pixels, const godot::Transform3D &world_to_pixels, double pixel_size);
     int get_clipping_count() const { return int(clippings.size()); }
     void clear_clippings() { clippings.clear(); }
     void set_clipping_projection(const godot::Transform3D &projection);
@@ -58,11 +62,11 @@ private:
     bool mustache_collisions = true;
     double scale = 300, accumulator = 0, clock = 0;
     bool initialized = false, collisions = true, preserve_shape = false;
-    godot::Vector3 down = godot::Vector3(0, 1, 0), right = godot::Vector3(1, 0, 0);
+    godot::Vector3 down = godot::Vector3(0, 1, 0), right = godot::Vector3(1, 0, 0), back = godot::Vector3(0, 0, 1);
     godot::Vector2 mouth, mouth_radii;
     std::vector<Strand> attributes;
     std::vector<godot::Vector3> roots, positions, previous;
-    std::vector<godot::Vector2> directions;
+    std::vector<godot::Vector3> directions;
     std::vector<float> rest_lengths;
     HeadCollider head;
     std::vector<int> contact_hint;
@@ -91,6 +95,8 @@ private:
     std::deque<Clipping> clippings;
     godot::Transform3D clipping_projection;
     void advance_clippings(double dt);
+    struct CutHit { int strand,link; double t,line,depth; };
+    godot::Dictionary apply_clips(const std::vector<CutHit> &chosen, const godot::Transform3D &world_to_pixels);
 };
 }
 #endif

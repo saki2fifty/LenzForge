@@ -28,9 +28,13 @@ The C++ extension must be rebuilt after updating an older checkout: close viewer
 
 ## Clippers
 
-Switch to the **3D mannequin**, then click **Clippers** in the top toolbar. The button is greyed out in camera mode. Drag from **Start** to **Finish** across visible hair and release to cut. The hair pauses while you aim. Right-drag rotates the head, the wheel zooms, and **Esc** cancels the line or leaves the tool. **Undo cut** or **Ctrl+Z** restores up to twelve previous cuts; other grooming edits clear this temporary history.
+Switch to the **3D mannequin**, then click **Clippers** in the top toolbar. Its adjacent **▾** dropdown selects **Line** or **Buzz**; both controls are greyed out in camera mode. **Line** cuts when you release a drag from Start to Finish and pauses the hair while you aim. **Buzz** shows an image of electric clippers: hold the left mouse button to run them, move the teeth into hair to cut on contact, and release to stop. Hovering never cuts. Small/Medium/Large blade widths are available in the dropdown. Mode and width autosave; the tool starts disarmed after restart.
+
+Right-drag rotates the head, the wheel zooms, and **Esc** stops the current stroke or leaves the tool. **Undo cut** or **Ctrl+Z** restores up to twelve previous cuts; one held Buzz stroke is one undo step, even if it cuts many times. Other grooming edits clear this temporary history. Buzz follows the swept blade path between input samples, so fast mouse moves do not skip intervening strands. It leaves simulation running while you cut.
 
 ![Clippers line across the mannequin's beard](images/clippers.png)
+
+![Buzz clippers running on contact](images/clippers-buzz.png)
 
 Each stroke cuts the nearest visible strands it crosses from the current view. Hair hidden by other strands or the solid mannequin stays intact; rotate the head or make another pass to reach it. The root-connected part remains attached, with its own shorter length and the **same segment count**. Cutting across an angled line therefore leaves different strand lengths. The cut tip keeps the width and color at the cut point.
 
@@ -86,7 +90,13 @@ The mannequin uses this same mesh and shared triangle bindings, so roots and ora
 | Mohawk | Narrow central root strip and raised strands; strip width, length, volume. |
 | Afro | Rounded root coverage with coiled outward guides; curl, coil frequency, volume, frizz. |
 
-All scalp styles support 32–768 hairs, scalp width, hairline offset, length, volume, curl, clumping, frizz, length variation, taper, root/tip colors, motion, and shape hold. Selecting a preset applies its shape settings and Styled motion. Density, colors, hairline fitting, and custom per-strand guides remain editable. **None** hides scalp hair while retaining its individual edits. The scalp is estimated from the forehead and face width; adjust the hairline/width to fit your head. Coil frequency is limited to one coil per four segments to avoid undersampling; more segments allow finer curls at higher cost.
+All scalp styles support 32–768 hairs, scalp width, hairline offset, length, volume, curl, clumping, frizz, length variation, taper, root/tip colors, motion, and shape hold. Selecting a preset applies its shape settings and Styled motion. Density, colors, hairline fitting, and custom per-strand guides remain editable. **None** hides scalp hair while retaining its individual edits. Coil frequency is limited to one coil per four segments to avoid undersampling; more segments allow finer curls at higher cost.
+
+Scalp roots now cover the fitted **crown, temples, sides and back**, with area-weighted distribution across actual head triangles. The hairline stays high at the front and descends around the ears and back. Regular uses curved 3D guides fitted around the surface; Mohawk follows a narrow front-to-back strip; Afro grows outward in three dimensions. **Scalp width** adjusts lateral coverage, **Hairline offset** raises/lowers the boundary, and **Side length** shortens Regular hair at the sides/back. Saved explicit root attachments still take priority. No virtual-guide visibility switch or separate expansion step is needed for scalp coverage. The existing strand budget is spread over this larger area; use count and widths to adjust visible fullness.
+
+![Regular scalp coverage from the side](images/scalp-side.png)
+
+The shared head fit remains an anatomical estimate, including when calibrated. These styles follow its shape and the shared head collision settings. Cuts and Blender round-trips preserve spatial guides, including depth.
 
 ![Regular swept hairstyle](images/groom-regular.png)
 ![Mohawk hairstyle](images/groom-mohawk.png)
@@ -147,7 +157,7 @@ Geometry uses one face width as a unit, X right, Y up, Z zero. Root positions ar
 
 Live-camera hair uses a transparent, depth-tested 3D layer composited over the video. Virtual attachment uses relative depth to project an estimated head during turns, but the scalp/ear points are not newly measured anatomy. Existing real hair is not removed. The shared head-depth map clips far-side roots and strand fragments; turn it off under Landmarks → Visibility to inspect hidden guides.
 
-The live preview and mannequin use native 3D strand dynamics. Each segment carries its own endpoint depths into rendering, so collision can move hair around the head without flattening it to the root depth. The collider follows the shared head mesh, uses a directional triangle lookup for point contacts, and sweeps links to prevent intersections between joints. Head updates refit the lookup; there are no per-strand scene nodes, rigid bodies or GPU readbacks. The solid outer envelope closes small tracking degeneracies. Live scalp/back shape is still estimated; this does not add hair-to-hair, shoulder, hand or room-object collision. Blender exports retain editable planar rest guides at the shared 3D roots, rather than exporting the current simulated pose.
+The live preview and mannequin use native 3D strand dynamics. Each segment carries its own endpoint depths into rendering, so collision can move hair around the head without flattening it to the root depth. The collider follows the shared head mesh, uses a directional triangle lookup for point contacts, and sweeps links to prevent intersections between joints. Head updates refit the lookup; there are no per-strand scene nodes, rigid bodies or GPU readbacks. The solid outer envelope closes small tracking degeneracies. Live scalp/back shape is still estimated; this does not add hair-to-hair, shoulder, hand or room-object collision. Blender exports retain editable rest guides with all three coordinates at the shared 3D roots, rather than exporting the current simulated pose.
 
 The mannequin builds its mesh only when first opened. Root fitting is cached between setting changes, and hair uses one instanced batch with the native packed buffer uploaded directly to a bounded texture. Both previews share that uploader and spatial shader. The live layer uses GPU depth and color passes, followed by a single video-overlay composite; there is no CPU sorting during movement or GPU readback. The viewports follow the displayed preview resolution, capped at 720 pixels high, and stop rendering when inactive. With hair disabled, it renders only when the pose, fitting, visibility, or size changes. Library thumbnails use the same head at thumbnail resolution.
 

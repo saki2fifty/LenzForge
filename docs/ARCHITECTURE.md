@@ -109,6 +109,14 @@ The mannequin viewport renders at the fitted preview resolution, capped at 720p;
 
 The native solver resamples each retained chain, velocity and rest guide to the original segment count without rebuilding unaffected strands. GDScript records per-strand length/taper/color/guide overrides in the existing autosaved document; twelve override snapshots support temporary undo. Detached chains use world-space Verlet motion, their region's forces and head collisions. A pool of at most 2,048 pieces expires after 2.5 seconds. One reusable `MultiMeshInstance3D` draws all pieces with the existing depth-tested shader; native vectors and upload textures are released after cleanup. Ordinary camera preview does no clipping selection, debris simulation or debris upload.
 
+Buzz uses a convex swept blade footprint and a bounded local depth tile in `hair_buzz.cpp`. It resolves the same nearest-hair and solid-bust occlusion as Line, then shares the native shortening/resampling/debris path. Contact sampling runs at most 60 Hz while held; mouse moves are coalesced into a sweep rather than queued. Release, focus loss, leaving the preview, orbiting and leaving mannequin mode stop the motor. One lazily captured override snapshot represents the whole stroke; UI/save notifications are coalesced during the stroke and flushed on release.
+
+### Scalp coverage and spatial guides
+
+`scalp_groom.gd` clips the fitted head triangles to a frontal/temple/nape boundary, samples their area deterministically, and stores ordinary shared-surface bindings. Explicit per-strand anchors win. Mohawk further clips this cap to a central strip. Regular guide points are projected onto the head and lifted for volume; Afro and Mohawk grow outward in a local 3D frame. Fitting happens on grooming/head-fit edits, with bounded native nearest-surface queries for at most 768 × 16 scalp joints; tracking reuses bindings without searches.
+
+The native solver accepts optional packed spatial rest steps alongside the existing planar API. Root orientation transforms all three guide axes, and scalp strands use the existing head collision switch. Cut resampling preserves depth in optional `guide3d` overrides; the validator, autosave, look library and Blender bridge accept them while retaining older planar files. There are no additional scene nodes, AI models or per-frame guide fitting.
+
 ## Verification and limits
 
 Validation covers wire layout/publication, NV12 color round trips, latest-frame behavior, capture without viewers and restart generations, recording decode, API behavior, invalid configuration atomicity, and Tasks inference. A public-domain Grace Hopper portrait from Matplotlib's sample data produces 478 face landmarks, 52 blendshapes, and a 4×4 transform. An isolated Python producer also exercises the compiled Godot readers with known values, timestamps, and face-loss events.

@@ -54,10 +54,15 @@ func _run() -> void:
 			"mustache_damping":.12,"mustache_variation":.32,"mustache_collisions":false,"lower_root_depth":.4,
 			"beard_sideburns":false,"sideburn_rise":.65,"sideburn_width":.09})
 		studio.beard.set_enabled(true)
+		studio.beard.clippers.set_mode("Buzz")
+		studio.beard.clippers.set_blade_width(64)
 		studio.beard.set_mannequin(true)
 		studio.beard.selected_strand = 0
 		studio.beard.set_strand_setting("curl", .37)
 		studio.beard.set_strand_setting("anchor", "virtual:1000:250000:250000")
+		studio.beard.set_settings({"hair_style":"Regular","hair_count":64})
+		studio.beard.selected_strand=int(studio.beard.config.strands)
+		studio.beard.set_strand_setting("guide3d",[[0,0,0],[.05,-.1,.3],[.1,-.2,.7]])
 		studio.beard.mannequin_view.set_pose(35,-12,1.2)
 		studio.beard_panel.select_check.button_pressed = true
 		studio.beard_panel.name_field.text = "Persistence look"
@@ -107,6 +112,7 @@ func _run() -> void:
 		check(studio.overlay.tint == Color("c345ab") and studio.overlay.point_size == 3.25, "Restore landmark color and size")
 		check(studio.beard.enabled and studio.beard.mannequin and studio.beard.edit_strands, "Restore hair/mannequin/edit toggles")
 		check(studio.beard_panel.select_check.button_pressed, "Restored strand toggle must match behavior")
+		check(studio.beard.clippers.mode=="Buzz" and studio.beard.clippers.blade_width==64 and not studio.beard.clippers.active,"Restore clipper preferences without starting the tool")
 		check(is_equal_approx(studio.beard.config.length,.63) and is_equal_approx(studio.beard.config.gravity,4.1), "Restore hair and physics settings")
 		for key in {"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}:
 			check(is_equal_approx(studio.beard.config[key],{"mustache_gravity":2.7,"mustache_wind":-1.5,"mustache_turbulence":.3,"mustache_damping":.12,"mustache_variation":.32,"lower_root_depth":.4}[key]),"Restore independent setting "+key)

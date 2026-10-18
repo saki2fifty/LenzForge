@@ -158,7 +158,7 @@ func set_strand_setting(key: String, value: Variant) -> void:
 	var id := selected_key()
 	if not candidate.strands.has(id): candidate.strands[id] = {}
 	candidate.strands[id][key] = value
-	if key == "curl": candidate.strands[id].erase("guide")
+	if key == "curl": candidate.strands[id].erase("guide"); candidate.strands[id].erase("guide3d")
 	if not Profile.validate(candidate).is_empty(): return
 	overrides = candidate.strands
 	_rebuild()
@@ -293,6 +293,8 @@ func _rebuild(preserve_cut_history := false) -> void:
 	var attributes := PackedFloat32Array()
 	var steps := PackedVector2Array()
 	var options := PackedFloat32Array()
+	var spatial := PackedVector3Array()
+	var guides := preload("res://beard/scalp_groom.gd").guides(source,config,attachment,root_bindings,overrides) if config.hair_style != "None" or overrides.values().any(func(edit): return edit.has("guide3d")) else {}
 	attributes.resize(attachment.size() * 12)
 	options.resize(attachment.size()*4)
 	for i in attachment.size():
@@ -304,14 +306,19 @@ func _rebuild(preserve_cut_history := false) -> void:
 			edit.get("root_width", regional.root_width), edit.get("tip_width", regional.tip_width), edit.get("curl", regional.curl),
 			root_color.r, root_color.g, root_color.b, root_color.a, tip_color.r, tip_color.g, tip_color.b, tip_color.a]
 		for j in 12: attributes[i*12+j] = values[j]
-		steps.append_array(Profile.strand_steps(config,overrides,i,attachment[i]))
+		var planar := Profile.strand_steps(config,overrides,i,attachment[i])
+		steps.append_array(planar)
+		if not guides.is_empty():
+			if guides.has(attachment[i].id): spatial.append_array(guides[attachment[i].id])
+			else:
+				for p in planar: spatial.append(Vector3(p.x,p.y,0))
 		options[i*4] = regional.mode
 		options[i*4+1] = regional.hold
 		options[i*4+2] = 1.0 if regional.collision else 0.0
 		options[i*4+3] = 1.0 if attachment[i].region == "mustache" else 0.0
 	var physics := config.duplicate()
 	physics.length = 1.0 # Attributes carry absolute lengths in face widths for every region.
-	if not simulator.configure(attachment.size(), int(config.segments), physics, attributes, steps, options):
+	if not simulator.configure(attachment.size(), int(config.segments), physics, attributes, steps, options, spatial):
 		last_error = "The beard configuration could not be applied."
 		return
 	if not simulator.set_render_order(render_order):
@@ -387,8 +394,7 @@ func _fit_bindings(source: RefCounted) -> void:
 
 func _update_binding_shape(source: RefCounted) -> void:
 	if _binding_shape == source.shape_signature() and _binding_reference_id == source.reference_id: return
-	_fit_bindings(source)
-	if simulator: simulator.set_render_order(render_order)
+	_rebuild()
 
 func _update_virtual_markers() -> void:
 	# General landmarks own the shared surface guides, independently of hair.

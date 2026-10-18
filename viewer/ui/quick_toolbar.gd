@@ -17,6 +17,7 @@ var host: Control
 var buttons: Dictionary = {}
 var processing := MenuButton.new()
 var models := MenuButton.new()
+var clipper_menu := MenuButton.new()
 var model_popups: Dictionary = {}
 var row := HFlowContainer.new()
 var active_backend := ""
@@ -43,7 +44,26 @@ func setup(studio: Control) -> void:
 	buttons.clippers.text = "Clippers"
 	buttons.clippers.add_theme_color_override("icon_disabled_color",Color("596472"))
 	buttons.clippers.add_theme_color_override("font_disabled_color",Color("596472"))
+	var clipper_group := HBoxContainer.new()
+	clipper_group.add_theme_constant_override("separation",0)
+	row.add_child(clipper_group)
+	buttons.clippers.reparent(clipper_group)
+	clipper_menu.text = "▾"
+	clipper_menu.flat = false
+	_style_button(clipper_menu)
+	clipper_menu.custom_minimum_size.x = 24
+	clipper_menu.tooltip_text = "Clippers function and blade width (3D mannequin only)"
+	clipper_group.add_child(clipper_menu)
+	var clip_popup := clipper_menu.get_popup()
+	clip_popup.add_radio_check_item("Line · drag and release",0)
+	clip_popup.add_radio_check_item("Buzz · hold left click",1)
+	clip_popup.add_separator("Buzz blade width")
+	for entry in [["Small · 24 px",24],["Medium · 40 px",40],["Large · 64 px",64]]: clip_popup.add_radio_check_item(entry[0],entry[1])
+	clip_popup.id_pressed.connect(func(id):
+		if id<2: host.beard.clippers.set_mode("Line" if id==0 else "Buzz")
+		else: host.beard.clippers.set_blade_width(id))
 	host.beard.clippers.changed.connect(sync)
+	host.beard.clippers.preferences_changed.connect(host.queue_settings_save)
 	host.beard.clippers.message.connect(func(text): host.message.text = text)
 	_toggle("camera", "Virtual camera", "Send the composed preview to other apps.", func(value):
 		if value: host.virtual_camera.start()
@@ -142,6 +162,11 @@ func sync() -> void:
 	buttons.mannequin.set_pressed_no_signal(host.beard.mannequin)
 	buttons.clippers.disabled = not host.beard.mannequin
 	buttons.clippers.set_pressed_no_signal(host.beard.clippers.active)
+	clipper_menu.disabled = buttons.clippers.disabled
+	buttons.clippers.tooltip_text = "Clippers · " + host.beard.clippers.mode + "\nUse the dropdown to choose Line or Buzz. Right-drag rotates; Ctrl+Z undoes."
+	for i in clipper_menu.get_popup().item_count:
+		var id := clipper_menu.get_popup().get_item_id(i)
+		clipper_menu.get_popup().set_item_checked(i,(id==0 and host.beard.clippers.mode=="Line") or (id==1 and host.beard.clippers.mode=="Buzz") or (id>1 and id==int(host.beard.clippers.blade_width)))
 	var config: Dictionary = host.tracking_panel.values()
 	var mode: String = config.get("backend","auto")
 	var label := "Auto" if mode == "auto" else mode.to_upper()

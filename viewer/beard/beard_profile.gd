@@ -73,20 +73,22 @@ static func validate(data: Variant) -> String:
 				if not _color_valid(edits[index][key]): return "Invalid strand color."
 			elif key == "guide":
 				if not _guide_valid(edits[index][key]): return "Invalid custom strand curve."
+			elif key == "guide3d":
+				if not _guide_valid(edits[index][key],3): return "Invalid spatial strand curve."
 			elif key == "anchor":
 				if not edits[index][key] is String or preload("res://tracking/head_surface.gd").binding(edits[index][key]).is_empty(): return "Invalid landmark attachment."
 			else: return "Unknown strand setting: " + str(key)
 	return ""
 
-static func _guide_valid(guide: Variant) -> bool:
+static func _guide_valid(guide: Variant, dimensions := 2) -> bool:
 	if not guide is Array or guide.size() < 2 or guide.size() > 65: return false
-	var previous := Vector2.ZERO
+	var previous := Vector3.ZERO
 	var distance := 0.0
 	for i in guide.size():
-		if not guide[i] is Array or guide[i].size() != 2: return false
+		if not guide[i] is Array or guide[i].size() != dimensions: return false
 		for value in guide[i]:
 			if not _number_in(value, [-4.0,4.0]): return false
-		var point := Vector2(guide[i][0],guide[i][1])
+		var point := Vector3(guide[i][0],guide[i][1],guide[i][2] if dimensions==3 else 0)
 		if i == 0 and point.length() > .0001: return false
 		distance += point.distance_to(previous)
 		previous = point
@@ -129,6 +131,7 @@ static func with_geometry(data: Dictionary) -> Dictionary:
 	surface.set_reference()
 	var fitted := preload("res://beard/surface_groom.gd").build(surface,config,bindings,data.get("strands",{}))
 	var roots := surface.sample(fitted)
+	var spatial := preload("res://beard/scalp_groom.gd").guides(surface,config,bindings,fitted,data.get("strands",{}))
 	var guides: Array = []
 	for i in bindings.size():
 		var a: Dictionary = bindings[i]
@@ -138,14 +141,18 @@ static func with_geometry(data: Dictionary) -> Dictionary:
 		var regional := Groom.strand_settings(config,a)
 		var length: float = float(regional.length)*float(edit.get("length",1.0))
 		var points: Array = [[root.x, -root.y, z]]
-		var point := root
-		for step in strand_steps(config,data.get("strands",{}),i,a):
+		var point := Vector3(root.x,root.y,-z)
+		var steps := PackedVector3Array()
+		if spatial.has(a.id): steps = spatial[a.id]
+		else:
+			for step in strand_steps(config,data.get("strands",{}),i,a): steps.append(Vector3(step.x,step.y,0))
+		for step in steps:
 			point += step*length
-			points.append([point.x,-point.y,z])
+			points.append([point.x,-point.y,-point.z])
 		guides.append({"index":a.id,"region":a.region,"points":points,"base_length":maxf(.0001,float(regional.length)),
 			"root_width":float(edit.get("root_width",regional.root_width))/300.0,
 			"tip_width":float(edit.get("tip_width",regional.tip_width))/300.0})
-	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z toward camera; planar rest guides with 3D surface roots", "guides":guides}
+	result["geometry"] = {"units":"face-width", "axis":"X right, Y up, Z toward camera; spatial rest guides", "guides":guides}
 	return result
 
 static func _number_in(value: Variant, bounds: Array) -> bool:

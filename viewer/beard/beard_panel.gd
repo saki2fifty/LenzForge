@@ -91,7 +91,8 @@ func setup(layer: Control, studio: Control) -> void:
 		["ear_reach","Toward ears",0,.6,.01],["side_back","Side / back reach",0,.8,.02],
 		["sideburn_height","Height around ears",0,1,.05]]:
 		_spin(virtual_page,row[0],row[1],row[2],row[3],row[4])
-	controls.crown_height.tooltip_text = "Spread roots from forehead toward crown. Roots stay attached to the skin."
+	controls.crown_height.tooltip_text = "Expand or contract the scalp coverage boundary on the fitted head. Roots stay attached to the skin."
+	controls.crown_back.tooltip_text = "Extend roots toward the back of the scalp. The default 0.35 covers the full cap."
 	controls.side_back.tooltip_text = "Depth behind the face; it becomes visible as you turn or tilt your head. This is estimated geometry."
 	host._section(virtual_page,"Fitting","Use Head depth and Crown height in Landmarks → Visibility to fit the shared head. Lower beard coverage is set on Roots; disable Use lower virtual landmarks there to use the offset controls here. Select a strand to attach it to any measured or virtual landmark.")
 
@@ -128,7 +129,7 @@ func setup(layer: Control, studio: Control) -> void:
 	_color(brows,"brow_color","Color")
 
 	var hair := _page("Scalp hair")
-	host._section(hair,"Scalp styles","Scalp roots are estimated from the forehead and face width. Adjust the hairline and width to fit.")
+	host._section(hair,"Scalp styles","Hair follows the fitted crown, sides and back. Adjust hairline and coverage to fit your scalp.")
 	_enum(hair,"hair_style","Style",Groom.HAIR_STYLES)
 	_enum(hair,"hair_motion","Motion",Groom.MOTIONS)
 	for row in [["hair_count","Strands",32,768,32],["hair_length","Length",.02,1.5,.01],

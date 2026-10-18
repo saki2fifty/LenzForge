@@ -58,7 +58,7 @@ struct BeardSimulator::ParallelState {
 BeardSimulator::BeardSimulator() = default;
 BeardSimulator::~BeardSimulator() = default;
 void BeardSimulator::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps", "strand_options"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()), DEFVAL(PackedFloat32Array()));
+    ClassDB::bind_method(D_METHOD("configure", "strands", "segments", "settings", "attributes", "rest_steps", "strand_options", "spatial_steps"), &BeardSimulator::configure, DEFVAL(PackedVector2Array()), DEFVAL(PackedFloat32Array()), DEFVAL(PackedVector3Array()));
     ClassDB::bind_method(D_METHOD("set_anchors", "roots", "face_width", "down", "mouth", "mouth_radii"), &BeardSimulator::set_anchors);
     ClassDB::bind_method(D_METHOD("set_anchors_3d", "roots", "face_width", "down", "right", "mouth", "mouth_radii"), &BeardSimulator::set_anchors_3d);
     ClassDB::bind_method(D_METHOD("set_head_surface", "vertices", "triangles"), &BeardSimulator::set_head_surface);
@@ -74,6 +74,7 @@ void BeardSimulator::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_strand_points", "strand"), &BeardSimulator::get_strand_points);
     ClassDB::bind_method(D_METHOD("get_max_length_error"), &BeardSimulator::get_max_length_error);
     ClassDB::bind_method(D_METHOD("clip_line", "start", "finish", "occluder", "triangles", "head_to_pixels", "world_to_pixels", "pixel_size"), &BeardSimulator::clip_line);
+    ClassDB::bind_method(D_METHOD("clip_buzz", "from", "to", "width", "occluder", "triangles", "head_to_pixels", "world_to_pixels", "pixel_size"), &BeardSimulator::clip_buzz);
     ClassDB::bind_method(D_METHOD("get_clippings_buffer", "world_to_pixels"), &BeardSimulator::get_clippings_buffer);
     ClassDB::bind_method(D_METHOD("get_clipping_count"), &BeardSimulator::get_clipping_count);
     ClassDB::bind_method(D_METHOD("clear_clippings"), &BeardSimulator::clear_clippings);
@@ -99,7 +100,7 @@ bool BeardSimulator::head_collision(int s) const {
     return attributes[s].mustache ? mustache_collisions : collisions;
 }
 
-bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps, const PackedFloat32Array &options) {
+bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &settings, const PackedFloat32Array &data, const PackedVector2Array &steps, const PackedFloat32Array &options, const PackedVector3Array &spatial_steps) {
     if (p_count < 1 || p_count > 2048 || p_segments < 2 || p_segments > 16 || data.size() != p_count * 12) return false;
     const char *keys[] = {"length", "gravity", "wind", "turbulence", "damping", "stiffness"};
     const double defaults[] = {.45, 3, 0, 0, .025, .4};
@@ -119,6 +120,10 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
     if (!steps.is_empty()) {
         if (steps.size() != p_count * p_segments) return false;
         for (int i=0; i<steps.size(); ++i) if (!steps[i].is_finite() || steps[i].length() > 4) return false;
+    }
+    if (!spatial_steps.is_empty()) {
+        if (spatial_steps.size()!=p_count*p_segments) return false;
+        for(int i=0;i<spatial_steps.size();++i) if(!spatial_steps[i].is_finite() || spatial_steps[i].length()>4) return false;
     }
     const int option_stride=options.size()==p_count*4 ? 4 : 3;
     if (!options.is_empty()) {
@@ -156,9 +161,10 @@ bool BeardSimulator::configure(int p_count, int p_segments, const Dictionary &se
         for (int j=1; j<=segments; ++j) {
             const int k=s*segments+j-1;
             const double angle=std::sin((double(j)/segments)*(2+a.curl*3)*6.283185307179586+std::sin(s*12.9898)*2)*a.curl*1.15;
-            Vector2 step=steps.is_empty() ? Vector2(-std::sin(angle),std::cos(angle))/segments : steps[k];
+            const Vector2 planar=steps.is_empty() ? Vector2(-std::sin(angle),std::cos(angle))/segments : steps[k];
+            const Vector3 step=spatial_steps.is_empty() ? Vector3(planar.x,planar.y,0) : spatial_steps[k];
             rest_lengths[k]=step.length();
-            directions[k]=rest_lengths[k] > 1e-8 ? step/rest_lengths[k] : Vector2(0,1);
+            directions[k]=rest_lengths[k] > 1e-8 ? step/rest_lengths[k] : Vector3(0,1,0);
         }
     }
     if (changed) initialized = false;
@@ -180,6 +186,7 @@ bool BeardSimulator::set_anchors_3d(const PackedVector3Array &p_roots, double p_
     for (int i = 0; i < count; ++i) if (!p_roots[i].is_finite()) return false;
     bool teleport = !initialized || std::abs(p_scale / scale - 1) > .25 || p_roots[0].distance_to(roots[0]) > p_scale * .6;
     scale = p_scale; down = p_down.normalized(); right=p_right.normalized(); mouth = p_mouth;
+    back=right.cross(down).normalized();
     mouth_radii = Vector2(std::max(1.0f, float(p_radii.x)), std::max(1.0f, float(p_radii.y)));
     for (int i = 0; i < count; ++i) {
         roots[i] = p_roots[i];
@@ -200,8 +207,8 @@ bool BeardSimulator::set_anchors_3d(const PackedVector3Array &p_roots, double p_
 
 double BeardSimulator::segment_length(int s, int j) const { return scale * length * attributes[s].length * rest_lengths[s*segments+j-1]; }
 Vector3 BeardSimulator::rest_direction(int s, int j) const {
-    const Vector2 local=directions[s*segments+j-1];
-    return right*local.x+down*local.y;
+    const Vector3 local=directions[s*segments+j-1];
+    return right*local.x+down*local.y+back*local.z;
 }
 void BeardSimulator::reset() {
     for (int s = 0; s < count; ++s) {

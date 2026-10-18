@@ -252,14 +252,14 @@ static func strand_settings(config: Dictionary, binding: Dictionary) -> Dictiona
 	result.root_color = config[region+"_color"]
 	result.tip_color = config[region+"_tip_color"] if region in ["hair","mustache"] else result.root_color
 	result.length = float(config[region+"_length"])
-	result.collision = config.mustache_collisions if region == "mustache" else false
+	result.collision = config.mustache_collisions if region == "mustache" else config.collisions if region == "hair" else false
 	result.curl = config.mustache_curl if region == "mustache" else config.hair_curl if region == "hair" else 0.0
 	if region == "mustache":
 		result.length *= float(binding.length)/.365
 		if not config.mustache_enabled or float(config.mustache_density) <= 0: result.length = 0.0
 	elif region == "hair":
 		result.length *= (0.65+float(config.hair_volume)*.7)*(1-float(config.hair_variation)*float(binding.noise))
-		if config.hair_style == "Regular": result.length *= lerpf(1.0,float(config.hair_sides),pow(absf(float(binding.u)),3))
+		if config.hair_style == "Regular": result.length *= lerpf(1.0,float(config.hair_sides),float(binding.get("scalp_side",pow(absf(float(binding.u)),3))))
 	return result
 
 static func root_depths(config: Dictionary, bindings: Array, face: PackedVector2Array, dimensions: Vector2, depth: PackedFloat32Array, virtual_depth: PackedFloat32Array) -> PackedFloat32Array:

@@ -277,6 +277,23 @@ The small default-count difference is ordinary run variation, not a speedup clai
 
 ## Mannequin Clippers — October 17
 
+### Buzz and wrapped scalp follow-up
+
+Buzz samples a swept contact footprint at most 60 times per second while held. Native depth selection uses a bounded local tile; the normal preview has no active cutter loop. Scalp roots and curved guides are fitted when grooming/head-fit settings change and reuse the existing physics/render batches during movement.
+
+The final headless fixture uses Regular scalp hair, head collisions, 60 idle samples and 120 held-Buzz samples at a 60 Hz simulation update:
+
+| Hair budget | Idle physics/upload median / p95 | Buzz query median / p95 | Active cutting + physics/upload median / p95 |
+| --- | ---: | ---: | ---: |
+| 1,536 × 8 (1,024 facial + 512 scalp) | 2.593 / 3.297 ms | 0.771 / 1.581 ms | 3.693 / 4.802 ms |
+| 2,048 × 16 (maximum combined) | 6.365 / 7.050 ms | 0.995 / 1.802 ms | 7.423 / 9.262 ms |
+
+The strokes made 663 and 525 cuts, including repeated shortening of individual strands. Switching to these scalp configurations took 95.194 and 165.309 ms once, including root/guide fitting. These CPU measurements exclude GPU completion, camera capture and AI inference; they are not rendered FPS measurements. Reproduce with `--headless --path viewer --script res://tests/buzz_performance.gd`. [Raw reports](performance/buzz-scalp.json).
+
+The separate final 20-second synthetic portrait/CPU/1,024 × 8 live-preview run retained **59.98 matched fps**, 120 render fps, zero gaps over 50 ms and zero mismatched presentations. The cutter was inactive and scalp was off in this existing preview fixture; it verifies the ordinary camera path, not active Buzz rendering. Median hair CPU update was 1.110 ms.
+
+### Original Line tool
+
 Clippers performs depth selection only when a drag ends, using a one-dimensional depth strip and cached bust geometry. It adds no camera inference or GPU readback. Detached pieces use bounded native storage and one render batch; the batch's upload image/texture is released after the final piece expires.
 
 The local headless mannequin fixture measured these CPU times (one 120 Hz simulation step plus upload preparation). Each trim is a single gesture, followed by 90 updates with loose pieces; idle figures use 60 samples after warmup.

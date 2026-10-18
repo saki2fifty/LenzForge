@@ -46,6 +46,7 @@ def main():
                         ('head-surface', ['--script', 'res://tests/head_surface_probe.gd']),
                         ('head-expression', ['--script', 'res://tests/head_expression.gd']),
                         ('clippers', ['--script', 'res://tests/clippers.gd']),
+                        ('buzz-scalp', ['--script', 'res://tests/buzz_scalp.gd']),
                         ('mannequin', ['--script', 'res://tests/mannequin_probe.gd'])]:
         result = subprocess.run([str(godot), '--headless', '--path', str(ROOT / 'viewer'),
             '--log-file', str(artifacts / f'{name}.log'), *extra], capture_output=True, text=True, timeout=90)

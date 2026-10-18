@@ -12,7 +12,6 @@ bool valid_projection(const Transform3D& transform) {
         std::isfinite(transform.basis.determinant()) && std::abs(transform.basis.determinant())>1e-10;
 }
 Vector2 xy(const Vector3& p) { return Vector2(p.x,p.y); }
-struct Hit { int strand,link; double t,line,depth; };
 constexpr int MAX_CLIPPINGS=2048;
 constexpr double LIFETIME=2.5;
 
@@ -49,7 +48,7 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
     const double infinity=std::numeric_limits<double>::infinity();
     std::vector<double> front(bins,infinity),head_depth(bins,infinity);
     std::vector<int> owner(bins,-1),rank(count);
-    std::vector<Hit> hits;
+    std::vector<CutHit> hits;
     for(int i=0;i<count;++i) rank[render_order[i]]=i;
     // Only a one-dimensional depth strip under the blade, not a full-frame
     // readback or a per-hair scene object. Work happens on release, never idle.
@@ -109,13 +108,18 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
             if(v>=0 && w>=0 && v+w<=1) head_depth[k]=std::min(head_depth[k],a.z+(b.z-a.z)*v+(c.z-a.z)*w);
         }
     }
-    std::vector<Hit> chosen(count,Hit{-1,0,0,0,0});
+    std::vector<CutHit> chosen(count,CutHit{-1,0,0,0,0});
     for(const auto& hit:hits) {
         const int b=std::clamp(int(std::round(hit.line*(bins-1))),0,bins-1);
         if(owner[b]!=hit.strand || hit.depth>head_depth[b]+scale*.001) continue;
         auto& best=chosen[hit.strand];
         if(best.strand<0 || hit.link+hit.t<best.link+best.t) best=hit;
     }
+    return apply_clips(chosen,world_to_pixels);
+}
+
+Dictionary BeardSimulator::apply_clips(const std::vector<CutHit>& chosen,const Transform3D& world_to_pixels) {
+    Dictionary result;
     const Transform3D pixels_to_world=world_to_pixels.affine_inverse();
     const double unit=pixels_to_world.basis.get_column(0).length();
     clipping_projection=world_to_pixels;
@@ -126,10 +130,12 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
         auto& a=attributes[s];
         const auto old=a;
         double cumulative[17]{};
-        Vector2 guide[17];
+        Vector3 guide[17];
+        bool spatial=false;
         for(int j=0;j<segments;++j) {
             cumulative[j+1]=cumulative[j]+rest_lengths[offset+j];
             guide[j+1]=guide[j]+directions[offset+j]*rest_lengths[offset+j];
+            spatial=spatial || std::abs(directions[offset+j].z)>1e-8;
         }
         const double kept=cumulative[hit.link]+rest_lengths[offset+hit.link]*hit.t;
         const double total=cumulative[segments];
@@ -160,7 +166,7 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
         }
         // Resample the retained material and its previous positions with the
         // original segment count. Other strands and their velocities stay intact.
-        Vector3 now[17],prior[17]; Vector2 rest[17];
+        Vector3 now[17],prior[17],rest[17];
         int cursor=0;
         for(int j=0;j<=segments;++j) {
             const double target=kept*double(j)/segments;
@@ -175,11 +181,13 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
         Array saved_guide;
         for(int j=0;j<=segments;++j) {
             positions[base+j]=now[j]; previous[base+j]=prior[j]; contact_hint[base+j]=-1;
-            Array point; point.push_back(rest[j].x/std::max(guide_length,1e-12)); point.push_back(rest[j].y/std::max(guide_length,1e-12)); saved_guide.push_back(point);
+            Array point; point.push_back(rest[j].x/std::max(guide_length,1e-12)); point.push_back(rest[j].y/std::max(guide_length,1e-12));
+            if(spatial) point.push_back(rest[j].z/std::max(guide_length,1e-12));
+            saved_guide.push_back(point);
             if(j) {
-                const Vector2 step=rest[j]-rest[j-1];
+                const Vector3 step=rest[j]-rest[j-1];
                 rest_lengths[offset+j-1]=guide_length>1e-8 ? step.length()/guide_length : 1.0/segments;
-                directions[offset+j-1]=step.length_squared()>1e-12 ? step.normalized() : Vector2(0,1);
+                directions[offset+j-1]=step.length_squared()>1e-12 ? step.normalized() : Vector3(0,1,0);
             }
         }
         a.length*=fraction;
@@ -187,7 +195,7 @@ Dictionary BeardSimulator::clip_line(const Vector2& start,const Vector2& finish,
         for(int c=0;c<4;++c) a.tip[c]=old.root[c]+(old.tip[c]-old.root[c])*color_fraction;
         Dictionary edit; edit["index"]=s; edit["fraction"]=fraction; edit["tip_width"]=a.tip_width;
         edit["tip_color"]=Color(a.tip[0],a.tip[1],a.tip[2],a.tip[3]);
-        if(guide_length>1e-8) edit["guide"]=saved_guide;
+        if(guide_length>1e-8) edit[spatial ? "guide3d" : "guide"]=saved_guide;
         cuts.push_back(edit);
     }
     result["cuts"]=cuts;

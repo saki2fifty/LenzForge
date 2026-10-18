@@ -186,7 +186,8 @@ int partition(std::vector<Triangle> &triangles,std::vector<Branch> &tree,int sta
 }
 }
 Dictionary HeadSurfaceMath::bind_nearest(const PackedVector3Array &vertices, const PackedInt32Array &triangles, const PackedVector3Array &targets) const {
-    if (vertices.size()>10000 || vertices.is_empty() || triangles.is_empty() || triangles.size()>100000 || triangles.size()%3 || targets.size()>4096) return {};
+    // Includes at most 768 scalp guides x 16 joints, fitted once per edit.
+    if (vertices.size()>10000 || vertices.is_empty() || triangles.is_empty() || triangles.size()>100000 || triangles.size()%3 || targets.size()>16384) return {};
     for (int i=0;i<vertices.size();++i) if (!vertices[i].is_finite()) return {};
     for (int i=0;i<triangles.size();++i) if (triangles[i]<0 || triangles[i]>=vertices.size()) return {};
     PackedInt32Array ids; ids.resize(targets.size()*3);
@@ -234,7 +235,7 @@ Dictionary HeadSurfaceMath::bind_nearest(const PackedVector3Array &vertices, con
 }
 PackedVector3Array HeadSurfaceMath::sample(const PackedVector3Array &vertices, const PackedInt32Array &indices, const PackedVector3Array &weights) const {
     const int count=weights.size(), vertex_count=vertices.size();
-    if (indices.size()!=count*3 || count>4096) return {};
+    if (indices.size()!=count*3 || count>16384) return {};
     const auto *vp=vertices.ptr(); const auto *ip=indices.ptr(); const auto *wp=weights.ptr();
     PackedVector3Array result; result.resize(count); auto *out=result.ptrw();
     for (int i=0;i<count;++i) {
