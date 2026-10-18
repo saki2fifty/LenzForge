@@ -67,6 +67,10 @@ The desktop viewer expects port 5000. `Start-Backend.ps1 -Port 5001` is availabl
 
 Import `viewer/project.godot`, open `studio.tscn` from the FileSystem dock, and select **2D**. The saved scene contains the studio layout, toolbar, and all five settings tabs. Expand **LenzForgeStudio → Layout → Studio** to edit controls in the Inspector. If the scene was already open before updating, reload it from disk. See the [Godot editing guide](docs/EDITOR.md) for panel sizing, hidden pages, and runtime settings.
 
+![LenzForge studio layout open in Godot's 2D editor, with the scene tree expanded and the LenzForge label selected in the Inspector](docs/images/showcase/godot-editor.png)
+
+*Edit the studio visually in Godot: select controls in the scene tree, then adjust text, styling, and layout in the Inspector.*
+
 ## Feature tour
 
 ### 3D mannequin and physics-based grooming
